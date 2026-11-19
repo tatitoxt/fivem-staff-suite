@@ -34,7 +34,7 @@ archive="staff_suite-${release[0]}.zip"
 
 (
   cd ui
-  npm ci
+  npm ci --include=dev
   npm run build
 )
 test -s ui/dist/index.html

@@ -44,11 +44,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lua5.4 zip
       - name: Compilar y empaquetar el recurso
-        run: ./scripts/build-release.sh
+        id: release
+        run: |
+          ./scripts/build-release.sh
+          archives=(dist/staff_suite-*.zip)
+          printf 'name=%s\n' "${archives[0]##*/}" >> "$GITHUB_OUTPUT"
       - name: Subir el ZIP
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          # La acción usa este nombre para borrar el artifact anterior al reintentar.
+          name: ${{ steps.release.outputs.name }}
           path: dist/staff_suite-*.zip
           archive: false
+          overwrite: true
           if-no-files-found: error
           retention-days: 7
