@@ -1,0 +1,196 @@
+/* Primitivas compartidas: botones, pills, cards, inputs, estados vacíos. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--pill);
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+    transform 120ms var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.5;
+}
+.primary {
+  background: var(--green-strong);
+  color: #fff;
+}
+.primary:not(:disabled):hover {
+  background: #116a33;
+  box-shadow: 0 6px 16px rgba(21, 128, 61, 0.28);
+}
+.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--line);
+}
+.secondary:not(:disabled):hover {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+.danger {
+  background: var(--red-strong);
+  color: #fff;
+}
+.danger:not(:disabled):hover {
+  background: #a91f1f;
+  box-shadow: 0 6px 16px rgba(198, 40, 40, 0.28);
+}
+.ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.ghost:not(:disabled):hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.small {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.icon {
+  width: 40px;
+  padding: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: var(--pill);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
+}
+.tone-green { background: var(--green-soft); color: var(--green-ink); }
+.tone-orange { background: var(--orange-soft); color: var(--orange-ink); }
+.tone-red { background: var(--red-soft); color: var(--red-ink); }
+.tone-blue { background: var(--blue-soft); color: var(--blue-ink); }
+.tone-gray { background: #eef0f4; color: #3f4b5e; }
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--pill);
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+.input {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 15px;
+  color: var(--ink);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  min-width: 0;
+}
+.input:hover {
+  border-color: var(--line-strong);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.14);
+}
+textarea.input {
+  height: auto;
+  padding: 12px 14px;
+  resize: none;
+  line-height: 1.45;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  min-height: 160px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+.emptyIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--pill);
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: var(--pill);
+  background: #e9ecf2;
+}
+.segment {
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--pill);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  white-space: nowrap;
+}
+.segment:hover {
+  color: var(--ink);
+}
+.segmentOn {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
