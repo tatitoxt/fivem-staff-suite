@@ -18,7 +18,7 @@ files['server/**/*.lua'].read_globals = runtime_with({
   'CancelEvent', 'DropPlayer', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
   'GetInvokingResource', 'GetNumPlayerTokens', 'GetPlayerToken',
   'GetPlayerName', 'GetPlayerPed', 'GetPlayerRoutingBucket', 'GetPlayers', 'IsPlayerAceAllowed', 'PerformHttpRequest',
-  'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'source',
+  'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',
 })
 files['client/**/*.lua'].read_globals = runtime_with({
   'DoesEntityExist', 'FreezeEntityPosition', 'GetEntityCollisionDisabled', 'GetEntityCoords', 'GetEntityHeading', 'GetEntityMaxHealth',

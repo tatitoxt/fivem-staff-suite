@@ -647,7 +647,8 @@ function T.test_state_reports_export_flags_without_webhook_url()
   state = s.sent['staff_suite:state']
   assert(state.exportStatus.webhook == true and state.exportStatus.file == false)
   for key, value in pairs(state.exportStatus) do
-    assert((key == 'file' or key == 'webhook') and type(value) == 'boolean')
+    assert(((key == 'file' or key == 'webhook') and type(value) == 'boolean')
+      or (key == 'anchor_every' and type(value) == 'number'))
   end
   assert(not state.export and not state.webhook)
 end
@@ -823,6 +824,103 @@ function T.test_ban_covers_alternate_identifiers_and_extends_on_evasion()
   local state = s.api.GetState()
   assert(state.bans['license:nueva'] and state.bans['license2:nueva2'])
   assert(s.api.GetChain()[#s.api.GetChain()].action == 'mod_ban_extended' and s.api.Verify())
+end
+
+function T.test_resolve_and_rating_feed_staff_analytics()
+  local s = serverSandbox()
+  s.ace.admin = true
+  local id = s.api.CreateTicket({ reporter = 'license:account19', category = 'bug', ts = os.time() - 120 })
+  s.event('ticketAction', id, 'claim', {})
+  s.event('ticketMessage', id, 'Hola', false)
+  local ticket = s.api.GetState().tickets.tickets[id]
+  assert(ticket.first_response_ts)
+  s.event('ticketAction', id, 'resolve', { resolution = 'listo' })
+  assert(ticket.state == 'resolved' and ticket.resolved_by == 'license:account17')
+  assert(s.recipients[19]['staff_suite:ratePrompt'].id == id)
+  local st = s.api.GetState().duty.staff['license:account17']
+  assert(st.resolved == 1 and st.response_n == 1 and st.response_sum >= 0)
+
+  s.env.source = 18
+  s.event('ticketRate', id, 4)
+  assert(ticket.rating == nil)
+  s.env.source = 19
+  s.event('ticketRate', id, 9)
+  assert(ticket.rating == nil)
+  s.event('ticketRate', id, 4)
+  assert(ticket.rating == 4 and st.ratings_n == 1 and st.ratings_sum == 4)
+  s.event('ticketRate', id, 5)
+  assert(ticket.rating == 4 and st.ratings_n == 1)
+  local entries = s.api.GetChain()
+  assert(entries[#entries].action == 'ticket_rate' and entries[#entries].actor == 'license:account19')
+
+  s.env.source = 17
+  s.event('getState')
+  local row
+  for _, r in ipairs(s.sent['staff_suite:state'].duty) do
+    if r.actor == 'license:account17' then row = r end
+  end
+  assert(row.resolved == 1 and row.avg_rating == 4 and row.avg_response ~= nil)
+end
+
+function T.test_evidence_detected_captured_and_verified()
+  local s = serverSandbox()
+  s.ace.admin = true
+  local id = s.api.CreateTicket({ reporter = 'license:account19', category = 'player' })
+  local ticket = s.api.GetState().tickets.tickets[id]
+  s.event('getState')
+  local state = s.sent['staff_suite:state']
+  assert(state.evidenceEnabled == false)
+  assert(state.exportStatus.anchor_every == s.env.Config.Export.anchor_every)
+  s.event('ticketEvidence', id)
+  assert(ticket.evidence == nil)
+
+  local files, requested, latent = {}, nil, nil
+  local shot = 'data:image/jpeg;base64,AAAA'
+  s.states['screenshot-basic'] = 'started'
+  s.env.exports['screenshot-basic'] = {
+    requestClientScreenshot = function(_, src, opts, cb)
+      requested = src
+      assert(opts.encoding == 'jpg')
+      cb(false, shot)
+    end,
+  }
+  local saveOk = false
+  s.env.SaveResourceFile = function(_, path, data)
+    if saveOk then files[path] = data end
+    return saveOk
+  end
+  local encode = s.env.json.encode
+  s.env.json.encode = function(value)
+    local index = encode(value)
+    return value.sha256 and ('{"sha256":"' .. value.sha256 .. '"}') or index
+  end
+  s.env.LoadResourceFile = function(_, path) return files[path] end
+  s.env.TriggerLatentClientEvent = function(event, src, _, data) latent = { event = event, src = src, data = data } end
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].evidenceEnabled == true)
+  local before = #s.api.GetChain()
+  s.event('ticketEvidence', id)
+  assert(requested == 19 and #ticket.evidence == 0 and #s.api.GetChain() == before, 'sin archivo no hay evidencia')
+  saveOk = true
+  s.event('ticketEvidence', id)
+  assert(#ticket.evidence == 1)
+  local item = ticket.evidence[1]
+  assert(item.by == 'license:account17' and item.size == #shot and #item.sha256 == 64)
+  local entries = s.api.GetChain()
+  assert(entries[#entries].action == 'ticket_evidence' and entries[#entries].target == 'ticket:' .. id)
+
+  s.event('evidenceGet', id, 1)
+  assert(latent.event == 'staff_suite:evidence' and latent.src == 17)
+  assert(latent.data.ok == true and latent.data.data == shot)
+  assert(item.audit_seq == #entries)
+  local forged = 'data:image/jpeg;base64,BBBB'
+  files['staff_suite_evidence_' .. id .. '_1.txt'] = forged
+  item.sha256 = s.env.StaffSuiteModules.loadmod('core.sha256').hex(forged)
+  s.event('evidenceGet', id, 1)
+  assert(latent.data.ok == false, 'reescribir archivo y ticket no alcanza: manda la auditoría')
+  entries[item.audit_seq].payload = '{"sha256":"' .. item.sha256 .. '"}'
+  s.event('evidenceGet', id, 1)
+  assert(latent.data.ok == false, 'reescribir también la auditoría rompe la cadena')
 end
 
 return T

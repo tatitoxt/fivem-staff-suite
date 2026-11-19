@@ -14,6 +14,11 @@ Config.Commands = {
 Config.Categories = { 'bug', 'player', 'staff', 'question', 'other' }
 Config.Priorities = { 'low', 'normal', 'high', 'urgent' }
 
+-- Respuestas predefinidas del ticket. Cada entrada es una clave de locales/
+-- (canned_<id> y canned_<id>_title) o un texto propio: { title = 'Título', text = 'Mensaje' }.
+-- La evidencia con screenshot-basic se activa sola si ese recurso está iniciado.
+Config.CannedResponses = { 'greeting', 'investigating', 'need_info', 'resolved' }
+
 -- 'auto' prioriza Qbox, QBCore, ESX y finalmente standalone.
 -- Forzá 'qbox', 'qbcore', 'esx' o 'standalone' si hay más de uno en tu servidor.
 Config.Framework = 'auto'
@@ -73,5 +78,5 @@ Config.RateLimit = {
   ['staff_suite:ticketMessage'] = { burst = 10, per_second = 1 },
   ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
   ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
-  ['staff_suite:ticketEvidence'] = { burst = 2, per_second = 1 / 30 },
+  ['staff_suite:ticketEvidence'] = { burst = 3, per_second = 1 / 20 },
 }

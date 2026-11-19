@@ -74,4 +74,21 @@ function T.test_messages_and_rating()
   assert(err2 == "not_reporter", "only reporter rates")
 end
 
+function T.test_first_response_resolver_and_single_rating()
+  local s = tickets.new_store()
+  tickets.create(s, { reporter = "license:p1", ts = 100 })
+  tickets.add_message(s, 1, "license:p1", "sigo esperando", false, 110)
+  tickets.add_message(s, 1, "license:s1", "nota", true, 120)
+  assert(s.tickets[1].first_response_ts == nil, "ni el reporter ni las notas internas cuentan")
+  tickets.add_message(s, 1, "license:s1", "hola", false, 130)
+  tickets.add_message(s, 1, "license:s1", "otra", false, 140)
+  assert(s.tickets[1].first_response_ts == 130)
+  tickets.transition(s, 1, "claim", "license:s1", { ts = 150 })
+  tickets.transition(s, 1, "resolve", "license:s1", { ts = 160, resolution = "ok" })
+  assert(s.tickets[1].resolved_by == "license:s1")
+  assert(tickets.rate(s, 1, "license:p1", 4, 170))
+  local _, err = tickets.rate(s, 1, "license:p1", 5, 171)
+  assert(err == "already_rated" and s.tickets[1].rating == 4)
+end
+
 return T

@@ -11,19 +11,53 @@ local function copy(value)
   return result
 end
 
-local keys = { staff_audit = 'seq', staff_tickets = 'id', staff_messages = 'ticket_id',
+local keys = { staff_audit = 'seq', staff_tickets = 'id', staff_messages = 'ticket_id', staff_evidence = 'ticket_id',
   staff_duty = 'actor', staff_stats = 'actor', staff_bans = 'identifier', staff_state = 'k' }
 
 local function sqlMock()
-  local db = { tables = {}, calls = {} }
+  local db = { tables = {}, calls = {}, queries = {}, columns = {}, schema = {}, alters = 0 }
   function db:query(query, params, cb)
+    self.queries[#self.queries + 1] = query
+    if self.failOn and query:find(self.failOn, 1, true) then cb(nil); return end
+    local created = query:match('^CREATE TABLE IF NOT EXISTS (staff_%w+)')
+    if created then
+      self.tables[created] = self.tables[created] or {}
+      cb({ affectedRows = 0 }); return
+    end
+    local altered, column = query:match('^ALTER TABLE (staff_%w+) ADD COLUMN ([%w_]+)')
+    if altered then
+      assert(not self.columns[altered .. '.' .. column], 'columna duplicada')
+      self.columns[altered .. '.' .. column] = true
+      self.alters = self.alters + 1
+      cb({ affectedRows = 0 }); return
+    end
+    if query:find('information_schema', 1, true) then
+      if params[2] == nil then
+        local rows = {}
+        for key in pairs(self.columns) do
+          local tbl, col = key:match('^([^.]+)%.(.+)$')
+          if tbl == params[1] then rows[#rows + 1] = { name = col } end
+        end
+        cb(rows); return
+      end
+      cb({ { n = self.columns[params[1] .. '.' .. params[2]] and 1 or 0 } }); return
+    end
+    if query:match('^INSERT INTO staff_schema') then
+      self.schema[params[1]] = params[2]
+      cb({ affectedRows = 1 }); return
+    end
+    if query:match('^SELECT version FROM staff_schema') then
+      local rows = {}
+      for version in pairs(self.schema) do rows[#rows + 1] = { version = version } end
+      cb(rows); return
+    end
     local tableName = assert(query:match(' FROM (staff_%w+)'))
     local rows = {}
     if tableName == 'staff_state' then assert(params[1] == 'metadata' and params[2] == 'state') end
     for _, row in pairs(self.tables[tableName] or {}) do rows[#rows + 1] = copy(row) end
     table.sort(rows, function(a, b)
       local key = keys[tableName]
-      if a[key] == b[key] then return a.position < b.position end
+      if a[key] == b[key] then return (a.position or a.n) < (b.position or b.n) end
       return a[key] < b[key]
     end)
     cb(rows)
@@ -52,6 +86,7 @@ local function sqlMock()
           end
           local key = assert(row[keys[name]])
           if name == 'staff_messages' then key = key .. ':' .. row.position end
+          if name == 'staff_evidence' then key = key .. ':' .. row.n end
           if name == 'staff_audit' then assert(not self.tables[name][key], 'una entrada auditada es inmutable') end
           self.tables[name][key] = row
         end
@@ -75,11 +110,18 @@ local function boot(state, memory, db, dbStarted)
   local env = setmetatable({
     exports = { oxmysql = db },
     GetCurrentResourceName = function() return 'staff_suite' end,
-    LoadResourceFile = function() return memory.checkpoint end,
+    LoadResourceFile = function(_, path)
+      if path:match('^sql/') then
+        local f = assert(io.open(path, 'r'))
+        local raw = f:read('a'); f:close()
+        return raw
+      end
+      return memory.checkpoint
+    end,
     SaveResourceFile = function(_, _, raw) memory.checkpoint = raw; return true end,
     GetResourceState = function() return dbStarted == false and 'stopped' or 'started' end,
     StaffSuiteTranslate = function(key) return key end,
-    print = function() end,
+    print = function(msg) memory.printed = memory.printed or {}; memory.printed[#memory.printed + 1] = msg end,
     SetTimeout = function(ms, fn) timers[#timers + 1] = { ms = ms, fn = fn } end,
     json = { encode = function(value)
       memory.values[#memory.values + 1] = copy(value)
@@ -125,6 +167,8 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   local ticket = tickets.create(state.tickets, { reporter = 'license:player', description = 'texto', ts = 2 })
   tickets.add_message(state.tickets, ticket.id, 'license:staff', "O'Brien", true, 3)
   tickets.add_message(state.tickets, ticket.id, 'license:staff', 'respuesta', false, 4)
+  ticket.resolved_by = 'license:staff'
+  ticket.evidence = { { n = 1, ts = 6, by = 'license:staff', sha256 = ('a'):rep(64), size = 10, audit_seq = 1 } }
   duty.clock_in(state.duty, 'license:staff', 5)
   duty.record_resolved(state.duty, 'license:staff', 50)
   duty.record_rating(state.duty, 'license:staff', 4)
@@ -134,12 +178,15 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   storage.save()
   assert(#db.calls == 0)
   flush()
-  assert(#db.calls == 1 and #db.calls[1] == 7)
+  assert(#db.calls == 1 and #db.calls[1] == 8)
   local restored = fresh()
   local nextStorage, nextFlush = boot(restored, memory, db)
   assert(restored.chain.head == state.chain.head and audit.verify(restored.chain))
   assert(restored.tickets.next_id == 2 and restored.tickets.tickets[1].claimer == nil)
   assert(restored.tickets.tickets[1].messages[1].body == "O'Brien")
+  local back = restored.tickets.tickets[1]
+  assert(back.first_response_ts == 4 and back.resolved_by == 'license:staff')
+  assert(back.evidence[1].by == 'license:staff' and back.evidence[1].sha256 == ('a'):rep(64) and back.evidence[1].audit_seq == 1)
   assert(restored.tickets.tickets[1].messages[1].internal and not restored.tickets.tickets[1].messages[2].internal)
   assert(restored.duty.staff['license:staff'].since == 5 and restored.duty.staff['license:staff'].ratings_n == 1)
   assert(restored.duty.staff['license:staff'].response_sum == 50)
@@ -189,6 +236,76 @@ function T.test_legacy_staff_state_is_imported_without_rehashing()
   flush()
   assert(db.tables.staff_audit[1].hash == previous.chain.entries[1].hash)
   assert(db.tables.staff_state.metadata)
+end
+
+local function count(list, needle)
+  local n = 0
+  for _, item in ipairs(list) do
+    if item:find(needle, 1, true) then n = n + 1 end
+  end
+  return n
+end
+
+function T.test_migrations_apply_once_and_are_recorded()
+  local db, memory = sqlMock(), {}
+  local _, _, backend = boot(fresh(), memory, db)
+  assert(backend == 'oxmysql')
+  assert(db.schema[1] == 'sql/001_staff_suite.sql' and db.schema[2] == 'sql/002_tickets_f2.sql')
+  assert(db.alters == 2 and db.tables.staff_evidence and db.tables.staff_tickets)
+  local creates = count(db.queries, 'CREATE TABLE IF NOT EXISTS staff_tickets')
+  local _, _, again = boot(fresh(), memory, db)
+  assert(again == 'oxmysql' and db.alters == 2)
+  assert(count(db.queries, 'CREATE TABLE IF NOT EXISTS staff_tickets') == creates, 'no reaplica migraciones registradas')
+
+  -- Instalación que ya aplicó la 002 a mano antes de staff_schema.
+  local manual = sqlMock()
+  manual.columns['staff_tickets.first_response_ts'] = true
+  manual.columns['staff_tickets.resolved_by'] = true
+  local _, _, manualBackend = boot(fresh(), {}, manual)
+  assert(manualBackend == 'oxmysql' and manual.alters == 0 and manual.schema[2])
+end
+
+function T.test_failed_migration_falls_back_to_json_with_clear_error()
+  local db, memory = sqlMock(), {}
+  db.failOn = 'ALTER TABLE'
+  local state = fresh()
+  local storage, _, backend = boot(state, memory, db)
+  assert(backend == 'json')
+  assert(db.schema[1] and not db.schema[2], 'la 002 no queda registrada si falla')
+  local printed = table.concat(memory.printed or {}, '\n')
+  assert(printed:find('persistence_migration_failed', 1, true), 'error claro en consola')
+  append(state, 'sigue funcionando')
+  local saved
+  storage.save(function(ok) saved = ok end)
+  assert(saved == true and memory.checkpoint, 'guarda en el respaldo JSON')
+  assert(#db.calls == 0, 'no escribe en la base sin el esquema')
+
+  db.failOn = nil
+  local _, _, recovered = boot(fresh(), memory, db)
+  assert(recovered == 'oxmysql' and db.schema[2] and db.alters == 2)
+end
+
+function T.test_manual_schema_without_create_privilege()
+  rawset(_G, 'StaffSuiteModules', nil)
+  local specs = require('server.persist_sql').specs
+  local function manualDb()
+    local db = sqlMock()
+    db.failOn = 'CREATE TABLE IF NOT EXISTS staff_schema'
+    for _, spec in ipairs(specs) do
+      for _, column in ipairs(spec.columns) do db.columns['staff_' .. spec.name .. '.' .. column] = true end
+    end
+    return db
+  end
+  local complete = manualDb()
+  local _, _, backend = boot(fresh(), {}, complete)
+  assert(backend == 'oxmysql' and complete.alters == 0, 'esquema completo aplicado a mano: usa la base')
+
+  local partial, memory = manualDb(), {}
+  partial.columns['staff_tickets.resolved_by'] = nil
+  local _, _, fallback = boot(fresh(), memory, partial)
+  assert(fallback == 'json')
+  local printed = table.concat(memory.printed or {}, '\n')
+  assert(printed:find('persistence_schema_missing', 1, true), 'indica la columna faltante')
 end
 
 return T

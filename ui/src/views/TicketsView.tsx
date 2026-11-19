@@ -1,4 +1,4 @@
-import { Inbox, MessageSquare, Plus, Send, Star } from 'lucide-react';
+import { Camera, Inbox, MessageSquare, Plus, Send, Star } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
@@ -40,7 +40,8 @@ function TicketCard({ tk, selected, onSelect }: { tk: Ticket; selected: boolean;
 }
 
 function Composer({ tk }: { tk: Ticket }) {
-  const { t, can, send } = useApp();
+  const { state, t, can, send } = useApp();
+  const canned = state.config.canned ?? [];
   const [body, setBody] = useState('');
   const [internal, setInternal] = useState(false);
   const disabled = !can('report.message') || tk.state === 'closed';
@@ -51,6 +52,21 @@ function Composer({ tk }: { tk: Ticket }) {
   };
   return (
     <div className={cx(v.composer, internal && v.composerInternal)}>
+      {canned.length > 0 && (
+        <select
+          className={cx(ui.input, v.cannedPick)}
+          aria-label={t('ui_canned')}
+          value=""
+          disabled={disabled}
+          onChange={(e) => {
+            const c = canned.find((x) => x.id === e.target.value);
+            if (c) setBody((b) => (b.trim() ? `${b.trimEnd()} ${c.text}` : c.text));
+          }}
+        >
+          <option value="">{t('ui_canned_pick')}</option>
+          {canned.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+      )}
       <textarea
         className={ui.input}
         value={body}
@@ -89,7 +105,10 @@ interface DetailProps {
 }
 
 function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
-  const { state, t, can, send } = useApp();
+  const { state, dispatch, t, can, send } = useApp();
+  const [viewing, setViewing] = useState<number | null>(null);
+  const shot = state.evidence;
+  const closeViewer = () => { setViewing(null); dispatch({ type: 'evidenceClose' }); };
   const listRef = useRef<HTMLDivElement>(null);
   const me = state.player?.name;
   const requireReason = state.config.require_reason !== false;
@@ -173,6 +192,42 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
             </div>
           </section>
+          {(state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (
+            <section className={cx(ui.card, v.railCard)}>
+              <h3>{t('ui_evidence')}</h3>
+              {tk.evidence?.length ? (
+                <ul className={v.evidenceList}>
+                  {tk.evidence.map((e) => (
+                    <li key={e.n}>
+                      <span><strong>{t('ui_evidence_item', { n: e.n })}</strong> · {shortId(e.by)} · {formatRelative(e.ts, state.locale)}</span>
+                      <Button size="small" onClick={() => { setViewing(e.n); void send('evidence_get', { id: tk.id, n: e.n }); }}>{t('ui_evidence_view')}</Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className={v.setHint}>{t('ui_evidence_empty')}</p>}
+              {state.config.evidence && (
+                <Button disabled={!can('report.claim') || st === 'closed'} onClick={() => void send('ticket_evidence', { id: tk.id })}>
+                  <Camera size={16} />{t('ui_evidence_request')}
+                </Button>
+              )}
+            </section>
+          )}
+          {viewing != null && (
+            <Dialog
+              title={t('ui_evidence_item', { n: viewing })}
+              onClose={closeViewer}
+              footer={<Button onClick={closeViewer}>{t('ui_evidence_close')}</Button>}
+            >
+              {shot && shot.id === tk.id && shot.n === viewing ? (
+                <figure className={v.evidenceFig}>
+                  <img src={shot.data} alt={t('ui_evidence_item', { n: viewing })} />
+                  <figcaption>
+                    <Badge tone={shot.ok ? 'green' : 'red'} dot>{shot.ok ? t('ui_evidence_ok') : t('ui_evidence_bad')}</Badge>
+                  </figcaption>
+                </figure>
+              ) : <p className={v.setHint}>{t('ui_evidence_loading')}</p>}
+            </Dialog>
+          )}
           <section className={cx(ui.card, v.railCard)}>
             <h3>{t('ui_mod_title')}</h3>
             <div className={v.target}>{t('ui_mod_target')}: <strong>{shortId(tk.reporter)}</strong></div>
