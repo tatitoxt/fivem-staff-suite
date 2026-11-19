@@ -93,6 +93,28 @@ describe('NUI smoke', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Transferir' })).toBeDisabled());
   });
 
+  it('muestra bodies y nombres maliciosos como texto, sin HTML', async () => {
+    render(<App />);
+    await nav(/Reportes/);
+    const xss = '<img src=x onerror="window.__xss=1"><script>window.__xss=1</script>';
+    window.postMessage({
+      type: 'tickets',
+      payload: {
+        tickets: [{
+          id: 900, reporter: `license:${xss}`, category: 'bug', priority: 'urgent', state: 'open', claimer: null,
+          created_ts: 1, updated_ts: 1, description: xss, resolution: null, rating: null,
+          messages: [{ author: xss, body: xss, ts: 1, internal: false }],
+        }],
+      },
+    }, '*');
+    const queue = screen.getByLabelText('Cola de tickets');
+    await waitFor(() => expect(queue.querySelectorAll('button')).toHaveLength(1));
+    fireEvent.click(queue.querySelector('button')!);
+    expect((await screen.findAllByText(xss)).length).toBeGreaterThanOrEqual(2);
+    expect(document.querySelector('img[src="x"], script')).toBeNull();
+    expect((window as unknown as { __xss?: number }).__xss).toBeUndefined();
+  });
+
   it('cambia el idioma a inglés', async () => {
     render(<App />);
     await nav(/Ajustes/);

@@ -55,4 +55,23 @@ Config.Audit = {
 Config.Moderation = {
   require_reason = true,             -- razón obligatoria para expulsar
   ban_duration = 86400,              -- duración predeterminada en segundos, 0 = permanente
+  ban_tokens = true,                 -- banear también los tokens de hardware del cliente
+}
+
+-- Límites de texto (en bytes) y tickets abiertos por jugador. El servidor rechaza lo que exceda.
+Config.Limits = {
+  ticket_body = 1000,
+  message_body = 1000,
+  reason = 300,
+  open_tickets_per_player = 3,
+}
+
+-- Rate limit por jugador y evento: burst acciones seguidas, luego per_second por segundo.
+Config.RateLimit = {
+  default = { burst = 10, per_second = 2 },
+  ['staff_suite:ticketCreate'] = { burst = 5, per_second = 1 / 60 },
+  ['staff_suite:ticketMessage'] = { burst = 10, per_second = 1 },
+  ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
+  ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
+  ['staff_suite:ticketEvidence'] = { burst = 2, per_second = 1 / 30 },
 }

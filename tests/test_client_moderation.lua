@@ -88,4 +88,16 @@ function T.test_standalone_revive_and_nui_ban_duration()
   assert(c.args[1] == 'staff_suite:modAction' and c.args[3] == 'license:test' and c.args[5] == 0)
 end
 
+function T.test_teleport_only_accepts_server_sender()
+  local client, env, events = sandbox()
+  env.SetEntityCoords = function(_, x, y, z) client.pos = { x = x, y = y, z = z } end
+  env.source = 3
+  events['staff_suite:tp']({ x = 9, y = 9, z = 9 })
+  assert(client.pos.x == 1)
+  env.source = 65535
+  events['staff_suite:tp']('basura')
+  events['staff_suite:tp']({ x = 9, y = 8, z = 7 })
+  assert(client.pos.x == 9 and client.pos.z == 7)
+end
+
 return T

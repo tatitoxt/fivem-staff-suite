@@ -11,13 +11,28 @@ local GENESIS = string.rep("0", 64)
 local FS = "\x1f"  -- separador de campos (unit separator)
 local RS = "\x1e"  -- separador canonical->prev_hash (record separator)
 
+-- Los enteros que vuelven como float de JSON/SQL (10.0) se serializan como al crearse (10).
+local function field(v)
+  if math.type(v) == "float" and v == math.floor(v) and v >= -2^53 and v <= 2^53 then
+    return string.format("%d", v)
+  end
+  return tostring(v)
+end
+
+-- Los separadores no pueden aparecer dentro de un campo: si no, mover texto
+-- entre campos daría la misma serialización y el mismo hash.
+local function clean(v)
+  if v == nil then return "" end
+  return (field(v):gsub("[\30\31]", ""))
+end
+
 -- Serialización canónica determinista de una entrada (sin el campo hash).
 -- payload ya viene serializado como string por el adapter.
 function M.canonical(e)
   return table.concat({
-    tostring(e.seq), tostring(e.ts), tostring(e.actor),
-    tostring(e.action), tostring(e.target), tostring(e.reason),
-    tostring(e.payload or ""),
+    field(e.seq), field(e.ts), field(e.actor),
+    field(e.action), field(e.target), field(e.reason),
+    field(e.payload or ""),
   }, FS)
 end
 
@@ -31,11 +46,11 @@ function M.append(chain, data)
   local e = {
     seq = seq,
     ts = data.ts,
-    actor = data.actor,
-    action = data.action,
-    target = data.target or "",
-    reason = data.reason or "",
-    payload = data.payload or "",
+    actor = clean(data.actor),
+    action = clean(data.action),
+    target = clean(data.target),
+    reason = clean(data.reason),
+    payload = clean(data.payload),
     prev_hash = chain.head,
   }
   e.hash = sha256.hex(M.canonical(e) .. RS .. e.prev_hash)
