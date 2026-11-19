@@ -19,6 +19,7 @@ server_scripts {
   'core/sha256.lua',
   'core/audit_chain.lua',
   'core/tickets.lua',
+  'core/ratelimit.lua',
   'server/persist_json.lua',
   'server/lite.lua',
 }

@@ -111,4 +111,16 @@ function T.test_nui_focus_released_on_close_dismiss_and_resource_stop()
   assert(focus and focus[1] == false and focus[2] == false, 'parar el recurso libera el foco')
 end
 
+function T.test_teleport_only_accepts_server_sender()
+  local client, env, events = sandbox()
+  env.SetEntityCoords = function(_, x, y, z) client.pos = { x = x, y = y, z = z } end
+  env.source = 3
+  events['staff_suite:tp']({ x = 9, y = 9, z = 9 })
+  assert(client.pos.x == 1)
+  env.source = 65535
+  events['staff_suite:tp']('basura')
+  events['staff_suite:tp']({ x = 9, y = 8, z = 7 })
+  assert(client.pos.x == 9 and client.pos.z == 7)
+end
+
 return T

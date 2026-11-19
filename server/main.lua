@@ -12,6 +12,7 @@ local persist = loadmod('server.persist')
 local export = loadmod('server.export')
 local sha256 = loadmod('core.sha256')
 local capture = loadmod('server.capture')
+local ratelimit = loadmod('core.ratelimit')
 
 -- ===== Estado =====
 local chain = audit.new()
@@ -22,6 +23,8 @@ local bans = {}
 local pendingBans = {}
 local entry_count = 0
 local ready = false
+local limiter = ratelimit.new()
+local verifyCache = {}
 
 -- ===== Persistencia =====
 local function snapshot()
@@ -46,7 +49,14 @@ end)
 
 local function restore(data)
   if not data then return end
-  if data.chain then chain.entries = data.chain.entries or {}; chain.head = data.chain.head or audit.GENESIS end
+  if data.chain then
+    chain.entries = data.chain.entries or {}
+    -- El head sale de la última entrada: un head ausente o distinto encadenaría lo nuevo a otra rama.
+    local last = chain.entries[#chain.entries]
+    chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
+    local verified, ok, at = pcall(audit.verify, chain)
+    if not verified or not ok then print(t('console_chain_broken', { at = at or '?' })) end
+  end
   if data.tickets then
     store.next_id = data.tickets.next_id or 1
     for _, ticket in pairs(data.tickets.tickets or {}) do
@@ -116,7 +126,51 @@ end
 
 local function positiveInteger(value)
   local n = tonumber(value)
-  if n and n > 0 and n % 1 == 0 then return n end
+  if n and n > 0 and n <= 2147483647 and n % 1 == 0 then return math.tointeger(n) end
+end
+
+local function limit(name)
+  return Config.Limits and Config.Limits[name]
+end
+
+-- Texto de cliente: string, sin caracteres de control (salvo saltos de línea y tabs),
+-- recortado y dentro del límite en bytes. Devuelve nil, error si no cumple.
+local function cleanText(value, maxBytes)
+  if type(value) ~= 'string' then return nil end
+  -- Corte previo: el recorte y los patrones nunca procesan strings enormes.
+  if maxBytes and #value > maxBytes * 4 + 64 then return nil, t('input_too_long', { max = maxBytes }) end
+  value = value:gsub('[\0-\8\11\12\14-\31\127]', '')
+  local first = value:find('%S')
+  if not first then return '' end
+  local _, last = value:find('.*%S')
+  value = value:sub(first, last)
+  if maxBytes and #value > maxBytes then return nil, t('input_too_long', { max = maxBytes }) end
+  return value
+end
+
+-- Una entrada corrupta en disco no debe tumbar el handler: se reporta como rotura.
+local function safeVerify()
+  local done, ok, at = pcall(audit.verify, chain)
+  if done then return ok, at end
+  return false, 1
+end
+
+local function verifyCached()
+  local n = #chain.entries
+  if verifyCache.n ~= n or verifyCache.head ~= chain.head then
+    verifyCache = { n = n, head = chain.head, result = { safeVerify() } }
+  end
+  return verifyCache.result
+end
+
+-- Cada evento de red y comando de jugador pasa por acá antes de tocar el estado.
+local function allowRate(src, key)
+  src = tonumber(src)
+  if not src or src <= 0 then return true end
+  local rules = Config.RateLimit or {}
+  local ok, first = ratelimit.allow(limiter, src, key, rules[key] or rules.default, os.time())
+  if not ok and first then TriggerClientEvent('staff_suite:notify', src, t('rate_limited')) end
+  return ok
 end
 
 local function sendTickets(src, player)
@@ -167,12 +221,12 @@ local modActions = {
   ['goto'] = { run = function(m)
     TriggerClientEvent('staff_suite:tp', m.src, GetEntityCoords(GetPlayerPed(m.tgt)))
   end },
-  bring = { run = function(m)
+  bring = { protected = true, run = function(m)
     TriggerClientEvent('staff_suite:tp', m.tgt, GetEntityCoords(GetPlayerPed(m.src)))
   end },
-  freeze = { run = function(m) FreezeEntityPosition(GetPlayerPed(m.tgt), true) end },
+  freeze = { protected = true, run = function(m) FreezeEntityPosition(GetPlayerPed(m.tgt), true) end },
   heal = { run = function(m) SetEntityHealth(GetPlayerPed(m.tgt), 200) end },
-  kick = { reason = 'configured', run = function(m) DropPlayer(m.tgt, m.reason or t('kick_default_reason')) end },
+  kick = { protected = true, reason = 'configured', run = function(m) DropPlayer(m.tgt, m.reason or t('kick_default_reason')) end },
   revive = { run = function(m)
     if not bridges.revive(m.tgt, Config) then return false, t('mod_unavailable') end
   end },
@@ -183,15 +237,18 @@ local modActions = {
     end
     TriggerClientEvent('staff_suite:spectate', m.src, m.tgt, GetEntityCoords(ped))
   end },
-  warn = { reason = true, run = function(m)
+  warn = { protected = true, reason = true, run = function(m)
     m.onSaved = afterSanction(m, function()
       TriggerClientEvent('staff_suite:notify', m.tgt, t('warn_received', { reason = m.reason }))
     end)
   end },
-  ban = { reason = true, run = function(m)
-    local identifier = bridges.ban_identifiers(m.tgt)[1]
+  ban = { protected = true, reason = true, run = function(m)
+    local identifiers = bridges.ban_identifiers(m.tgt, Config)
+    local identifier = identifiers[1]
     if not identifier then return false, t('mod_invalid_target') end
-    if pendingBans[identifier] then return false, t('ban_pending') end
+    for _, id in ipairs(identifiers) do
+      if pendingBans[id] then return false, t('ban_pending') end
+    end
     local seconds = m.duration
     if seconds == nil then seconds = Config.Moderation.ban_duration or 86400 end
     if seconds ~= 0 and (type(seconds) ~= 'number' or not positiveInteger(seconds) or seconds > 31536000) then
@@ -199,17 +256,17 @@ local modActions = {
     end
     local now = os.time()
     local ban = { actor = m.actor, reason = m.reason, created_at = now, expires_at = seconds == 0 and 0 or now + seconds }
-    pendingBans[identifier] = ban
+    for _, id in ipairs(identifiers) do pendingBans[id] = ban end
     m.payload.expires_at = ban.expires_at
     m.payload.identifier = identifier
+    m.payload.identifiers = identifiers
     local notify = afterSanction(m, function() DropPlayer(m.tgt, banMessage(ban)) end)
     m.onSaved = function(ok)
-      pendingBans[identifier] = nil
-      if ok then
-        bans[identifier] = ban
-      else
-        record('mod_ban_failed', m.actor, m.target, m.reason, m.payload)
+      for _, id in ipairs(identifiers) do
+        pendingBans[id] = nil
+        if ok then bans[id] = ban end
       end
+      if not ok then record('mod_ban_failed', m.actor, m.target, m.reason, m.payload) end
       notify(ok)
     end
   end },
@@ -226,7 +283,12 @@ local function doMod(src, action, tgt, reason, duration)
   if not tgt or not GetPlayerName(tgt) then
     return false, t('mod_invalid_target')
   end
-  reason = type(reason) == 'string' and reason:match('^%s*(.-)%s*$') or nil
+  if spec.protected and tonumber(src) ~= tgt and perms.outranks(getPlayer(tgt).rank, player.rank) then
+    return false, t('mod_target_protected')
+  end
+  local reasonErr
+  reason, reasonErr = cleanText(reason, limit('reason'))
+  if reasonErr then return false, reasonErr end
   if reason == '' then reason = nil end
   if not reason and (spec.reason == true or spec.reason == 'configured' and Config.Moderation.require_reason) then
     return false, t('reason_required')
@@ -246,11 +308,21 @@ AddEventHandler('playerConnecting', function(_, setKickReason)
     return
   end
   local now = os.time()
-  for _, identifier in ipairs(bridges.ban_identifiers(source)) do
+  local identifiers = bridges.ban_identifiers(source, Config)
+  for _, identifier in ipairs(identifiers) do
     local ban = bans[identifier]
     if ban and (ban.expires_at == 0 or ban.expires_at > now) then
       setKickReason(banMessage(ban))
       CancelEvent()
+      -- Evasión con cuentas nuevas: el ban se extiende a los identificadores que no tenía.
+      local added = {}
+      for _, id in ipairs(identifiers) do
+        local old = bans[id]
+        if not old or (old.expires_at ~= 0 and old.expires_at <= now) then bans[id] = ban; added[#added + 1] = id end
+      end
+      if #added > 0 then
+        record('mod_ban_extended', 'system', identifier, ban.reason, { identifiers = added, expires_at = ban.expires_at })
+      end
       return
     end
   end
@@ -264,11 +336,28 @@ local function configuredValue(values, requested, default)
   return default
 end
 
+local function openTickets(reporter)
+  local n = 0
+  for _, ticket in pairs(store.tickets) do
+    if ticket.reporter == reporter and ticket.state ~= 'resolved' and ticket.state ~= 'closed' then n = n + 1 end
+  end
+  return n
+end
+
 local function createReport(src, category, priority, body)
-  if not positiveInteger(src) or type(body) ~= 'string' then return end
+  if not positiveInteger(src) then return end
+  local err
+  body, err = cleanText(body, limit('ticket_body'))
+  if err then TriggerClientEvent('staff_suite:notify', src, err); return end
+  if not body or body == '' then return end
   category = configuredValue(Config.Categories, category, 'other')
   priority = configuredValue(Config.Priorities, priority, 'normal')
   local player = getPlayer(src)
+  local maxOpen = limit('open_tickets_per_player')
+  if maxOpen and openTickets(actorId(player, src)) >= maxOpen then
+    TriggerClientEvent('staff_suite:notify', src, t('report_too_many_open', { max = maxOpen }))
+    return
+  end
   local ticket, ev = tickets.create(store, {
     reporter = actorId(player, src), category = category, priority = priority,
     description = body, ts = os.time(),
@@ -278,8 +367,9 @@ local function createReport(src, category, priority, body)
   sendTickets(src, player)
 end
 
-local function command(name, fn)
+local function command(name, fn, rateKey)
   RegisterCommand(name, function(src, ...)
+    if not allowRate(src, rateKey or ('command:' .. name)) then return end
     if ready then return fn(src, ...) end
     if src ~= 0 then TriggerClientEvent('staff_suite:notify', src, t('persistence_starting')) end
   end, false)
@@ -287,7 +377,7 @@ end
 
 command(Config.Commands.report, function(src, args)
   createReport(src, args[1], nil, table.concat(args, ' ', 2))
-end)
+end, 'staff_suite:ticketCreate')
 
 command(Config.Commands.duty, function(src)
   if src == 0 then return end
@@ -299,29 +389,29 @@ command(Config.Commands.duty, function(src)
   if s and s.on_duty then ev = duty.clock_out(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_out', { time = string.format('%.1fh', (ev.seconds or 0) / 3600) }))
   else ev = duty.clock_in(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_in')) end
   if ev then record(ev.event, id, id, '', {}) end
-end)
+end, 'staff_suite:duty')
 
 command(Config.Commands.audit, function(src)
   if src == 0 then
-    local ok, at = audit.verify(chain)
+    local ok, at = safeVerify()
     print(ok and t('console_audit_ok', { n = #chain.entries }) or t('console_audit_broken', { seq = at }))
     return
   end
   if not can(getPlayer(src), 'audit.view') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
-  local ok, at = audit.verify(chain)
+  local ok, at = safeVerify()
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
 end)
 
 -- ===== NUI / eventos de panel =====
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
+    if not allowRate(source, name) then return end
     if ready then return fn(...) end
     TriggerClientEvent('staff_suite:notify', source, t('persistence_starting'))
   end)
 end
 
 net('staff_suite:ticketCreate', function(category, priority, body)
-  if type(body) ~= 'string' or not body:match('%S') then return end
   createReport(source, category, priority, body)
 end)
 
@@ -337,7 +427,7 @@ net('staff_suite:getState', function()
   local canViewAudit = can(player, 'audit.view')
   local canViewAnalytics = can(player, 'staff.analytics')
   local now = os.time()
-  local verify = canViewAudit and { audit.verify(chain) } or {}
+  local verify = canViewAudit and verifyCached() or {}
   local alerts = {}
   if canViewAnalytics and verify[1] == false then
     alerts[1] = {
@@ -379,6 +469,19 @@ net('staff_suite:ticketAction', function(id, action, extra)
   id = positiveInteger(id)
   if not id then return end
   extra = type(extra) == 'table' and extra or {}
+  local actor = actorId(player, src)
+  local current = store.tickets[id]
+  if (action == 'start' or action == 'unclaim') and current and current.claimer ~= actor
+    and not can(player, 'report.resolve') then
+    TriggerClientEvent('staff_suite:notify', src, t('already_claimed'))
+    return
+  end
+  local reason, reasonErr = cleanText(extra.reason, limit('reason'))
+  local resolution, resolutionErr = cleanText(extra.resolution, limit('message_body'))
+  if reasonErr or resolutionErr then
+    TriggerClientEvent('staff_suite:notify', src, reasonErr or resolutionErr)
+    return
+  end
   local recipientSrc, recipient
   if action == 'transfer' then
     recipientSrc, recipient = findPlayerByIdentifier(extra.to)
@@ -387,10 +490,10 @@ net('staff_suite:ticketAction', function(id, action, extra)
       return
     end
   end
-  local ticket, ev = tickets.transition(store, id, action, actorId(player, src), {
+  local ticket, ev = tickets.transition(store, id, action, actor, {
     ts = os.time(),
-    reason = type(extra.reason) == 'string' and extra.reason or nil,
-    resolution = type(extra.resolution) == 'string' and extra.resolution or nil,
+    reason = reason ~= '' and reason or nil,
+    resolution = resolution,
     to = extra.to,
   })
   if not ticket then
@@ -406,7 +509,10 @@ end)
 net('staff_suite:ticketMessage', function(id, body, internal)
   local src = source
   id = positiveInteger(id)
-  if not id or type(body) ~= 'string' or not body:match('%S') then return end
+  local err
+  body, err = cleanText(body, limit('message_body'))
+  if err then TriggerClientEvent('staff_suite:notify', src, err); return end
+  if not id or not body or body == '' then return end
   if internal ~= nil and type(internal) ~= 'boolean' then return end
   local player = getPlayer(src)
   if not can(player, 'report.message') or not can(player, 'report.view') then
@@ -491,7 +597,7 @@ net('staff_suite:evidenceGet', function(id, n)
   local ok = entry ~= nil and entry.action == 'ticket_evidence' and entry.target == 'ticket:' .. id
     and type(entry.payload) == 'string' and entry.payload:find(hash, 1, true) ~= nil
   if ok then
-    local chainOk, brokenAt = audit.verify(chain)
+    local chainOk, brokenAt = safeVerify()
     ok = chainOk or (brokenAt ~= nil and brokenAt > item.audit_seq)
   end
   TriggerLatentClientEvent('staff_suite:evidence', src, 250000, { id = id, n = n, data = data, ok = ok })
@@ -507,42 +613,92 @@ net('staff_suite:verify', function()
   local src = source
   local player = getPlayer(src)
   if not can(player, 'audit.verify') then return end
-  local ok, at = audit.verify(chain)
+  local ok, at = safeVerify()
   record('audit_verify', actorId(player, src), '', ok and 'ok' or ('broken:' .. tostring(at)), {})
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
 end)
 
 -- ===== Exports (para test resource E2E + otros recursos) =====
+-- Contrato: éxito devuelve el valor; error devuelve false, código. Nunca un nil inicial:
+-- msgpack corta los valores que siguen a un nil en llamadas cross-resource.
 local function expose(name, fn)
   exports(name, function(...)
     if ready then return fn(...) end
-    return nil, 'persistence_starting'
+    return false, 'persistence_starting'
   end)
 end
 
-expose('Record', function(action, actor, target, reason, payload) return record(action, actor, target, reason, payload) end)
-expose('Verify', function() return audit.verify(chain) end)
+local function idText(value)
+  if type(value) == 'number' then value = tostring(value) end
+  if type(value) ~= 'string' or value == '' or #value > 128 then return nil end
+  return value
+end
+
+local function exportText(value, maxBytes)
+  if value == nil then return '' end
+  return cleanText(value, maxBytes)
+end
+
+-- Otros recursos del servidor pueden integrarse, pero con los mismos tipos y límites que la red.
+expose('Record', function(action, actor, target, reason, payload)
+  action, actor = idText(action), idText(actor)
+  target, reason = exportText(target, 128), exportText(reason, limit('reason'))
+  if not action or not actor or not target or not reason then return nil, 'invalid_input' end
+  if payload ~= nil and type(payload) ~= 'table' then return nil, 'invalid_input' end
+  return record(action, actor, target, reason, payload or {})
+end)
+expose('Verify', function() return table.unpack(verifyCached()) end)
 expose('GetChain', function() return chain.entries end)
 expose('CreateTicket', function(data)
-  local tk, ev = tickets.create(store, data)
+  if type(data) ~= 'table' then return nil, 'invalid_input' end
+  local reporter = idText(data.reporter)
+  local description = exportText(data.description, limit('ticket_body'))
+  if not reporter or not description then return nil, 'invalid_input' end
+  local tk, ev = tickets.create(store, {
+    ts = tonumber(data.ts) or os.time(),
+    reporter = reporter,
+    reporter_name = exportText(data.reporter_name, 64) or reporter,
+    category = configuredValue(Config.Categories, data.category, 'other'),
+    priority = configuredValue(Config.Priorities, data.priority, 'normal'),
+    description = description,
+  })
+  if not tk then return nil, ev end
   record(ev.action, ev.actor, ev.target, '', { ticket = tk.id })
   return tk.id
 end)
 expose('TicketAction', function(id, action, actor, extra)
-  local ticket, ev = tickets.transition(store, id, action, actor, extra)
+  id, actor = positiveInteger(id), idText(actor)
+  if not id or type(action) ~= 'string' or not actor then return nil, 'invalid_input' end
+  extra = type(extra) == 'table' and extra or {}
+  local reason = exportText(extra.reason, limit('reason'))
+  local resolution = exportText(extra.resolution, limit('message_body'))
+  if not reason or not resolution then return nil, 'invalid_input' end
+  local ticket, ev = tickets.transition(store, id, action, actor, {
+    ts = tonumber(extra.ts) or os.time(),
+    reason = reason ~= '' and reason or nil,
+    resolution = resolution ~= '' and resolution or nil,
+    to = idText(extra.to),
+    rating = extra.rating,
+  })
   if ticket and ev then
     afterTransition(ticket, ev)
     record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   end
+  if not ticket then return false, ev end
   return ticket, ev
 end)
 expose('GetState', snapshot)
 expose('SetDuty', function(actor, onDuty)
+  actor = idText(actor)
+  if not actor or type(onDuty) ~= 'boolean' then return nil, 'invalid_input' end
   local ev, err
   if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
-  if ev then record(ev.event, actor, actor, '', {}) end
-  return ev, err
+  if not ev then return false, err end
+  record(ev.event, actor, actor, '', {})
+  return ev
 end)
+expose('Flush', function() return storage.flush() end)
+expose('GetPersistence', function() return storage.status() end)
 
 -- ===== Init =====
 CreateThread(function()
@@ -552,6 +708,10 @@ CreateThread(function()
     capture.install(Config, bridges.select, getIdentifier, record)
     print(t('console_started', { n = #chain.entries, persistence = backend, framework = bridges.select(Config) }))
   end)
+end)
+
+AddEventHandler('playerDropped', function()
+  ratelimit.forget(limiter, tonumber(source))
 end)
 
 -- Los lotes pendientes se respaldan antes de apagar el recurso.

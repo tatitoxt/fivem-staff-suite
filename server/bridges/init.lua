@@ -98,13 +98,34 @@ function M.revive(src, config)
   return standalone.revive(src)
 end
 
-function M.ban_identifiers(src)
-  local identifiers = {}
-  for _, id in ipairs(GetPlayerIdentifiers(src)) do
-    if id:match('^license:') then
-      table.insert(identifiers, 1, id)
-    elseif id:match('^license2:') or id:match('^fivem:') or id:match('^steam:') then
-      identifiers[#identifiers + 1] = id
+local ban_prefixes = { 'license2', 'fivem', 'steam', 'discord', 'xbl', 'live' }
+
+-- license primero (clave principal del ban); después las cuentas alternativas y,
+-- si se habilitó, los tokens de hardware. Las IP quedan fuera (NAT/CGNAT compartidas).
+function M.ban_identifiers(src, config)
+  local identifiers, seen = {}, {}
+  local function add(id, first)
+    if type(id) ~= 'string' or id == '' or seen[id] then return end
+    seen[id] = true
+    if first then table.insert(identifiers, 1, id) else identifiers[#identifiers + 1] = id end
+  end
+  for _, id in ipairs(GetPlayerIdentifiers(src) or {}) do
+    if type(id) == 'string' then
+      local prefix = id:match('^([%w]+):')
+      if prefix == 'license' then
+        add(id, true)
+      else
+        for _, allowed in ipairs(ban_prefixes) do
+          if prefix == allowed then add(id) end
+        end
+      end
+    end
+  end
+  local moderation = config and config.Moderation
+  if moderation and moderation.ban_tokens ~= false and GetNumPlayerTokens then
+    for i = 0, (tonumber(GetNumPlayerTokens(src)) or 0) - 1 do
+      local token = GetPlayerToken(src, i)
+      if type(token) == 'string' and token ~= '' then add('token:' .. token) end
     end
   end
   return identifiers

@@ -2,6 +2,7 @@
 local t = StaffSuiteTranslate
 
 RegisterNetEvent('staff_suite:tp', function(coords)
+  if source ~= 65535 or type(coords) ~= 'table' and type(coords) ~= 'vector3' then return end
   local ped = PlayerPedId()
   SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, false)
 end)

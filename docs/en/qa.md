@@ -13,12 +13,16 @@ The NUI has its own tests (`cd ui && npm ci && npm test`).
 
 `tests/e2e_resource` is a resource (`staff_suite_tests`) that starts after `staff_suite`, fires simulated events through the exports and runs asserts:
 
-- **Tickets:** create, claim, double claim rejected, transfer to another staff member, resolve, invalid transition rejected, and a network event without permissions that leaves the ticket unchanged.
+- **Tickets:** create, claim, double claim rejected, transfer to another staff member, resolve, invalid transition and missing ticket rejected (`false, code`), and a network event without permissions that leaves the ticket unchanged.
 - **Audit:** every step writes its entry (`ticket_create`, `ticket_claim`, `ticket_transfer`, `ticket_resolve`, `duty.in`, `duty.out`).
 - **Duty:** clock in, double clock-in rejected, clock out with accumulated seconds (`SetDuty` export).
 - **Off-box export:** fills the chain up to `anchor_every`, then checks that the last line of `audit_export.log` is the head and that the webhook receives the anchor. The script points `staff_suite_webhook` at an HTTP receiver inside the test resource, so Discord is not used.
-- **Verify:** `Verify()` passes, `seq` is sequential, hashes are 64-hex SHA-256, `prev_hash` links up and the persistence JSON is current.
-- **Metrics:** average time of `Record` and `GetState`, and the server tick interval while staff_suite is idle.
+- **Verify:** `Verify()` passes, `seq` is sequential, hashes are 64-hex SHA-256, `prev_hash` links up.
+- **Persistence:** `Flush()` forces a save, `GetPersistence()` confirms it and the JSON on disk holds the full chain (same length and head).
+- **Metrics** (informational, never fail):
+  - `record_avg_ms`, `getstate_avg_ms`: per-call cost of the exports, including cross-resource serialization. Not a per-tick cost: staff_suite has no server loop.
+  - `server_frame_avg_ms`, `server_frame_max_ms`: interval between server scheduler frames. Idle FXServer runs at ~20 Hz, so ~50 ms is normal and does **not** measure staff_suite.
+  - `server_cpu_ms_per_frame`: CPU of the whole FXServer process per frame. An upper bound, not staff_suite's cost.
 
 Tampering (editing an entry and having `Verify` catch it) is covered by the unit tests. FiveM exports return copies, so another resource cannot touch the live chain.
 
@@ -31,7 +35,7 @@ Every line starts with `[SSTEST]`, so you can filter it with `grep`:
 [SSTEST] FAIL <name> :: <detail>
 [SSTEST] SKIP export webhook :: staff_suite_webhook vacío
 [SSTEST] METRIC record_avg_ms=0.716
-[SSTEST] RESULT status=PASS passed=27 failed=0 skipped=0
+[SSTEST] RESULT status=PASS passed=30 failed=0 skipped=0
 [SSTEST] DONE
 ```
 
@@ -43,7 +47,11 @@ When it finishes, the resource runs `quit` (`set staff_suite_e2e_autoquit false`
 export FIVEM_LICENSE_KEY=cfxk_...      # https://portal.cfx.re/servers/registration-keys
 scripts/e2e-fxserver.sh                       # resource from the repo folder
 scripts/e2e-fxserver.sh --resource dist/staff_suite-0.1.0.zip   # or the release ZIP
+scripts/e2e-fxserver.sh --edition lite                        # builds and tests the Lite ZIP
+scripts/e2e-fxserver.sh --edition lite --resource dist/staff_suite_lite-0.1.0.zip
 ```
+
+Lite exercises the adapter's commands and events with a simulated reporter and staff member. It verifies the ticket lifecycle, the SHA-256 chain, the JSON written by FXServer, and the absence of Core handlers and exports. The runner loads the test code only in the temporary copy extracted from the ZIP.
 
 The script:
 
@@ -51,7 +59,7 @@ The script:
 2. Builds a temporary `server-data` with `staff_suite` (folder or ZIP) and `staff_suite_tests`, plus a minimal `server.cfg` with OneSync.
 3. Writes the license key to a `secrets.cfg` with `600` permissions, loads it with `exec` and deletes it on exit. The key never goes into the repo or the command line.
 4. Starts FXServer headless, waits for `RESULT` and shuts the server down.
-5. Measures performance with `profiler record 300` + `profiler saveJSON`. If the profiler recorded `staff_suite` events, it compares the per-tick average against `E2E_MAX_TICK_MS` (default `0.05`). If there is no data, it says so and does not fail.
+5. Measures **staff_suite's** budget with `profiler record 300` + `profiler saveJSON`: sums the duration of `staff_suite` events (excluding `staff_suite_tests`), divides by the 300 frames and compares with `E2E_MAX_TICK_MS` (default `0.05`). If the profile has events but none from staff_suite, the cost is 0. If the profile is empty, it says so and does not fail.
 
 Without a license key you can still check the download and the server setup:
 

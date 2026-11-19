@@ -75,15 +75,24 @@ Automatic comparison against anchors (the core already has `verify_head`) and an
 
 ## Exports for other resources (server-side)
 
+**Return contract:** on success an export returns its value; on failure it returns `false, code` (for example `false, 'already_claimed'`). It never returns `nil` as the first value: cross-resource calls serialize returns with msgpack, and a leading `nil` drops the error code. Until persistence finishes loading, every export returns `false, 'persistence_starting'`.
+
+```lua
+local ticket, err = exports.staff_suite:TicketAction(id, 'claim', 'license:abc', { ts = os.time() })
+if not ticket then print('failed: ' .. err) end
+```
+
 | Export | Description |
 |---|---|
 | `Record(action, actor, target, reason, payload)` | Appends an entry. `payload` is a table (stored as JSON). Returns the entry. |
 | `Verify()` | `ok, broken_seq` |
 | `GetChain()` | Copy of all entries. |
 | `CreateTicket(data)` | Creates a ticket (`reporter`, `category`, `priority`, `description`, `ts`). Returns the id. |
-| `TicketAction(id, action, actor, extra)` | Ticket transition (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) plus its audit entry. Returns `ticket, event` or `nil, error`. For `transfer`, `extra.to` is the recipient's identifier. |
+| `TicketAction(id, action, actor, extra)` | Ticket transition (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) plus its audit entry. Returns `ticket, event` or `false, error`. For `transfer`, `extra.to` is the recipient's identifier. |
 | `GetState()` | Full state (chain, tickets, permissions, duty). |
-| `SetDuty(actor, onDuty)` | Clock in (`true`) or out (`false`) with its `duty.in`/`duty.out` entry. Returns the event or `nil, error`. |
+| `SetDuty(actor, onDuty)` | Clock in (`true`) or out (`false`) with its `duty.in`/`duty.out` entry. Returns the event or `false, error`. |
+| `Flush()` | Saves now instead of waiting for the deferred batch (~1 s). Returns the revision number to confirm. |
+| `GetPersistence()` | `{ revision, saved, pending }`: the `Flush()` save is confirmed once `saved >= revision`. |
 
 Example:
 

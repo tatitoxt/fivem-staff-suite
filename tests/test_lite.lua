@@ -132,14 +132,40 @@ function T.test_client_opens_basic_panel_and_registers_basic_actions()
   for _, file in ipairs(manifest.client_scripts) do loadLua(file, env) end
   env.source = 65535
   events['staff_suite:openPanel']('tickets')
-  assert(nui[1].type == 'init' and not next(nui[1].payload.player.capabilities))
-  assert(nui[2].type == 'open' and nui[2].payload.view == 'tickets')
-  assert(sent[1] == 'staff_suite:getState')
+  assert(#nui == 0 and sent[1] == 'staff_suite:getState')
+  events['staff_suite:state']({ tickets = {} }) -- Una actualización parcial puede llegar primero.
+  assert(nui[#nui].type == 'tickets')
+  events['staff_suite:state']({ player = { name = 'Lite staff', rank = 'lite_staff', capabilities = { 'report.view' } } })
+  assert(nui[#nui - 1].type == 'init' and nui[#nui - 1].payload.player.capabilities[1] == 'report.view')
+  assert(nui[#nui].type == 'open' and nui[#nui].payload.view == 'tickets')
+  events['staff_suite:openPanel']('audit')
+  assert(nui[#nui].payload.view == 'tickets' and sent[2] == 'staff_suite:getState')
+  events['staff_suite:state']({ player = { name = 'Lite staff', rank = 'lite_staff', capabilities = { 'audit.view' } } })
+  assert(nui[#nui].type == 'open' and nui[#nui].payload.view == 'audit')
   assert(callbacks.ticket_create and callbacks.ticket_claim and callbacks.audit_verify)
   assert(not callbacks.ticket_message and not callbacks.ticket_transfer and not callbacks.duty_toggle)
   assert(not callbacks.mod_action and not events['staff_suite:spectate'] and not events['staff_suite:tp'])
   assert(not callbacks.ticket_rate and not callbacks.ticket_evidence and not callbacks.evidence_get)
   assert(not events['staff_suite:ratePrompt'] and not events['staff_suite:evidence'])
+end
+
+function T.test_lite_limits_text_open_tickets_and_rate()
+  local call, commands, _, disk, audit = server()
+  local function count()
+    local n = 0
+    for _ in pairs(disk.snapshot and disk.snapshot.tickets.tickets or {}) do n = n + 1 end
+    return n
+  end
+  call(1, 'ticketCreate', 'bug', nil, string.rep('a', 1001))
+  call(1, 'ticketCreate', 'bug', nil, { 'no' })
+  assert(count() == 0)
+  for i = 1, 5 do call(1, 'ticketCreate', 'bug', nil, 'reporte ' .. i .. '\0') end
+  assert(count() == 3 and disk.snapshot.tickets.tickets[1].description == 'reporte 1')
+  commands.report(1, { 'bug', 'por comando' })
+  assert(count() == 3)
+  for _ = 1, 6 do call(2, 'verify') end
+  assert(#disk.snapshot.chain.entries == 3 + 3, 'verify limitado a 3 por burst')
+  assert(audit.verify(disk.snapshot.chain))
 end
 
 return T

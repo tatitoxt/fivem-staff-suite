@@ -16,7 +16,7 @@ end
 
 files['server/**/*.lua'].read_globals = runtime_with({
   'CancelEvent', 'DropPlayer', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
-  'GetInvokingResource',
+  'GetInvokingResource', 'GetNumPlayerTokens', 'GetPlayerToken',
   'GetPlayerName', 'GetPlayerPed', 'GetPlayerRoutingBucket', 'GetPlayers', 'IsPlayerAceAllowed', 'PerformHttpRequest',
   'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',
 })
@@ -32,6 +32,11 @@ files['client/**/*.lua'].read_globals = runtime_with({
 files['tests/e2e_resource/server.lua'].read_globals = runtime_with({
   'ExecuteCommand', 'GetConvar', 'GetConvarInt', 'GetGameTimer', 'SetHttpHandler',
 })
+files['tests/e2e_resource/lite_probe.lua'].read_globals = { 'exports', 'GetInvokingResource' }
+files['tests/e2e_resource/lite_probe.lua'].globals = {
+  'GetPlayerIdentifiers', 'GetPlayerName', 'GetPlayers', 'IsPlayerAceAllowed',
+  'RegisterCommand', 'RegisterNetEvent', 'TriggerClientEvent', 'source',
+}
 files['shared/loader.lua'].read_globals = runtime
 
 files['**/fxmanifest.lua'].read_globals = {

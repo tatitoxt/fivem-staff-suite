@@ -5,6 +5,7 @@
 local t = StaffSuiteTranslate
 local lite = Config.Edition == 'lite'
 local panelOpen = false
+local pendingLiteOpen
 local uiLocale = Config.Locale or 'es'
 local rank = lite and 'player' or 'helper'
 local ticketsCache = {}
@@ -48,6 +49,7 @@ local function sendInit()
       panel_key = Config.PanelKey or 'F6',
       locales = locales,
       categories = Config.Categories,
+      limits = Config.Limits,
       core_url = Config.CoreUrl,
       priorities = Config.Priorities,
       require_reason = Config.Moderation and Config.Moderation.require_reason ~= false,
@@ -117,15 +119,26 @@ local function verifyResult(ok, at)
   return { ok = ok == true, broken_at = (ok ~= true) and at or nil }
 end
 
-local function openPanel(view)
+local function showPanel(view)
   panelOpen = true
   SetNuiFocus(true, true)
-  sendInit()
-  TriggerServerEvent('staff_suite:getState')
   nui('open', { view = view })
 end
 
+local function openPanel(view)
+  if lite then
+    -- La NUI necesita las capabilities antes de elegir la vista inicial.
+    pendingLiteOpen = { view = view }
+    TriggerServerEvent('staff_suite:getState')
+    return
+  end
+  sendInit()
+  TriggerServerEvent('staff_suite:getState')
+  showPanel(view)
+end
+
 local function closePanel()
+  pendingLiteOpen = nil
   panelOpen = false
   SetNuiFocus(false, false)
   nui('close')
@@ -234,6 +247,11 @@ RegisterNetEvent('staff_suite:state', function(state)
     nui('duty', { self = { on_duty = selfOn }, staff = dutyCache })
   end
   if not lite then sendDashboard() end
+  if pendingLiteOpen and state.player then
+    local view = pendingLiteOpen.view
+    pendingLiteOpen = nil
+    showPanel(view)
+  end
 end)
 
 if lite then

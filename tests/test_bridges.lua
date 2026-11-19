@@ -262,7 +262,7 @@ local function serverSandbox(options)
   env.SaveResourceFile = function(_, path, data)
     if server.failWrites then return false end
     if path == env.Config.JsonFile then files[path] = clone(payloads[tonumber(data)]) end
-    return true
+    return 1 -- BOOL de FiveM: 1/false
   end
   env.json = { encode = function(value)
     payloads[#payloads + 1] = value
@@ -692,6 +692,140 @@ function T.test_ticket_create_preserves_priority()
   assert(not s.sent['staff_suite:state'], 'crear un reporte no da acceso a la cola')
 end
 
+local function perSourceAce(s, bySource)
+  s.env.IsPlayerAceAllowed = function(src, label)
+    local own = bySource[tonumber(src)]
+    if own then return own[label] == true end
+    return s.ace[label] == true
+  end
+end
+
+function T.test_malformed_inputs_do_not_crash_or_mutate_state()
+  local s = serverSandbox()
+  s.ace.god = true
+  local junk = { nil, true, 1e308, -1, 0 / 0, {}, { x = 1 }, string.rep('x', 200000), function() end }
+  local events = { 'ticketCreate', 'ticketAction', 'ticketMessage', 'modAction', 'getState', 'verify' }
+  for _, name in ipairs(events) do
+    for i = 1, #junk + 1 do
+      s.now = s.now + 60
+      local a = junk[i]
+      s.event(name, a, a, a, a)
+      s.event(name, 1, a, a, a)
+    end
+  end
+  assert(next(s.api.GetState().tickets.tickets) == nil and not s.kicked)
+  for _, a in ipairs({ 'x', 5, {}, true }) do
+    assert(s.api.CreateTicket(a) == nil)
+    assert(s.api.TicketAction(a, a, a, a) == nil)
+    assert(s.api.Record(a, a, a, a, a) == nil or type(a) == 'string' or type(a) == 'number')
+    assert(s.api.SetDuty(a, a) == nil)
+  end
+  assert(s.api.Record('a', 'b', string.rep('r', 5000), '', {}) == nil)
+  assert(s.api.Verify())
+end
+
+function T.test_ticket_text_limits_and_control_chars()
+  local s = serverSandbox()
+  local limits = s.env.Config.Limits
+  s.event('ticketCreate', 'bug', 'high', string.rep('a', limits.ticket_body + 1))
+  assert(next(s.api.GetState().tickets.tickets) == nil)
+  assert(s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('input_too_long', { max = limits.ticket_body }))
+  s.event('ticketCreate', 'bug', 'high', '  hola\0\27[31m mundo\n ')
+  local ticket = s.api.GetState().tickets.tickets[1]
+  assert(ticket.description == 'hola[31m mundo')
+
+  s.ace.support = true
+  s.event('ticketMessage', 1, string.rep('b', limits.message_body + 1), false)
+  assert(#ticket.messages == 0)
+  s.event('ticketMessage', 1, 'ok\1', false)
+  assert(ticket.messages[1].body == 'ok')
+  s.ace.god = true
+  s.event('ticketAction', 1, 'claim')
+  s.event('ticketAction', 1, 'resolve', { resolution = string.rep('c', limits.message_body + 1) })
+  assert(ticket.state == 'claimed')
+end
+
+function T.test_rate_limit_and_open_ticket_cap()
+  local s = serverSandbox()
+  local cfg = s.env.Config
+  for i = 1, cfg.Limits.open_tickets_per_player + 1 do s.event('ticketCreate', 'bug', 'low', 'r' .. i) end
+  local n = 0
+  for _ in pairs(s.api.GetState().tickets.tickets) do n = n + 1 end
+  assert(n == cfg.Limits.open_tickets_per_player)
+  assert(s.sent['staff_suite:notify']:find(tostring(cfg.Limits.open_tickets_per_player), 1, true))
+
+  cfg.Limits.open_tickets_per_player = nil
+  local burst = cfg.RateLimit['staff_suite:ticketCreate'].burst
+  s.env.source = 18
+  for i = 1, burst + 3 do s.event('ticketCreate', 'bug', 'low', 'spam' .. i) end
+  n = 0
+  for _, tk in pairs(s.api.GetState().tickets.tickets) do
+    if tk.reporter == 'license:account18' then n = n + 1 end
+  end
+  assert(n == burst, 'el burst limita la creación, creó ' .. n)
+  assert(s.recipients[18]['staff_suite:notify'] == s.env.Locale.es.rate_limited)
+  -- el comando /report comparte el mismo bucket
+  s.commands.report(18, { 'bug', 'por comando' })
+  s.now = s.now + 60
+  s.event('ticketCreate', 'bug', 'low', 'después de esperar')
+  assert(s.api.GetState().tickets.tickets[n + 4].description == 'después de esperar')
+  s.hook('playerDropped')
+end
+
+function T.test_only_claimer_or_resolver_starts_or_unclaims()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { support = true }, [18] = { support = true } })
+  s.commands.report(19, { 'bug', 'reporte' })
+  s.env.source = 18
+  s.event('ticketAction', 1, 'claim')
+  local ticket = s.api.GetState().tickets.tickets[1]
+  s.env.source = 17
+  s.event('ticketAction', 1, 'unclaim')
+  s.event('ticketAction', 1, 'start')
+  assert(ticket.claimer == 'license:account18' and ticket.state == 'claimed')
+  assert(s.recipients[17]['staff_suite:notify'] == s.env.Locale.es.already_claimed)
+  s.env.source = 18
+  s.event('ticketAction', 1, 'start')
+  assert(ticket.state ~= 'claimed')
+end
+
+function T.test_staff_cannot_moderate_higher_rank()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { admin = true }, [18] = { owner = true } })
+  for _, action in ipairs({ 'kick', 'ban', 'warn', 'freeze', 'bring' }) do
+    s.event('modAction', action, 18, 'abuso', 60)
+    assert(s.sent['staff_suite:notify'] == s.env.Locale.es.mod_target_protected, action)
+  end
+  assert(not s.kicked and #s.api.GetChain() == 0)
+  s.env.source = 18
+  s.event('modAction', 'kick', 17, 'regla')
+  assert(s.kicked == 17)
+end
+
+function T.test_ban_covers_alternate_identifiers_and_extends_on_evasion()
+  local s = serverSandbox()
+  s.ace.admin = true
+  s.env.GetNumPlayerTokens = function(src) return src == 18 and 1 or 0 end
+  s.env.GetPlayerToken = function() return '3:hwid18' end
+  local ids = { ['18'] = { 'license:account18', 'steam:18', 'discord:18', 'ip:1.2.3.4' } }
+  local base = s.env.GetPlayerIdentifiers
+  s.env.GetPlayerIdentifiers = function(src) return ids[tostring(src)] or base(src) end
+  s.event('modAction', 'ban', 18, 'cheats', 0)
+  local saved = s.files[s.env.Config.JsonFile].bans
+  for _, id in ipairs({ 'license:account18', 'steam:18', 'discord:18', 'token:3:hwid18' }) do assert(saved[id], id) end
+  assert(not saved['ip:1.2.3.4'])
+
+  -- vuelve con license nueva y la misma cuenta de Discord
+  ids['50'] = { 'license:nueva', 'license2:nueva2', 'discord:18' }
+  s.env.source = 50
+  local reason
+  s.hook('playerConnecting', '', function(message) reason = message end)
+  assert(s.cancelled and reason:find('cheats', 1, true))
+  local state = s.api.GetState()
+  assert(state.bans['license:nueva'] and state.bans['license2:nueva2'])
+  assert(s.api.GetChain()[#s.api.GetChain()].action == 'mod_ban_extended' and s.api.Verify())
+end
+
 function T.test_resolve_and_rating_feed_staff_analytics()
   local s = serverSandbox()
   s.ace.admin = true
@@ -787,6 +921,28 @@ function T.test_evidence_detected_captured_and_verified()
   entries[item.audit_seq].payload = '{"sha256":"' .. item.sha256 .. '"}'
   s.event('evidenceGet', id, 1)
   assert(latent.data.ok == false, 'reescribir también la auditoría rompe la cadena')
+end
+
+function T.test_review_regressions_ban_expired_alias_export_ts_and_huge_whitespace()
+  local s = serverSandbox()
+  s.ace.admin = true
+  s.api.GetState().bans['discord:old'] = { reason = 'viejo', created_at = 1, expires_at = 5 }
+  local ids = { ['18'] = { 'license:account18', 'discord:old' } }
+  local base = s.env.GetPlayerIdentifiers
+  s.env.GetPlayerIdentifiers = function(src) return ids[tostring(src)] or base(src) end
+  s.event('modAction', 'ban', 18, 'nuevo', 0)
+  ids['50'] = { 'license:nueva', 'discord:old' }
+  s.env.source = 50
+  s.hook('playerConnecting', '', function() end)
+  assert(s.api.GetState().bans['license:nueva'].reason == 'nuevo')
+
+  local id = s.api.CreateTicket({ reporter = 'license:account19', description = 'x', ts = 1234 })
+  assert(s.api.GetState().tickets.tickets[id].created_ts == 1234)
+  s.env.source = 19
+  local clock = os.clock()
+  s.event('ticketCreate', 'bug', 'low', 'a' .. string.rep(' ', 3000) .. 'b')
+  s.event('ticketCreate', 'bug', 'low', 'a' .. string.rep(' ', 2000000) .. 'b')
+  assert(os.clock() - clock < 1)
 end
 
 return T

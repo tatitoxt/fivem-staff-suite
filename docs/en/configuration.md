@@ -77,6 +77,15 @@ Changes are saved in batches, with a JSON checkpoint for pending changes when th
 |---|---|---|
 | `require_reason` | `true` | Requires a reason for `kick`. Ban and warn always require a reason. |
 | `ban_duration` | `86400` | Default ban duration in seconds. Use `0` for a permanent ban. |
+| `ban_tokens` | `true` | Also bans the client hardware tokens (`token:*`). Besides `license`, a ban covers `license2`, `fivem`, `steam`, `discord`, `xbl` and `live`; if a banned player returns with a new account sharing any of them, the ban is extended to the new ones (`mod_ban_extended`). IPs are not used. |
+
+### `Config.Limits` and `Config.RateLimit`
+
+| Key | Default | Description |
+|---|---|---|
+| `Limits.ticket_body` / `message_body` / `reason` | `1000` / `1000` / `300` | Maximum bytes accepted by the server; control characters are stripped. |
+| `Limits.open_tickets_per_player` | `3` | Simultaneous open reports per player. `nil` disables the cap. |
+| `RateLimit[event]` | see `config.lua` | Per-player token bucket: `burst` actions in a row, then `per_second`. `default` applies to events without their own rule and to commands. |
 
 ## `server/config.lua`
 

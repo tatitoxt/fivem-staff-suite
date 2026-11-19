@@ -74,6 +74,13 @@ function M.revoke(model, identifier, cap)
   model.overrides[identifier] = ov
 end
 
+local RANK_LEVEL = { helper = 1, moderator = 2, admin = 3, senior_admin = 4, owner = 5 }
+
+-- true si target tiene un rango estrictamente mayor que actor (los jugadores no tienen rango).
+function M.outranks(target_rank, actor_rank)
+  return (RANK_LEVEL[target_rank] or 0) > (RANK_LEVEL[actor_rank] or 0)
+end
+
 function M.rank_caps(rank)
   if rank == "owner" then return { table.unpack(M.CAPS) } end
   return RANK_CAPS[rank] or {}

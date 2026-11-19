@@ -75,15 +75,24 @@ La comparación automática contra el ancla (el core ya tiene `verify_head`) y u
 
 ## Exports para otros resources (server-side)
 
+**Contrato de retorno:** si sale bien, el export devuelve su valor; si falla, devuelve `false, código` (por ejemplo `false, 'already_claimed'`). Nunca devuelve `nil` como primer valor, porque en las llamadas entre resources FiveM serializa los retornos con msgpack y un `nil` inicial hace que se pierda el código de error. Hasta que termina de cargar la persistencia, todos los exports devuelven `false, 'persistence_starting'`.
+
+```lua
+local ticket, err = exports.staff_suite:TicketAction(id, 'claim', 'license:abc', { ts = os.time() })
+if not ticket then print('no se pudo: ' .. err) end
+```
+
 | Export | Descripción |
 |---|---|
 | `Record(action, actor, target, reason, payload)` | Agrega una entrada. `payload` es una tabla (se guarda como JSON). Devuelve la entrada. |
 | `Verify()` | `ok, seq_roto` |
 | `GetChain()` | Copia de todas las entradas. |
 | `CreateTicket(data)` | Crea un ticket (`reporter`, `category`, `priority`, `description`, `ts`). Devuelve el id. |
-| `TicketAction(id, action, actor, extra)` | Transición de ticket (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) y su entrada en la auditoría. Devuelve `ticket, evento` o `nil, error`. Para `transfer`, `extra.to` es el identificador del destinatario. |
+| `TicketAction(id, action, actor, extra)` | Transición de ticket (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) y su entrada en la auditoría. Devuelve `ticket, evento` o `false, error`. Para `transfer`, `extra.to` es el identificador del destinatario. |
 | `GetState()` | Estado completo (cadena, tickets, permisos, duty). |
-| `SetDuty(actor, onDuty)` | Entrada (`true`) o salida (`false`) de servicio con su entrada `duty.in`/`duty.out`. Devuelve el evento o `nil, error`. |
+| `SetDuty(actor, onDuty)` | Entrada (`true`) o salida (`false`) de servicio con su entrada `duty.in`/`duty.out`. Devuelve el evento o `false, error`. |
+| `Flush()` | Guarda ya, sin esperar el lote diferido (~1 s). Devuelve el número de revisión a confirmar. |
+| `GetPersistence()` | `{ revision, saved, pending }`: el guardado de `Flush()` está confirmado cuando `saved >= revision`. |
 
 Ejemplo:
 

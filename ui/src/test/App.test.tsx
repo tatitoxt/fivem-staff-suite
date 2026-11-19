@@ -94,6 +94,47 @@ describe('NUI smoke', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Transferir' })).toBeDisabled());
   });
 
+  it('muestra bodies y nombres maliciosos como texto, sin HTML', async () => {
+    render(<App />);
+    await nav(/Reportes/);
+    const xss = '<img src=x onerror="window.__xss=1"><script>window.__xss=1</script>';
+    window.postMessage({
+      type: 'tickets',
+      payload: {
+        tickets: [{
+          id: 900, reporter: `license:${xss}`, category: 'bug', priority: 'urgent', state: 'open', claimer: null,
+          created_ts: 1, updated_ts: 1, description: xss, resolution: null, rating: null,
+          messages: [{ author: xss, body: xss, ts: 1, internal: false }],
+        }],
+      },
+    }, '*');
+    const queue = screen.getByLabelText('Cola de tickets');
+    await waitFor(() => expect(queue.querySelectorAll('button')).toHaveLength(1));
+    fireEvent.click(queue.querySelector('button')!);
+    expect((await screen.findAllByText(xss)).length).toBeGreaterThanOrEqual(2);
+    expect(document.querySelector('img[src="x"], script')).toBeNull();
+    expect((window as unknown as { __xss?: number }).__xss).toBeUndefined();
+  });
+
+  it('conserva el borrador que supera el límite y bloquea el envío', async () => {
+    const { container } = render(<App />);
+    await nav(/Reportes/);
+    window.postMessage({
+      type: 'init',
+      payload: {
+        locale: 'es', strings: LOCALES.es, version: '0.1.0', config: { limits: { message_body: 10 } },
+        player: { name: 'Fausto', rank: 'owner' },
+      },
+    }, '*');
+    fireEvent.click(await screen.findByRole('radio', { name: 'Abiertos' }));
+    fireEvent.click(screen.getByLabelText('Cola de tickets').querySelector('button')!);
+    const draft = 'ñ'.repeat(6);
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: draft } });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Enviar/ })).toBeDisabled();
+    expect(container.querySelector('textarea')!.value).toBe(draft);
+  });
+
   it('inserta una respuesta predefinida en el mensaje', async () => {
     const { container } = render(<App />);
     await nav(/Reportes/);

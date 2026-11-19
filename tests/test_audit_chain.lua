@@ -59,4 +59,17 @@ function T.test_head_anchor()
   assert(not ok, "truncation vs anchored head must be detected")
 end
 
+function T.test_separators_cannot_shift_fields()
+  local a, b = chain.new(), chain.new()
+  chain.append(a, { ts = 1, actor = "x", action = "kick", target = "p\30evil", reason = "" })
+  chain.append(b, { ts = 1, actor = "x", action = "kick", target = "p", reason = "evil" })
+  assert(a.entries[1].target == "pevil" and a.head ~= b.head)
+end
+
+function T.test_integer_floats_from_storage_still_verify()
+  local c = sample(3)
+  for _, e in ipairs(c.entries) do e.seq, e.ts = e.seq + 0.0, e.ts + 0.0 end
+  assert(chain.verify(c))
+end
+
 return T

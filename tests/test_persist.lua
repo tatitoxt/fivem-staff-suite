@@ -118,7 +118,7 @@ local function boot(state, memory, db, dbStarted)
       end
       return memory.checkpoint
     end,
-    SaveResourceFile = function(_, _, raw) memory.checkpoint = raw; return true end,
+    SaveResourceFile = function(_, _, raw) memory.checkpoint = raw; return 1 end, -- BOOL de FiveM: 1/false
     GetResourceState = function() return dbStarted == false and 'stopped' or 'started' end,
     StaffSuiteTranslate = function(key) return key end,
     print = function(msg) memory.printed = memory.printed or {}; memory.printed[#memory.printed + 1] = msg end,
@@ -223,6 +223,23 @@ function T.test_oxmysql_failure_serializes_and_recovers_newer_checkpoint()
   assert(#restored.chain.entries == 3 and audit.verify(restored.chain))
   flushRecovery()
   assert(#db.calls == 3 and db.tables.staff_audit[3].reason == 'en cola')
+end
+
+function T.test_flush_saves_now_and_status_tracks_confirmed_revision()
+  local state, db, memory = fresh(), sqlMock(), {}
+  local storage, flush = boot(state, memory, db)
+  flush()
+  append(state, 'diferido')
+  storage.save()
+  local pending = storage.status()
+  assert(pending.pending and pending.saved < pending.revision)
+  db.defer = true
+  local revision = storage.flush()
+  assert(revision == storage.status().revision and storage.status().pending)
+  db.complete(true)
+  local status = storage.status()
+  assert(not status.pending and status.saved == revision)
+  assert(db.tables.staff_audit[1].reason == 'diferido')
 end
 
 function T.test_legacy_staff_state_is_imported_without_rehashing()
