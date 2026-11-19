@@ -37,6 +37,8 @@ function M.new(config, snapshot)
   local storage = {}
   local useDb, busy, scheduled, dirty, stopped = false, false, false, false, false
   local cache, waiting = nil, {}
+  -- revision sube con cada cambio; saved es la última revisión confirmada en disco/DB.
+  local revision, saved = 0, 0
   local wantsDb = config.Persistence == 'oxmysql'
 
   local function fallback()
@@ -66,18 +68,20 @@ function M.new(config, snapshot)
     local waiters = waiting
     waiting = {}
     local state = snapshot()
+    local stateRevision = revision
     local jsonOK = checkpoint(state)
 
     local function done(dbOK, nextCache)
       busy = false
       if dbOK then cache = nextCache end
-      local saved = dbOK or jsonOK
-      if not saved then
+      local ok = dbOK or jsonOK
+      if ok then saved = math.max(saved, stateRevision) end
+      if not ok then
         dirty = true
         print(StaffSuiteTranslate('persistence_save_failed'))
       end
-      for _, cb in ipairs(waiters) do cb(saved) end
-      if #waiting > 0 then flush() else schedule(not saved and 60000 or nil) end
+      for _, cb in ipairs(waiters) do cb(ok) end
+      if #waiting > 0 then flush() else schedule(not ok and 60000 or nil) end
     end
 
     if useDb and sql.available() then
@@ -114,8 +118,19 @@ function M.new(config, snapshot)
 
   function storage.save(cb)
     dirty = true
+    revision = revision + 1
     if cb then waiting[#waiting + 1] = cb end
     if cb then flush() else schedule() end
+  end
+
+  -- Guarda ya, sin esperar el lote diferido. Devuelve la revisión a confirmar con status().
+  function storage.flush(cb)
+    storage.save(cb or function() end)
+    return revision
+  end
+
+  function storage.status()
+    return { revision = revision, saved = saved, pending = saved < revision }
   end
 
   function storage.stop()

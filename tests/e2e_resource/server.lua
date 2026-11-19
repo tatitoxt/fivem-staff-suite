@@ -63,7 +63,7 @@ local function testTickets(ss)
   local t = ss:TicketAction(id, 'claim', 'license:e2e_staff', { ts = now })
   check('ticket.claim -> claimed', t and t.state == 'claimed' and t.claimer == 'license:e2e_staff', t and t.state)
   local t2, err = ss:TicketAction(id, 'claim', 'license:otro_staff', { ts = now })
-  check('ticket.claim doble rechazado', t2 == nil and err == 'already_claimed', err)
+  check('ticket.claim doble rechazado', t2 == false and err == 'already_claimed', tostring(t2) .. ',' .. tostring(err))
 
   t = ss:TicketAction(id, 'transfer', 'license:e2e_staff', { to = 'license:e2e_staff2', ts = now })
   check('ticket.transfer -> claimer nuevo', t and t.state == 'claimed' and t.claimer == 'license:e2e_staff2', t and t.claimer)
@@ -71,8 +71,11 @@ local function testTickets(ss)
   t = ss:TicketAction(id, 'resolve', 'license:e2e_staff2', { resolution = 'arreglado', ts = now })
   check('ticket.resolve -> resolved', t and t.state == 'resolved' and t.resolution == 'arreglado', t and t.state)
 
-  local _, bad = ss:TicketAction(id, 'claim', 'license:e2e_staff2', { ts = now })
-  check('ticket transición inválida rechazada', type(bad) == 'string' and bad:find('invalid_transition', 1, true) ~= nil, bad)
+  local r, bad = ss:TicketAction(id, 'claim', 'license:e2e_staff2', { ts = now })
+  check('ticket transición inválida rechazada',
+    r == false and type(bad) == 'string' and bad:find('invalid_transition', 1, true) ~= nil, tostring(r) .. ',' .. tostring(bad))
+  r, bad = ss:TicketAction(999999, 'claim', 'license:e2e_staff2', { ts = now })
+  check('ticket inexistente rechazado', r == false and bad == 'ticket_not_found', tostring(r) .. ',' .. tostring(bad))
 
   -- Un evento de red sin jugador con permisos no debe cambiar el ticket.
   TriggerEvent('staff_suite:ticketAction', id, 'close', {})
@@ -93,7 +96,7 @@ local function testDuty(ss)
   local ev = ss:SetDuty(actor, true)
   check('duty.in', ev and ev.event == 'duty.in', ev and ev.event)
   local again, err = ss:SetDuty(actor, true)
-  check('duty.in doble rechazado', again == nil and err ~= nil, err)
+  check('duty.in doble rechazado', again == false and type(err) == 'string', tostring(again) .. ',' .. tostring(err))
   local s = ss:GetState().duty.staff[actor]
   check('duty estado on_duty', s and s.on_duty == true)
   Wait(1100)
@@ -150,10 +153,19 @@ local function testVerify(ss)
   check('verify prev_hash encadenado', linked)
   -- Los exports devuelven copias: el tamper se prueba in-process en tests/test_audit_chain.lua.
 
+  -- El guardado normal es diferido (lote de 1 s); Flush lo fuerza y GetPersistence lo confirma.
+  local revision = ss:Flush()
+  check('persistencia: Flush devuelve revisión', type(revision) == 'number', revision)
+  local saved = type(revision) == 'number' and waitFor(function()
+    local st = ss:GetPersistence()
+    return st and st.saved >= revision
+  end, 15000)
+  check('persistencia: guardado confirmado', saved, json.encode(ss:GetPersistence()))
   local raw = LoadResourceFile(TARGET, 'staff_suite_data.json')
   local okJson, data = pcall(json.decode, raw or '')
   local persisted = okJson and data and data.chain and data.chain.entries
-  check('persistencia JSON al día', persisted and #persisted == #chain, persisted and #persisted)
+  check('persistencia JSON al día', persisted and #persisted == #chain
+    and persisted[#persisted].hash == chain[#chain].hash, (persisted and #persisted or 'nil') .. '/' .. #chain)
 end
 
 local function measure(ss)
@@ -165,8 +177,11 @@ local function measure(ss)
   for _ = 1, n do ss:GetState() end
   metric('getstate_avg_ms', ('%.3f'):format((os.clock() - t0) * 1000 / n))
 
-  -- Intervalo entre ticks del scheduler con staff_suite en reposo (Wait(0)).
+  -- Frame del scheduler del server (~50 ms en reposo, 20 Hz): no es costo de staff_suite.
+  -- server_cpu_* es CPU de todo el proceso FXServer por frame: cota superior, informativa.
+  -- El presupuesto de staff_suite sale del profiler (scripts/e2e-fxserver.sh).
   local frames, maxGap, last = 0, 0, GetGameTimer()
+  local start, cpu0 = last, os.clock()
   local stop = last + 3000
   while GetGameTimer() < stop do
     Wait(0)
@@ -175,8 +190,10 @@ local function measure(ss)
     frames = frames + 1
     last = now
   end
-  metric('tick_avg_ms', ('%.2f'):format(3000 / math.max(frames, 1)))
-  metric('tick_max_ms', maxGap)
+  frames = math.max(frames, 1)
+  metric('server_frame_avg_ms', ('%.2f'):format((last - start) / frames))
+  metric('server_frame_max_ms', maxGap)
+  metric('server_cpu_ms_per_frame', ('%.4f'):format((os.clock() - cpu0) * 1000 / frames))
   local ok = ss:Verify()
   check('verify tras carga de rendimiento', ok == true)
 end

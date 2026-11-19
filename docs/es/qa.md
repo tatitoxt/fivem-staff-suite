@@ -13,12 +13,16 @@ La NUI tiene sus propios tests (`cd ui && npm ci && npm test`).
 
 `tests/e2e_resource` es un resource (`staff_suite_tests`) que arranca después de `staff_suite`, dispara eventos simulados a través de los exports y hace asserts:
 
-- **Tickets:** crear, claim, doble claim rechazado, transfer a otro staff, resolve, transición inválida rechazada y un evento de red sin permisos que no cambia el ticket.
+- **Tickets:** crear, claim, doble claim rechazado, transfer a otro staff, resolve, transición inválida y ticket inexistente rechazados (`false, código`) y un evento de red sin permisos que no cambia el ticket.
 - **Auditoría:** cada paso deja su entrada (`ticket_create`, `ticket_claim`, `ticket_transfer`, `ticket_resolve`, `duty.in`, `duty.out`).
 - **Duty:** entrada, doble entrada rechazada, salida con segundos acumulados (export `SetDuty`).
 - **Export off-box:** completa la cadena hasta `anchor_every` y comprueba que la última línea de `audit_export.log` sea el head y que el webhook reciba el anchor. El script apunta `staff_suite_webhook` a un receptor HTTP del propio resource de test, así que no se usa Discord.
-- **Verify:** `Verify()` íntegro, `seq` secuencial, hashes SHA-256 de 64 hex, `prev_hash` encadenado y el JSON de persistencia al día.
-- **Métricas:** tiempo medio de `Record` y `GetState`, e intervalo de tick del server con staff_suite en reposo.
+- **Verify:** `Verify()` íntegro, `seq` secuencial, hashes SHA-256 de 64 hex, `prev_hash` encadenado.
+- **Persistencia:** `Flush()` fuerza el guardado, `GetPersistence()` lo confirma y el JSON en disco tiene la cadena completa (mismo largo y mismo head).
+- **Métricas** (informativas, no fallan):
+  - `record_avg_ms`, `getstate_avg_ms`: costo por llamada de los exports, incluida la serialización entre resources. No es costo por tick: staff_suite no tiene ningún loop en el server.
+  - `server_frame_avg_ms`, `server_frame_max_ms`: intervalo entre frames del scheduler del server. En reposo FXServer corre a ~20 Hz, así que ~50 ms es lo normal y **no** mide a staff_suite.
+  - `server_cpu_ms_per_frame`: CPU de todo el proceso FXServer por frame. Es una cota superior, no el costo de staff_suite.
 
 El tamper (modificar una entrada y que `Verify` lo detecte) se prueba en los unit tests. Los exports de FiveM devuelven copias, así que desde otro resource no se puede tocar la cadena viva.
 
@@ -31,7 +35,7 @@ Cada línea empieza con `[SSTEST]`, así que se puede filtrar con `grep`:
 [SSTEST] FAIL <nombre> :: <detalle>
 [SSTEST] SKIP export webhook :: staff_suite_webhook vacío
 [SSTEST] METRIC record_avg_ms=0.716
-[SSTEST] RESULT status=PASS passed=27 failed=0 skipped=0
+[SSTEST] RESULT status=PASS passed=30 failed=0 skipped=0
 [SSTEST] DONE
 ```
 
@@ -51,7 +55,7 @@ El script:
 2. Arma un `server-data` temporal con `staff_suite` (carpeta o ZIP) y `staff_suite_tests`, y un `server.cfg` mínimo con OneSync.
 3. Escribe la license key en un `secrets.cfg` con permisos `600`, lo carga con `exec` y lo borra al salir. La key nunca va al repo ni a la línea de comandos.
 4. Levanta FXServer headless, espera el `RESULT` y apaga el server.
-5. Mide el rendimiento con `profiler record 300` + `profiler saveJSON`. Si el profiler registró eventos de `staff_suite`, compara el promedio por tick con `E2E_MAX_TICK_MS` (por defecto `0.05`). Si no hay datos, lo informa y no falla.
+5. Mide el presupuesto **de staff_suite** con `profiler record 300` + `profiler saveJSON`: suma la duración de los eventos de `staff_suite` (sin `staff_suite_tests`), la divide por los 300 frames y la compara con `E2E_MAX_TICK_MS` (por defecto `0.05`). Si el profile tiene eventos pero ninguno de staff_suite, el costo es 0. Si el profile está vacío, lo informa y no falla.
 
 Sin license key podés verificar la descarga y el armado del server:
 

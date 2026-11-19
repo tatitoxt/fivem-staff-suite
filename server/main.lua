@@ -416,10 +416,12 @@ net('staff_suite:verify', function()
 end)
 
 -- ===== Exports (para test resource E2E + otros recursos) =====
+-- Contrato: éxito devuelve el valor; error devuelve false, código. Nunca un nil inicial:
+-- msgpack corta los valores que siguen a un nil en llamadas cross-resource.
 local function expose(name, fn)
   exports(name, function(...)
     if ready then return fn(...) end
-    return nil, 'persistence_starting'
+    return false, 'persistence_starting'
   end)
 end
 
@@ -437,15 +439,19 @@ expose('TicketAction', function(id, action, actor, extra)
     if action == 'resolve' then duty.record_resolved(dreg, ev.actor) end
     record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   end
+  if not ticket then return false, ev end
   return ticket, ev
 end)
 expose('GetState', snapshot)
 expose('SetDuty', function(actor, onDuty)
   local ev, err
   if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
-  if ev then record(ev.event, actor, actor, '', {}) end
-  return ev, err
+  if not ev then return false, err end
+  record(ev.event, actor, actor, '', {})
+  return ev
 end)
+expose('Flush', function() return storage.flush() end)
+expose('GetPersistence', function() return storage.status() end)
 
 -- ===== Init =====
 CreateThread(function()
