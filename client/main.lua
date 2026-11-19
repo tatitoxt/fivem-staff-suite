@@ -286,3 +286,8 @@ if not lite then
     if type(p) == 'table' then nui('evidence', p) end
   end)
 end
+
+-- Nunca dejar el foco NUI tomado si el recurso se detiene con el panel abierto.
+AddEventHandler('onClientResourceStop', function(resource)
+  if resource == GetCurrentResourceName() then SetNuiFocus(false, false) end
+end)

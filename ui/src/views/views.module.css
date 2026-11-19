@@ -740,3 +740,28 @@
 .evidenceList li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
 .evidenceFig { margin: 0; display: grid; gap: 12px; justify-items: start; }
 .evidenceFig img { width: 100%; max-height: 420px; object-fit: contain; border-radius: 12px; background: #111827; }
+
+/* Pulido: textos largos, KPI y layouts compactos (720p) */
+.switch { white-space: nowrap; }
+.desc, .msgBody { overflow-wrap: anywhere; }
+.messages { min-height: 96px; }
+.kpiValue {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: clamp(22px, 1.9vw, 32px);
+}
+@media (max-width: 1440px) {
+  .tickets { grid-template-columns: 300px minmax(0, 1fr); }
+  .detailBody { grid-template-columns: minmax(0, 1fr) 248px; }
+}
+@media (max-height: 820px) {
+  .detailHead { padding: 14px 16px; gap: 8px; }
+  .desc { height: 48px; padding: 8px 12px; font-size: 15px; }
+  .composer { gap: 8px; padding: 10px 12px 12px; }
+  .composer textarea { height: 48px; }
+  .cannedPick { height: 32px; }
+  .messages { padding: 10px 14px; }
+}
+@media (min-width: 2400px) and (min-height: 1350px) { .rateLayer .dialog { zoom: 1.333; } }
+@media (min-width: 3600px) and (min-height: 2000px) { .rateLayer .dialog { zoom: 2; } }

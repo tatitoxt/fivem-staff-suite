@@ -177,7 +177,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
         {!isLite && <section className={cx(ui.card, v.chat)}>
           <div className={v.chatHead}>{t('ui_chat_title')}</div>
           {tk.messages.length ? (
-            <div className={cx(ui.scroll, v.messages)} ref={listRef}>
+            <div className={cx(ui.scroll, v.messages)} ref={listRef} tabIndex={0} role="log" aria-label={t('ui_chat_title')}>
               {tk.messages.map((m, i) => (
                 <div key={i} className={cx(v.msg, m.author === me && v.msgMine, m.internal && v.msgInternal)}>
                   <div className={v.msgMeta}>

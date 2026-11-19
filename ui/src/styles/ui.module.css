@@ -194,3 +194,9 @@ textarea.input {
   overscroll-behavior: contain;
   min-height: 0;
 }
+
+/* Columnas angostas (1280–1440 px): que el filtro de estado entre completo */
+@media (max-width: 1440px) {
+  .segmented { gap: 2px; }
+  .segment { padding: 0 9px; font-size: 13px; }
+}

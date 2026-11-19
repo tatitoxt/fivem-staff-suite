@@ -46,7 +46,7 @@ export function DutyView() {
             <Badge tone="green" dot>{t('ui_duty_count', { n: onCount, total: staff.length })}</Badge>
           </div>
           {staff.length ? (
-            <div className={cx(ui.scroll, v.tableWrap)}>
+            <div className={cx(ui.scroll, v.tableWrap)} tabIndex={0} role="region" aria-label={t('ui_duty_team')}>
               <table className={v.table}>
                 <thead>
                   <tr>

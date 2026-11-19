@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import { fmt } from './format';
-import { send, subscribe, useMock } from './nui';
+import { isNui, send, subscribe, useMock } from './nui';
 import type {
   AuditEntry, DashboardPayload, DutyPayload, IncomingMessage, OutgoingAction, OutgoingPayloads,
   EvidencePayload, PlayerInfo, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
@@ -31,6 +31,7 @@ export interface AppState {
   auditActor: string;
   ratePrompt: number | null;
   evidence: EvidencePayload | null;
+  dataState: 'idle' | 'loading' | 'ready' | 'error';
 }
 
 type Action =
@@ -41,7 +42,9 @@ type Action =
   | { type: 'dismissToast'; id: number }
   | { type: 'toast'; kind: ToastKind; text: string }
   | { type: 'rateDone' }
-  | { type: 'evidenceClose' };
+  | { type: 'evidenceClose' }
+  | { type: 'loadTimeout' }
+  | { type: 'retry' };
 
 let toastSeq = 0;
 
@@ -60,7 +63,7 @@ export function initialState(visible: boolean): AppState {
     dashboard: null,
     duty: null,
     toasts: [],
-    auditActor: '', ratePrompt: null, evidence: null,
+    auditActor: '', ratePrompt: null, evidence: null, dataState: 'idle',
   };
 }
 
@@ -78,6 +81,8 @@ function pushToast(state: AppState, kind: ToastKind, text: string): AppState {
   return { ...state, toasts };
 }
 
+const DATA_MESSAGES = new Set(['audit', 'tickets', 'dashboard', 'duty']);
+
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'view':
@@ -94,8 +99,14 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, ratePrompt: null };
     case 'evidenceClose':
       return { ...state, evidence: null };
-    case 'msg':
-      return applyMessage(state, action.msg);
+    case 'loadTimeout':
+      return state.dataState === 'loading' ? { ...state, dataState: 'error' } : state;
+    case 'retry':
+      return { ...state, dataState: 'loading' };
+    case 'msg': {
+      const next = applyMessage(state, action.msg);
+      return DATA_MESSAGES.has(action.msg.type) && next.dataState !== 'ready' ? { ...next, dataState: 'ready' } : next;
+    }
   }
 }
 
@@ -140,7 +151,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'evidence':
       return { ...state, evidence: msg.payload };
     case 'open':
-      return { ...state, visible: true, view: msg.payload?.view ?? state.view };
+      return { ...state, visible: true, view: msg.payload?.view ?? state.view, dataState: state.dataState === 'ready' ? 'ready' : 'loading' };
     case 'close':
       return { ...state, visible: false };
   }
@@ -173,7 +184,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.player],
   );
 
-  const api = useMemo<AppApi>(() => ({ state, dispatch, t, can, send }), [state, t, can]);
+  const tRef = useRef(t);
+  tRef.current = t;
+  // En FiveM, null significa que el callback NUI no respondió: se avisa en vez de fallar en silencio.
+  const safeSend = useCallback(async <A extends OutgoingAction>(action: A, payload?: OutgoingPayloads[A]) => {
+    const res = await send(action, payload);
+    if (res === null && isNui()) dispatch({ type: 'toast', kind: 'error', text: tRef.current('ui_error_action') });
+    return res;
+  }, []);
+
+  const api = useMemo<AppApi>(() => ({ state, dispatch, t, can, send: safeSend }), [state, t, can, safeSend]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 

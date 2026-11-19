@@ -14,7 +14,7 @@ function Kpi({ icon, tone, label, value }: { icon: ReactNode; tone: [string, str
         <span className={v.kpiIcon} style={{ background: tone[0], color: tone[1] }}>{icon}</span>
         {label}
       </div>
-      <div className={v.kpiValue}>{value}</div>
+      <div className={v.kpiValue} title={value}>{value}</div>
     </div>
   );
 }
@@ -38,7 +38,7 @@ export function DashboardView() {
           <section className={cx(ui.card, v.section)}>
             <div className={v.sectionHead}><h2>{t('ui_leaderboard')}</h2></div>
             {d?.leaderboard.length ? (
-              <div className={cx(ui.scroll, v.tableWrap)}>
+              <div className={cx(ui.scroll, v.tableWrap)} tabIndex={0} role="region" aria-label={t('ui_leaderboard')}>
                 <table className={v.table}>
                   <thead>
                     <tr>
