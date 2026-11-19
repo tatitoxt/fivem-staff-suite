@@ -1,22 +1,45 @@
 # Ranks and permissions
 
-Staff Suite uses **capabilities** (atomic permissions) grouped into **ranks**, following least privilege. Everything is validated server-side; the client never decides.
+Staff Suite uses **capabilities** (atomic permissions) grouped into **ranks**, following least privilege. Everything is checked on the server; the client never decides.
 
-## Status in 0.1.0
+## How the rank is assigned
 
-> **Read this before using it in production.** In 0.1.0 every player gets the rank set in `Config.StandaloneRank` (default `'owner'` = all capabilities). Framework/ACE rank mapping is not wired yet **(coming soon)**. Until then, use it on a test server or with trusted players only.
+Every time a player does something, the server resolves their rank with the bridge chosen by `Config.Framework` (see [Installation](installation.md#frameworks)). A player **without a rank** has no capabilities: they can use `/report` and nothing else.
 
-Lowering `Config.StandaloneRank` (e.g. to `'helper'`) restricts **everyone** equally, including you.
+### With a framework (Qbox / QBCore / ESX)
+
+Staff Suite walks `Config.RankMap` and asks the framework about each key:
+
+| Framework | Check |
+|---|---|
+| Qbox | `IsPlayerAceAllowed(src, key)`. E.g. `add_ace group.admin admin allow` → `admin`. |
+| QBCore | `QBCore.Functions.HasPermission(src, key)`. |
+| ESX | `xPlayer.getGroup() == key`. |
+
+On top of that, if the player's active job is in `Config.JobRankMap.<framework>`, that rank also counts. If several match, **the highest wins**. With a framework active, `staff_suite.<rank>` ACEs and `Config.StandaloneRanks` are **not** used.
+
+### Standalone
+
+Two sources, the highest wins:
+
+1. `staff_suite.<rank>` ACE in `server.cfg`:
+   ```cfg
+   add_ace group.admin staff_suite.admin allow
+   add_principal identifier.license:1234abcd... group.admin
+   ```
+2. `Config.StandaloneRanks` in `server/config.lua`, by `license:...` identifier.
+
+Valid ranks: `helper`, `moderator`, `admin`, `senior_admin`, `owner`. Any other rank name is ignored.
 
 ## Ranks
 
 | Rank | Summary |
 |---|---|
-| `helper` | Views and handles reports, chat, duty. |
-| `moderator` | + resolve reports, basic moderation (goto/bring/spectate/freeze/heal/kick/warn), view audit log. |
-| `admin` | + revive, ban, verify the chain, staff analytics. |
-| `senior_admin` | + export audit log, configuration. |
-| `owner` | All capabilities. |
+| `helper` | Sees and handles reports, chat, duty. |
+| `moderator` | + resolve/transfer reports, basic moderation, view audit log. |
+| `admin` | + verify the chain, staff analytics. |
+| `senior_admin` | + capabilities reserved for export and configuration. |
+| `owner` | Every capability. |
 
 ## Capability matrix
 
@@ -40,41 +63,37 @@ Lowering `Config.StandaloneRank` (e.g. to `'helper'`) restricts **everyone** equ
 
 Source: `core/permissions.lua`.
 
-## What each capability controls today
+## What each capability controls
 
-| Capability | Used in 0.1.0 for |
+| Capability | Controls |
 |---|---|
-| `staff.duty` | `/duty` |
-| `audit.view` | in-game `/audit` |
-| `audit.verify` | the panel's "Verify chain" button (records an `audit_verify` entry) |
-| `report.claim` | every ticket action from the panel (claim, transfer, resolve, close, reopen) |
+| `report.view` | receiving the ticket queue in the panel |
+| `report.claim` | claiming, starting and unclaiming a ticket; being able to receive a transfer |
+| `report.resolve` | transferring, resolving, closing and reopening |
+| `report.message` | writing in a ticket (together with `report.view`), including internal notes |
 | `mod.<action>` | moderation actions from the panel |
-| `report.view`, `report.resolve`, `report.message`, `audit.export`, `staff.analytics`, `admin.config`, `admin.permissions` | defined in the model; fine-grained enforcement comes with the panel **(coming soon)** |
+| `audit.view` | seeing audit entries in the panel and `/audit` in game |
+| `audit.verify` | the panel's "Verify chain" button (adds an `audit_verify` entry) |
+| `staff.duty` | `/duty` |
+| `staff.analytics` | staff duty stats and alerts (e.g. broken chain) |
+| `audit.export`, `admin.config`, `admin.permissions` | defined in the model, not used yet **(coming soon)** |
 
-`/report` requires no capability: any player can report.
+The panel only receives the data the player's capabilities allow. `/report` needs no capability.
+
+A transfer is only accepted if the recipient is online and has `report.claim` and `report.view`.
 
 ## Moderation
 
-Every moderation action goes through: capability check → mandatory reason (when `Config.Moderation.require_reason` is on and the action is `kick`, `ban` or `warn`) → execution → audit entry (`mod_<action>`).
+Every action goes through: capability check → online target (by server id or identifier) → mandatory reason for `kick` (if `Config.Moderation.require_reason`) → execution → audit entry (`mod_<action>`).
 
 | Action | Status in 0.1.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Working. |
-| `ban`, `warn`, `spectate`, `revive` | Validated and recorded in the audit log, but they do nothing in game yet **(coming soon)**. |
+| `ban`, `warn`, `spectate`, `revive` | Disabled: they reply "This moderation action is unavailable.", are not audited and the panel does not offer them **(coming soon)**. |
 | Unfreeze | **(coming soon)** |
 
-Staff Suite does **not** replace txAdmin: noclip, god mode, spawning, etc. stay in txAdmin.
+Staff Suite does **not** replace txAdmin: noclip, god mode, spawning, bans, etc. stay in txAdmin or your framework.
 
 ## Per-person overrides (coming soon)
 
-The core already supports granting or revoking a single capability for an identifier (`license:...`) on top of their rank (`revoke` beats `grant`, and `grant` beats the rank). There is no command or screen to manage them yet **(coming soon)**.
-
-## Framework / ACE mapping (coming soon)
-
-Once wired, the existing bridges will map as follows:
-
-| Source | Mapping |
-|---|---|
-| ESX | player group → `Config.RankMap` |
-| QBCore / Qbox | `god` permission → `owner`, `admin` → `admin`, `mod` → `moderator` |
-| Standalone (ACE) | `staff_suite.owner`, `staff_suite.senior_admin`, `staff_suite.admin`, `staff_suite.moderator`, `staff_suite.helper` |
+The core already supports granting or revoking a single capability for an identifier on top of their rank (`revoke` beats `grant`, `grant` beats the rank). There is no command or screen to manage them yet **(coming soon)**.

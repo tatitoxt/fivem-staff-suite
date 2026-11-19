@@ -7,11 +7,11 @@ local T = {}
 local LANGS = { "es", "en" }
 
 local function load_locales()
-  local saved = Locale
-  Locale = nil
+  local saved = rawget(_G, "Locale")
+  rawset(_G, "Locale", nil)
   for _, lang in ipairs(LANGS) do dofile("locales/" .. lang .. ".lua") end
-  local out = Locale
-  Locale = saved
+  local out = rawget(_G, "Locale")
+  rawset(_G, "Locale", saved)
   return out
 end
 
@@ -132,11 +132,11 @@ end
 -- Categorías y prioridades de config.lua tienen etiqueta cat_* / pri_*.
 function T.test_config_categories_and_priorities()
   local L = load_locales()
-  local saved = Config
-  Config = nil
+  local saved = rawget(_G, "Config")
+  rawset(_G, "Config", nil)
   dofile("config.lua")
-  local cfg = Config
-  Config = saved
+  local cfg = rawget(_G, "Config")
+  rawset(_G, "Config", saved)
   for _, c in ipairs(cfg.Categories or {}) do require_key(L, "cat_" .. c, "config.lua Categories") end
   for _, p in ipairs(cfg.Priorities or {}) do require_key(L, "pri_" .. p, "config.lua Priorities") end
   for _, rank in pairs(cfg.RankMap or {}) do require_key(L, "rank_" .. rank, "config.lua RankMap") end

@@ -1,79 +1,113 @@
-# `config.lua` reference
+# Configuration reference
 
-`config.lua` stays open (outside escrow) so you can edit it. Documented version: **0.1.0**.
+Documented version: **0.1.0**. There are two files:
 
-> **Security:** `config.lua` is loaded as a `shared_script`, which means it is also sent to clients. Do not put anything there that players must not see. See the note on `Config.Export.webhook` below.
+| File | Loaded on | Purpose |
+|---|---|---|
+| `config.lua` | client **and** server (`shared_script`) | Public options: language, commands, categories, framework, ranks, persistence. |
+| `server/config.lua` | server only | Private options: webhook and anchors (`Config.Export`) and per-identifier ranks (`Config.StandaloneRanks`). |
 
-## General
+Do not put secrets in `config.lua`: every player downloads it.
+
+## `config.lua`
+
+### General
 
 | Key | Default | Description |
 |---|---|---|
-| `Config.Locale` | `'es'` | Language of server messages: `'es'` or `'en'`. Unknown values fall back to `'en'`. |
-| `Config.PanelKey` | `'F6'` | Default key to open the panel. Each player can rebind it in *Settings → Key Bindings → FiveM*. |
+| `Config.Locale` | `'es'` | Message language: `'es'` or `'en'`. If the language does not exist, or a key is missing, the English text is used. |
+| `Config.PanelKey` | `'F6'` | Default key to open the panel. Each player can rebind it under *Settings → Key Bindings → FiveM*. |
 
-## `Config.Commands`
+### `Config.Commands`
 
 | Key | Default | Description |
 |---|---|---|
 | `report` | `'report'` | Player command to create a report. |
-| `duty` | `'duty'` | Staff command to go on/off duty. |
-| `audit` | `'audit'` | Command to verify the chain (console or game). |
+| `duty` | `'duty'` | Staff command to clock in/out. |
+| `audit` | `'audit'` | Command to verify the chain (console or in game). |
 | `reports` | `'reports'` | Ticket queue command **(coming soon)**: not registered yet. |
 
-## Reports
+### Reports
 
 | Key | Default | Description |
 |---|---|---|
-| `Config.Categories` | `{ 'bug', 'player', 'staff', 'question', 'other' }` | Report categories. Each one needs a `cat_<name>` label in `locales/`. In 0.1.0 `/report` accepts any word as category; filtering by this list comes with the panel **(coming soon)**. |
-| `Config.Priorities` | `{ 'low', 'normal', 'high', 'urgent' }` | Priorities. Each one needs `pri_<name>` in `locales/`. Reports created by command get `normal`. |
+| `Config.Categories` | `{ 'bug', 'player', 'staff', 'question', 'other' }` | Valid categories. A category not in the list is stored as `other`. Each one needs a `cat_<name>` label in `locales/`. |
+| `Config.Priorities` | `{ 'low', 'normal', 'high', 'urgent' }` | Valid priorities (from the panel). An unknown priority, or a `/report`, comes in as `normal`. Each one needs `pri_<name>` in `locales/`. |
 
-## Ranks
-
-| Key | Default | Description |
-|---|---|---|
-| `Config.StandaloneRank` | `'owner'` | Rank given to **every** player in 0.1.0. See [Ranks and permissions](permissions.md). |
-| `Config.RankMap` | `helper/mod/moderator/admin/superadmin/owner` | Maps framework groups to Staff Suite ranks. Applied once the bridges are wired **(coming soon)**. |
-
-## Persistence
+### Framework and ranks
 
 | Key | Default | Description |
 |---|---|---|
-| `Config.Persistence` | `'json'` | `'json'` (file) or `'oxmysql'` (MySQL/MariaDB). With `'oxmysql'` and oxmysql stopped, it falls back to JSON. |
+| `Config.Framework` | `'auto'` | `'auto'` detects Qbox → QBCore → ESX → standalone. Force `'qbox'`, `'qbcore'`, `'esx'` or `'standalone'` if you run more than one. Any other value stops startup with `Config.Framework inválido`. |
+| `Config.RankMap` | see below | ESX group, QBCore permission or Qbox ACE object → Staff Suite rank. |
+| `Config.JobRankMap` | `{ esx = {}, qbcore = {}, qbox = {} }` | Active job → rank, per framework. E.g. `esx = { staff = 'helper' }`. |
+
+Default `Config.RankMap`:
+
+```lua
+Config.RankMap = {
+  helper = 'helper', support = 'helper',
+  mod = 'moderator', moderator = 'moderator',
+  admin = 'admin',
+  superadmin = 'senior_admin',
+  owner = 'owner', god = 'owner',
+}
+```
+
+If a player matches several groups, permissions or jobs, the highest rank wins. Valid ranks: `helper`, `moderator`, `admin`, `senior_admin`, `owner`. See [Ranks and permissions](permissions.md).
+
+### Persistence
+
+| Key | Default | Description |
+|---|---|---|
+| `Config.Persistence` | `'json'` | `'json'` (file) or `'oxmysql'` (MySQL/MariaDB). With `'oxmysql'` and oxmysql not running, it falls back to JSON. |
 | `Config.JsonFile` | `'staff_suite_data.json'` | File inside the resource folder. |
 
 Data is saved after every audit entry, every 60 seconds and when the resource stops. With oxmysql the whole state is stored in one row of the `staff_state` table.
 
-## `Config.Export` (off-box anchoring)
+### `Config.Audit`
 
 | Key | Default | Description |
 |---|---|---|
-| `webhook` | `''` | Discord webhook URL. Empty = disabled. |
+| `capture_commands` | `true` | Registers restricted `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob` commands and logs each use as `cmd_<command>`. If it clashes with same-named commands from another resource, set it to `false`. |
+| `capture_framework` | `true` | Framework event capture (grants, bans) **(coming soon)**: no effect yet. |
+
+### `Config.Moderation`
+
+| Key | Default | Description |
+|---|---|---|
+| `require_reason` | `true` | Requires a reason for `kick`. |
+
+## `server/config.lua`
+
+### `Config.Export` (off-box anchoring)
+
+| Key | Default | Description |
+|---|---|---|
+| `webhook` | `GetConvar('staff_suite_webhook', '')` | Discord webhook URL. Set it in `server.cfg` with `set staff_suite_webhook "URL"`. Empty = disabled. |
 | `file` | `true` | Writes each anchor to `audit_export.log` (resource folder). |
 | `anchor_every` | `20` | Anchor the current hash every N entries. |
 
-> **Webhook in 0.1.0:** since `config.lua` reaches the client, a savvy player could read the URL. Use a dedicated webhook in a channel used only for this, and regenerate it if it leaks. Moving the URL to a server-only convar is **(coming soon)**.
+Use `set`, **not** `setr`: `setr` replicates the convar to clients and anyone could read the URL. Full details in [Audit: export and verification](audit.md).
 
-Full details in [Audit: export and verification](audit.md).
+### `Config.StandaloneRanks`
 
-## `Config.Audit`
+Ranks by stable identifier, standalone mode only:
 
-| Key | Default | Description |
-|---|---|---|
-| `capture_commands` | `true` | Registers restricted commands `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob` and records each use in the audit log as `cmd_<command>`. If it clashes with same-name commands from another resource, set it to `false`. |
-| `capture_framework` | `true` | Framework event capture (grants, bans) **(coming soon)**: no effect yet. |
+```lua
+Config.StandaloneRanks = {
+  ['license:1234abcd...'] = 'admin',
+}
+```
 
-## `Config.Moderation`
-
-| Key | Default | Description |
-|---|---|---|
-| `require_reason` | `true` | Requires a reason for `kick`, `ban` and `warn`. |
+Combined with `staff_suite.<rank>` ACEs: the highest wins. Ignored when a framework is active.
 
 ## Locales
 
-Texts live in `locales/es.lua` and `locales/en.lua` (open). If you add or change a key, put it in **both** files and run the tests:
+Texts live in `locales/es.lua` and `locales/en.lua`. If you add or change a key, put it in **both** files and run the tests:
 
 ```
 lua5.4 tests/run_all.lua
 ```
 
-The `test_locales` test fails if a key is missing in any language, a text is empty, or placeholders (`%{id}`, `%{name}`…) do not match.
+The `test_locales` test fails if a key is missing in either language, a text is empty, or placeholders (`%{id}`, `%{name}`…) do not match.

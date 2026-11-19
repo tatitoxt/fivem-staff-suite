@@ -8,7 +8,7 @@
 |---|---|---|
 | FXServer reciente con Lua 5.4 | Sí | El resource usa `fx_version 'cerulean'` y `lua54 'yes'`. |
 | [oxmysql](https://github.com/overextended/oxmysql) + MySQL/MariaDB | No | Solo si querés guardar los datos en base de datos. Sin oxmysql se usa un archivo JSON. |
-| Framework (ESX / QBCore / Qbox) | No | El resource corre standalone. Ver [Frameworks](#frameworks). |
+| Framework (ESX / QBCore / Qbox) | No | Se detecta solo. Sin framework funciona en modo standalone con ACE. Ver [Frameworks](#frameworks). |
 | ox_lib | No | No se usa en 0.1.0. |
 
 ## 1. Copiar el resource
@@ -20,9 +20,10 @@ resources/
 └── [staff]/
     └── staff_suite/
         ├── fxmanifest.lua
-        ├── config.lua
+        ├── config.lua          ← config pública (cliente + server)
+        ├── server/config.lua   ← config privada (solo server)
         ├── core/  locales/  server/  client/  shared/
-        └── ui/dist/        ← panel NUI compilado
+        └── ui/dist/            ← panel NUI compilado
 ```
 
 El nombre importa: los callbacks del panel (`https://staff_suite/...`) y los exports (`exports.staff_suite`) usan ese nombre.
@@ -54,48 +55,56 @@ ensure oxmysql
 # tu framework (opcional): es_extended / qb-core / qbx_core
 ensure qb-core
 
+# webhook de Discord para las anclas de auditoría (opcional). Usá set, no setr.
+set staff_suite_webhook "https://discord.com/api/webhooks/..."
+
+# standalone: rangos por ACE (ver Rangos y permisos)
+add_ace group.admin staff_suite.admin allow
+
 ensure staff_suite
 ```
 
-Orden: oxmysql → framework → `staff_suite`.
+Orden: oxmysql → framework → convars de Staff Suite → `staff_suite`. El webhook se lee al cargar el resource, así que el `set` tiene que ir antes del `ensure`.
 
 ## 4. Primer arranque
 
 En la consola del server tenés que ver:
 
 ```
-[StaffSuite] iniciado · 0 entradas de auditoría · persistencia=json
+[StaffSuite] iniciado · 0 entradas de auditoría · persistencia=json · framework=standalone
 ```
 
-(o `persistencia=oxmysql`). Probá la cadena desde la consola:
+`persistencia` muestra lo configurado (`json` u `oxmysql`) y `framework` el bridge elegido. Probá la cadena desde la consola:
 
 ```
 audit
 ```
 
-→ `[StaffSuite] audit OK: N entries`.
+→ `[StaffSuite] auditoría OK: N entradas`.
 
 ## Frameworks
 
-| Framework | Estado en 0.1.0 |
-|---|---|
-| Standalone | Funciona. Es el modo actual para todos los servers. |
-| ESX Legacy | Bridge escrito (`server/bridges/esx.lua`), **todavía no conectado** al resource **(próximamente)**. |
-| QBCore | Bridge escrito (`server/bridges/qbcore.lua`), **todavía no conectado** **(próximamente)**. |
-| Qbox (`qbx_core`) | Bridge escrito (`server/bridges/qbox.lua`), **todavía no conectado** **(próximamente)**. |
+`Config.Framework = 'auto'` (default) elige el primero que esté iniciado, en este orden: **Qbox → QBCore → ESX → standalone**. Si tenés más de uno (por ejemplo Qbox con la capa de compatibilidad de qb-core), forzalo con `'qbox'`, `'qbcore'`, `'esx'` o `'standalone'`.
 
-Podés tener cualquiera de esos frameworks corriendo: Staff Suite no choca con ellos, pero en 0.1.0 todavía no lee sus grupos ni usa sus funciones de kick/ban.
+| Framework | Resource | De dónde sale el rango | Nombre mostrado |
+|---|---|---|---|
+| Qbox | `qbx_core` | ACE con el nombre de cada clave de `Config.RankMap` (`IsPlayerAceAllowed(src, 'admin')`), más `Config.JobRankMap.qbox` | nombre y apellido del personaje |
+| QBCore | `qb-core` | `QBCore.Functions.HasPermission(src, <clave de RankMap>)`, más `Config.JobRankMap.qbcore` | nombre y apellido del personaje |
+| ESX Legacy | `es_extended` | grupo del xPlayer (`getGroup()`) comparado con las claves de `Config.RankMap`, más `Config.JobRankMap.esx` | `getName()` |
+| Standalone | — | ACE `staff_suite.<rango>` y `Config.StandaloneRanks` (en `server/config.lua`) | nombre de FiveM |
 
-> **Importante (0.1.0):** hoy todos los jugadores reciben el rango de `Config.StandaloneRank`, que viene en `'owner'` (todas las capabilities). Usá esta versión en un server de pruebas hasta que llegue el mapeo de rangos por framework/ACE. Más detalles en [Rangos y permisos](permisos.md).
+El detalle de cómo se arma el rango está en [Rangos y permisos](permisos.md).
+
+Con un framework activo, si el jugador todavía no cargó personaje, queda sin rango (solo puede usar `/report`) hasta que cargue.
 
 ## Comandos
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/report <categoría> <descripción>` | Cualquier jugador | Crea un reporte. Ej.: `/report bug me caí del mapa`. |
+| `/report <categoría> <descripción>` | Cualquier jugador | Crea un reporte. La primera palabra es la categoría; si no está en `Config.Categories`, queda como `other`. Ej.: `/report bug me caí del mapa`. |
 | `/duty` | Capability `staff.duty` | Entra/sale de servicio y registra el turno. |
 | `/audit` | Capability `audit.view` (o consola) | Verifica la cadena. En consola imprime el resultado; en juego lo manda al panel. |
-| `/staffsuite` o tecla `F6` | Staff | Abre el panel NUI. |
+| `/staffsuite` o tecla `F6` | Cualquiera | Abre el panel NUI. Cada jugador ve solo lo que sus capabilities permiten. |
 
 Los nombres de `/report`, `/duty` y `/audit` se cambian en `Config.Commands`. Ver [Configuración](configuracion.md).
 

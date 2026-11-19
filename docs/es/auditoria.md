@@ -17,8 +17,9 @@ Si alguien edita un campo, borra una entrada del medio o cambia el orden, los ha
 
 | Acción | Origen |
 |---|---|
-| `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reportes (`/report` y panel) |
-| `mod_<acción>` | moderación desde el panel |
+| `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reportes (`/report`, panel y export `TicketAction`) |
+| `ticket_message` | mensajes del ticket (el `payload` dice si es nota interna, no el texto) |
+| `mod_<acción>` | moderación desde el panel (`goto`, `bring`, `freeze`, `heal`, `kick`) |
 | `duty.in`, `duty.out` | `/duty` |
 | `audit_verify` | verificación desde el panel (con resultado en `reason`) |
 | `cmd_<comando>` | comandos capturados si `Config.Audit.capture_commands = true` |
@@ -30,16 +31,17 @@ Si alguien edita un campo, borra una entrada del medio o cambia el orden, los ha
 
 | Dónde | Cómo | Requiere |
 |---|---|---|
-| Consola del server | `audit` → `[StaffSuite] audit OK: N entries` o `audit BROKEN at <seq>` | acceso a consola |
+| Consola del server | `audit` → `[StaffSuite] auditoría OK: N entradas` o `auditoría ROTA en la entrada <seq>` | acceso a consola |
 | En juego | `/audit` (resultado al panel) | `audit.view` |
 | Panel | botón "Verificar cadena" | `audit.verify` |
+| Panel (alerta) | si la cadena está rota, el panel muestra una alerta | `staff.analytics` |
 | Otro resource (server) | `local ok, seq = exports.staff_suite:Verify()` | — |
 
 `verify` recalcula toda la cadena desde la génesis. Sola **no** detecta dos casos: que borren las últimas entradas o que reescriban la cadena completa recalculando todos los hashes. Para eso están las anclas off-box.
 
 ## Export off-box (anclas)
 
-Cada `Config.Export.anchor_every` entradas (default 20, o sea `seq` 20, 40, 60…) Staff Suite ancla la entrada actual:
+Cada `Config.Export.anchor_every` entradas (default 20, o sea `seq` 20, 40, 60…; se configura en `server/config.lua`) Staff Suite ancla la entrada actual:
 
 - **Archivo** (`Config.Export.file = true`): agrega una línea a `audit_export.log` en la carpeta del resource:
   ```
@@ -47,7 +49,7 @@ Cada `Config.Export.anchor_every` entradas (default 20, o sea `seq` 20, 40, 60�
   40|9f2c…e1|51ab…07|ticket_resolve
   ```
   Este archivo está en la misma máquina: para que sirva como prueba, copialo afuera del server (backup, otro host, nube). Una copia que el staff con acceso al server no puede tocar es la que vale.
-- **Discord** (`Config.Export.webhook`): manda un mensaje con el `seq` y los primeros 16 caracteres del hash. Los mensajes de Discord quedan con fecha y fuera de tu server.
+- **Discord** (`set staff_suite_webhook "URL"` en `server.cfg`, leído en `server/config.lua`): manda un mensaje con el `seq` y los primeros 16 caracteres del hash. Los mensajes de Discord quedan con fecha y fuera de tu server. Usá `set`, no `setr`, para que la URL no llegue a los clientes.
 
 ### Comparar contra un ancla
 
@@ -77,7 +79,7 @@ La comparación automática contra el ancla (el core ya tiene `verify_head`) y u
 | `Verify()` | `ok, seq_roto` |
 | `GetChain()` | Copia de todas las entradas. |
 | `CreateTicket(data)` | Crea un ticket (`reporter`, `category`, `priority`, `description`, `ts`). Devuelve el id. |
-| `TicketAction(id, action, actor, extra)` | Transición de ticket (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`). |
+| `TicketAction(id, action, actor, extra)` | Transición de ticket (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) y su entrada en la auditoría. Devuelve `ticket, evento` o `nil, error`. Para `transfer`, `extra.to` es el identificador del destinatario. |
 | `GetState()` | Estado completo (cadena, tickets, permisos, duty). |
 
 Ejemplo:

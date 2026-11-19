@@ -17,8 +17,9 @@ If someone edits a field, deletes an entry in the middle or reorders entries, th
 
 | Action | Source |
 |---|---|
-| `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reports (`/report` and panel) |
-| `mod_<action>` | moderation from the panel |
+| `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reports (`/report`, panel and the `TicketAction` export) |
+| `ticket_message` | ticket messages (the `payload` says whether it is an internal note, not the text) |
+| `mod_<action>` | moderation from the panel (`goto`, `bring`, `freeze`, `heal`, `kick`) |
 | `duty.in`, `duty.out` | `/duty` |
 | `audit_verify` | verification from the panel (result in `reason`) |
 | `cmd_<command>` | captured commands when `Config.Audit.capture_commands = true` |
@@ -30,16 +31,17 @@ If someone edits a field, deletes an entry in the middle or reorders entries, th
 
 | Where | How | Requires |
 |---|---|---|
-| Server console | `audit` → `[StaffSuite] audit OK: N entries` or `audit BROKEN at <seq>` | console access |
+| Server console | `audit` → `[StaffSuite] audit OK: N entries` or `audit BROKEN at entry <seq>` | console access |
 | In game | `/audit` (result goes to the panel) | `audit.view` |
 | Panel | "Verify chain" button | `audit.verify` |
+| Panel (alert) | if the chain is broken, the panel shows an alert | `staff.analytics` |
 | Another resource (server) | `local ok, seq = exports.staff_suite:Verify()` | — |
 
 `verify` recomputes the whole chain from genesis. On its own it does **not** catch two cases: deleting the last entries, or rewriting the whole chain and recomputing every hash. That is what off-box anchors are for.
 
 ## Off-box export (anchors)
 
-Every `Config.Export.anchor_every` entries (default 20, i.e. `seq` 20, 40, 60…) Staff Suite anchors the current entry:
+Every `Config.Export.anchor_every` entries (default 20, i.e. `seq` 20, 40, 60…; set in `server/config.lua`) Staff Suite anchors the current entry:
 
 - **File** (`Config.Export.file = true`): appends a line to `audit_export.log` in the resource folder:
   ```
@@ -47,7 +49,7 @@ Every `Config.Export.anchor_every` entries (default 20, i.e. `seq` 20, 40, 60…
   40|9f2c…e1|51ab…07|ticket_resolve
   ```
   This file lives on the same machine: for it to count as evidence, copy it off the server (backup, another host, cloud). A copy that staff with server access cannot touch is the one that matters.
-- **Discord** (`Config.Export.webhook`): posts a message with the `seq` and the first 16 characters of the hash. Discord messages are timestamped and live outside your server.
+- **Discord** (`set staff_suite_webhook "URL"` in `server.cfg`, read by `server/config.lua`): posts a message with the `seq` and the first 16 characters of the hash. Discord messages are timestamped and live outside your server. Use `set`, not `setr`, so the URL never reaches clients.
 
 ### Checking against an anchor
 
@@ -77,7 +79,7 @@ Automatic comparison against anchors (the core already has `verify_head`) and an
 | `Verify()` | `ok, broken_seq` |
 | `GetChain()` | Copy of all entries. |
 | `CreateTicket(data)` | Creates a ticket (`reporter`, `category`, `priority`, `description`, `ts`). Returns the id. |
-| `TicketAction(id, action, actor, extra)` | Ticket transition (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`). |
+| `TicketAction(id, action, actor, extra)` | Ticket transition (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) plus its audit entry. Returns `ticket, event` or `nil, error`. For `transfer`, `extra.to` is the recipient's identifier. |
 | `GetState()` | Full state (chain, tickets, permissions, duty). |
 
 Example:

@@ -2,20 +2,43 @@
 
 Staff Suite usa **capabilities** (permisos atómicos) agrupadas en **rangos**, con criterio de mínimo privilegio. Todo se valida en el server; el cliente nunca decide.
 
-## Estado en 0.1.0
+## Cómo se asigna el rango
 
-> **Leé esto antes de usarlo en producción.** En 0.1.0 todos los jugadores reciben el rango definido en `Config.StandaloneRank` (default `'owner'` = todas las capabilities). El mapeo de rangos por framework o ACE todavía no está conectado **(próximamente)**. Hasta entonces, usalo en un server de pruebas o con jugadores de confianza.
+Cada vez que un jugador hace algo, el server resuelve su rango con el bridge elegido por `Config.Framework` (ver [Instalación](instalacion.md#frameworks)). Un jugador **sin rango** no tiene capabilities: puede usar `/report` y nada más.
 
-Bajar `Config.StandaloneRank` (por ejemplo a `'helper'`) limita a **todos** por igual, incluido vos.
+### Con framework (Qbox / QBCore / ESX)
+
+Se recorre `Config.RankMap` y se pregunta al framework por cada clave:
+
+| Framework | Pregunta |
+|---|---|
+| Qbox | `IsPlayerAceAllowed(src, clave)`. Ej.: `add_ace group.admin admin allow` → `admin`. |
+| QBCore | `QBCore.Functions.HasPermission(src, clave)`. |
+| ESX | `xPlayer.getGroup() == clave`. |
+
+Además, si el job activo del jugador está en `Config.JobRankMap.<framework>`, ese rango también cuenta. Si coinciden varios, **gana el más alto**. Con framework activo, los ACE `staff_suite.<rango>` y `Config.StandaloneRanks` **no** se usan.
+
+### Standalone
+
+Dos fuentes, gana la más alta:
+
+1. ACE `staff_suite.<rango>` en `server.cfg`:
+   ```cfg
+   add_ace group.admin staff_suite.admin allow
+   add_principal identifier.license:1234abcd... group.admin
+   ```
+2. `Config.StandaloneRanks` en `server/config.lua`, por identificador `license:...`.
+
+Rangos válidos: `helper`, `moderator`, `admin`, `senior_admin`, `owner`. Un rango con otro nombre se ignora.
 
 ## Rangos
 
 | Rango | Resumen |
 |---|---|
 | `helper` | Ve y atiende reportes, chat, duty. |
-| `moderator` | + resolver reportes, moderación básica (goto/bring/spectate/freeze/heal/kick/warn), ver auditoría. |
-| `admin` | + revive, ban, verificar la cadena, analytics de staff. |
-| `senior_admin` | + exportar auditoría, configuración. |
+| `moderator` | + resolver/transferir reportes, moderación básica, ver auditoría. |
+| `admin` | + verificar la cadena, analytics de staff. |
+| `senior_admin` | + capabilities reservadas para export y configuración. |
 | `owner` | Todas las capabilities. |
 
 ## Matriz de capabilities
@@ -40,41 +63,37 @@ Bajar `Config.StandaloneRank` (por ejemplo a `'helper'`) limita a **todos** por 
 
 Fuente: `core/permissions.lua`.
 
-## Qué controla cada capability hoy
+## Qué controla cada capability
 
-| Capability | Se usa en 0.1.0 para |
+| Capability | Controla |
 |---|---|
-| `staff.duty` | `/duty` |
-| `audit.view` | `/audit` en juego |
-| `audit.verify` | botón "Verificar cadena" del panel (deja una entrada `audit_verify`) |
-| `report.claim` | todas las acciones sobre tickets desde el panel (reclamar, transferir, resolver, cerrar, reabrir) |
+| `report.view` | recibir la cola de tickets en el panel |
+| `report.claim` | reclamar, empezar y soltar un ticket; poder recibir una transferencia |
+| `report.resolve` | transferir, resolver, cerrar y reabrir |
+| `report.message` | escribir en el ticket (junto con `report.view`), incluidas notas internas |
 | `mod.<acción>` | acciones de moderación desde el panel |
-| `report.view`, `report.resolve`, `report.message`, `audit.export`, `staff.analytics`, `admin.config`, `admin.permissions` | definidas en el modelo; su control fino llega con el panel **(próximamente)** |
+| `audit.view` | ver las entradas de auditoría en el panel y `/audit` en juego |
+| `audit.verify` | botón "Verificar cadena" del panel (deja una entrada `audit_verify`) |
+| `staff.duty` | `/duty` |
+| `staff.analytics` | estadísticas de duty del staff y alertas (ej. cadena rota) |
+| `audit.export`, `admin.config`, `admin.permissions` | definidas en el modelo, sin uso todavía **(próximamente)** |
 
-`/report` no pide capability: cualquier jugador puede reportar.
+El panel recibe solo los datos que permiten las capabilities del jugador. `/report` no pide capability.
+
+Una transferencia solo se acepta si el destinatario está conectado y tiene `report.claim` y `report.view`.
 
 ## Moderación
 
-Cada acción de moderación pasa por: chequeo de capability → razón obligatoria (si `Config.Moderation.require_reason` y la acción es `kick`, `ban` o `warn`) → ejecución → entrada en la auditoría (`mod_<acción>`).
+Cada acción pasa por: chequeo de capability → jugador objetivo conectado (por server id o identificador) → razón obligatoria para `kick` (si `Config.Moderation.require_reason`) → ejecución → entrada en la auditoría (`mod_<acción>`).
 
 | Acción | Estado en 0.1.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Funcionan. |
-| `ban`, `warn`, `spectate`, `revive` | Se validan y quedan en la auditoría, pero todavía no ejecutan nada en el juego **(próximamente)**. |
+| `ban`, `warn`, `spectate`, `revive` | Deshabilitadas: responden "Esta acción de moderación no está disponible.", no se auditan y el panel no las ofrece **(próximamente)**. |
 | Descongelar (`unfreeze`) | **(próximamente)** |
 
-Staff Suite **no** reemplaza a txAdmin: noclip, god mode, spawn, etc. siguen en txAdmin.
+Staff Suite **no** reemplaza a txAdmin: noclip, god mode, spawn, ban, etc. siguen en txAdmin o tu framework.
 
 ## Overrides por persona (próximamente)
 
-El core ya soporta dar o quitar una capability puntual a un identificador (`license:...`) por encima de su rango (`revoke` gana sobre `grant`, y `grant` sobre el rango). Todavía no hay comando ni pantalla para administrarlos **(próximamente)**.
-
-## Mapeo por framework / ACE (próximamente)
-
-Los bridges ya escritos van a mapear así cuando se conecten:
-
-| Fuente | Mapeo |
-|---|---|
-| ESX | grupo del jugador → `Config.RankMap` |
-| QBCore / Qbox | permiso `god` → `owner`, `admin` → `admin`, `mod` → `moderator` |
-| Standalone (ACE) | `staff_suite.owner`, `staff_suite.senior_admin`, `staff_suite.admin`, `staff_suite.moderator`, `staff_suite.helper` |
+El core ya soporta dar o quitar una capability puntual a un identificador por encima de su rango (`revoke` gana sobre `grant`, y `grant` sobre el rango). Todavía no hay comando ni pantalla para administrarlos **(próximamente)**.
