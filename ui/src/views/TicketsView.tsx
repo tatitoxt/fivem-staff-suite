@@ -43,7 +43,7 @@ function TicketCard({ tk, selected, onSelect }: { tk: Ticket; selected: boolean;
 const encoder = new TextEncoder();
 // Los límites del servidor son en bytes; se avisa antes de enviar para no perder el borrador.
 function overLimit(text: string, max?: number) {
-  return !!max && encoder.encode(text.trim()).length > max;
+  return max != null && encoder.encode(text.trim()).length > max;
 }
 
 function LimitHint({ text, max }: { text: string; max?: number }) {
