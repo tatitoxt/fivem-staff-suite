@@ -262,7 +262,7 @@ local function serverSandbox(options)
   env.SaveResourceFile = function(_, path, data)
     if server.failWrites then return false end
     if path == env.Config.JsonFile then files[path] = clone(payloads[tonumber(data)]) end
-    return true
+    return 1 -- BOOL de FiveM: 1/false
   end
   env.json = { encode = function(value)
     payloads[#payloads + 1] = value

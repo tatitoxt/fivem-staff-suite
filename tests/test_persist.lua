@@ -118,7 +118,7 @@ local function boot(state, memory, db, dbStarted)
       end
       return memory.checkpoint
     end,
-    SaveResourceFile = function(_, _, raw) memory.checkpoint = raw; return true end,
+    SaveResourceFile = function(_, _, raw) memory.checkpoint = raw; return 1 end, -- BOOL de FiveM: 1/false
     GetResourceState = function() return dbStarted == false and 'stopped' or 'started' end,
     StaffSuiteTranslate = function(key) return key end,
     print = function(msg) memory.printed = memory.printed or {}; memory.printed[#memory.printed + 1] = msg end,
