@@ -11,7 +11,7 @@ local function copy(value)
   return result
 end
 
-local keys = { staff_audit = 'seq', staff_tickets = 'id', staff_messages = 'ticket_id',
+local keys = { staff_audit = 'seq', staff_tickets = 'id', staff_messages = 'ticket_id', staff_evidence = 'ticket_id',
   staff_duty = 'actor', staff_stats = 'actor', staff_bans = 'identifier', staff_state = 'k' }
 
 local function sqlMock()
@@ -23,7 +23,7 @@ local function sqlMock()
     for _, row in pairs(self.tables[tableName] or {}) do rows[#rows + 1] = copy(row) end
     table.sort(rows, function(a, b)
       local key = keys[tableName]
-      if a[key] == b[key] then return a.position < b.position end
+      if a[key] == b[key] then return (a.position or a.n) < (b.position or b.n) end
       return a[key] < b[key]
     end)
     cb(rows)
@@ -52,6 +52,7 @@ local function sqlMock()
           end
           local key = assert(row[keys[name]])
           if name == 'staff_messages' then key = key .. ':' .. row.position end
+          if name == 'staff_evidence' then key = key .. ':' .. row.n end
           if name == 'staff_audit' then assert(not self.tables[name][key], 'una entrada auditada es inmutable') end
           self.tables[name][key] = row
         end
@@ -125,6 +126,8 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   local ticket = tickets.create(state.tickets, { reporter = 'license:player', description = 'texto', ts = 2 })
   tickets.add_message(state.tickets, ticket.id, 'license:staff', "O'Brien", true, 3)
   tickets.add_message(state.tickets, ticket.id, 'license:staff', 'respuesta', false, 4)
+  ticket.resolved_by = 'license:staff'
+  ticket.evidence = { { n = 1, ts = 6, by = 'license:staff', sha256 = ('a'):rep(64), size = 10, audit_seq = 1 } }
   duty.clock_in(state.duty, 'license:staff', 5)
   duty.record_resolved(state.duty, 'license:staff', 50)
   duty.record_rating(state.duty, 'license:staff', 4)
@@ -134,12 +137,15 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   storage.save()
   assert(#db.calls == 0)
   flush()
-  assert(#db.calls == 1 and #db.calls[1] == 7)
+  assert(#db.calls == 1 and #db.calls[1] == 8)
   local restored = fresh()
   local nextStorage, nextFlush = boot(restored, memory, db)
   assert(restored.chain.head == state.chain.head and audit.verify(restored.chain))
   assert(restored.tickets.next_id == 2 and restored.tickets.tickets[1].claimer == nil)
   assert(restored.tickets.tickets[1].messages[1].body == "O'Brien")
+  local back = restored.tickets.tickets[1]
+  assert(back.first_response_ts == 4 and back.resolved_by == 'license:staff')
+  assert(back.evidence[1].by == 'license:staff' and back.evidence[1].sha256 == ('a'):rep(64) and back.evidence[1].audit_seq == 1)
   assert(restored.tickets.tickets[1].messages[1].internal and not restored.tickets.tickets[1].messages[2].internal)
   assert(restored.duty.staff['license:staff'].since == 5 and restored.duty.staff['license:staff'].ratings_n == 1)
   assert(restored.duty.staff['license:staff'].response_sum == 50)

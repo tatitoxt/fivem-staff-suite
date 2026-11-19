@@ -7,11 +7,14 @@ local specs = {
     numbers = { 'seq', 'ts' } },
   { name = 'tickets', keys = { 'id' },
     columns = { 'id', 'reporter', 'category', 'priority', 'description', 'state', 'claimer',
-      'created_ts', 'updated_ts', 'resolution', 'rating' },
-    numbers = { 'id', 'created_ts', 'updated_ts', 'rating' } },
+      'created_ts', 'updated_ts', 'resolution', 'rating', 'first_response_ts', 'resolved_by' },
+    numbers = { 'id', 'created_ts', 'updated_ts', 'rating', 'first_response_ts' } },
   { name = 'messages', keys = { 'ticket_id', 'position' },
     columns = { 'ticket_id', 'position', 'author', 'body', 'internal', 'ts' },
     numbers = { 'ticket_id', 'position', 'internal', 'ts' } },
+  { name = 'evidence', keys = { 'ticket_id', 'n' },
+    columns = { 'ticket_id', 'n', 'ts', 'actor', 'sha256', 'size', 'audit_seq' },
+    numbers = { 'ticket_id', 'n', 'ts', 'size', 'audit_seq' } },
   { name = 'duty', keys = { 'actor' }, columns = { 'actor', 'on_duty', 'since_ts', 'total_seconds', 'sessions' },
     numbers = { 'on_duty', 'since_ts', 'total_seconds', 'sessions' } },
   { name = 'stats', keys = { 'actor' },
@@ -74,6 +77,12 @@ local function restore(tables, meta)
   for _, row in ipairs(tables.messages) do
     local messages = store.tickets[row.ticket_id].messages
     messages[#messages + 1] = { author = row.author, body = row.body, internal = row.internal == 1, ts = row.ts }
+  end
+  for _, row in ipairs(tables.evidence) do
+    local ticket = store.tickets[row.ticket_id]
+    ticket.evidence = ticket.evidence or {}
+    ticket.evidence[row.n] = { n = row.n, ts = row.ts, by = row.actor, sha256 = row.sha256,
+      size = row.size, audit_seq = row.audit_seq }
   end
   for _, row in ipairs(tables.duty) do
     state.duty.staff[row.actor] = { on_duty = row.on_duty == 1, since = row.since_ts,
@@ -142,12 +151,16 @@ function M.load(cb)
 end
 
 local function rowsFor(state)
-  local rows = { audit = state.chain.entries, tickets = state.tickets.tickets, messages = {},
+  local rows = { audit = state.chain.entries, tickets = state.tickets.tickets, messages = {}, evidence = {},
     duty = {}, stats = {}, bans = {} }
   for _, ticket in pairs(rows.tickets) do
     for i, msg in ipairs(ticket.messages) do
       rows.messages[#rows.messages + 1] = { ticket_id = ticket.id, position = i,
         author = msg.author, body = msg.body, internal = msg.internal and 1 or 0, ts = msg.ts }
+    end
+    for _, item in ipairs(ticket.evidence or {}) do
+      rows.evidence[#rows.evidence + 1] = { ticket_id = ticket.id, n = item.n, ts = item.ts, actor = item.by,
+        sha256 = item.sha256, size = item.size, audit_seq = item.audit_seq }
     end
   end
   for actor, staff in pairs(state.duty.staff) do

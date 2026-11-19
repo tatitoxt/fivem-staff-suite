@@ -44,7 +44,7 @@ This is the default (`Config.Persistence = 'json'`). Nothing else is needed. Dat
    ```lua
    Config.Persistence = 'oxmysql'
    ```
-3. Run `sql/001_staff_suite.sql` on the database configured for oxmysql before starting Staff Suite. On first start after the upgrade, Staff Suite imports any existing `staff_state` snapshot into the new schema.
+3. Run `sql/001_staff_suite.sql` and then `sql/002_tickets_f2.sql` (if 001 is already applied, run only 002) on the database configured for oxmysql before starting Staff Suite. On first start after the upgrade, Staff Suite imports any existing `staff_state` snapshot into the new schema.
 
 Staff Suite uses the JSON backup if oxmysql is unavailable or a database read or write fails. Put `ensure oxmysql` before `ensure staff_suite`.
 
