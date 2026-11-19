@@ -116,6 +116,25 @@ describe('NUI smoke', () => {
     expect((window as unknown as { __xss?: number }).__xss).toBeUndefined();
   });
 
+  it('conserva el borrador que supera el límite y bloquea el envío', async () => {
+    const { container } = render(<App />);
+    await nav(/Reportes/);
+    window.postMessage({
+      type: 'init',
+      payload: {
+        locale: 'es', strings: LOCALES.es, version: '0.1.0', config: { limits: { message_body: 10 } },
+        player: { name: 'Fausto', rank: 'owner' },
+      },
+    }, '*');
+    fireEvent.click(await screen.findByRole('radio', { name: 'Abiertos' }));
+    fireEvent.click(screen.getByLabelText('Cola de tickets').querySelector('button')!);
+    const draft = 'ñ'.repeat(6);
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: draft } });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Enviar/ })).toBeDisabled();
+    expect(container.querySelector('textarea')!.value).toBe(draft);
+  });
+
   it('inserta una respuesta predefinida en el mensaje', async () => {
     const { container } = render(<App />);
     await nav(/Reportes/);

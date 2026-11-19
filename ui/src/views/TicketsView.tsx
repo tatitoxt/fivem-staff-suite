@@ -40,14 +40,26 @@ function TicketCard({ tk, selected, onSelect }: { tk: Ticket; selected: boolean;
   );
 }
 
+const encoder = new TextEncoder();
+// Los límites del servidor son en bytes; se avisa antes de enviar para no perder el borrador.
+function overLimit(text: string, max?: number) {
+  return !!max && encoder.encode(text.trim()).length > max;
+}
+
+function LimitHint({ text, max }: { text: string; max?: number }) {
+  const { t } = useApp();
+  return overLimit(text, max) ? <p className={v.setHint} role="alert">{t('input_too_long', { max: max ?? 0 })}</p> : null;
+}
+
 function Composer({ tk }: { tk: Ticket }) {
   const { state, t, can, send } = useApp();
   const canned = state.config.canned ?? [];
   const [body, setBody] = useState('');
   const [internal, setInternal] = useState(false);
   const disabled = !can('report.message') || tk.state === 'closed';
+  const max = state.config.limits?.message_body;
   const submit = () => {
-    if (!body.trim() || disabled) return;
+    if (!body.trim() || disabled || overLimit(body, max)) return;
     void send('ticket_message', { id: tk.id, body: body.trim(), internal });
     setBody('');
   };
@@ -71,7 +83,6 @@ function Composer({ tk }: { tk: Ticket }) {
       <textarea
         className={ui.input}
         value={body}
-        maxLength={state.config.limits?.message_body}
         disabled={disabled}
         aria-label={internal ? t('ui_note_placeholder') : t('ui_msg_placeholder')}
         placeholder={internal ? t('ui_note_placeholder') : t('ui_msg_placeholder')}
@@ -80,6 +91,7 @@ function Composer({ tk }: { tk: Ticket }) {
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
         }}
       />
+      <LimitHint text={body} max={max} />
       <div className={v.composerRow}>
         <button
           type="button"
@@ -91,7 +103,7 @@ function Composer({ tk }: { tk: Ticket }) {
           <span className={v.switchTrack} />
           {t('ui_internal_toggle')}
         </button>
-        <Button variant="primary" size="small" disabled={disabled || !body.trim()} onClick={submit}>
+        <Button variant="primary" size="small" disabled={disabled || !body.trim() || overLimit(body, max)} onClick={submit}>
           <Send size={16} />{t('ui_send')}
         </Button>
       </div>
@@ -265,6 +277,8 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
 
 export function TicketsView() {
   const { state, t, can, send } = useApp();
+  const resolutionMax = state.config.limits?.resolution ?? state.config.limits?.message_body;
+  const reportMax = state.config.limits?.ticket_body;
   const [group, setGroup] = useState<Group>('all');
   const [priority, setPriority] = useState<'' | Priority>('');
   const [selected, setSelected] = useState<number | null>(null);
@@ -362,13 +376,14 @@ export function TicketsView() {
           onClose={close}
           footer={<>
             <Button onClick={close}>{t('ui_cancel')}</Button>
-            <Button variant="primary" disabled={!text.trim()} onClick={() => { void send('ticket_resolve', { id: tk.id, resolution: text.trim() }); close(); }}>{t('resolve')}</Button>
+            <Button variant="primary" disabled={!text.trim() || overLimit(text, resolutionMax)} onClick={() => { void send('ticket_resolve', { id: tk.id, resolution: text.trim() }); close(); }}>{t('resolve')}</Button>
           </>}
         >
           <label className={ui.field}>
             <span className={ui.label}>{t('ui_ticket_resolution')}</span>
-            <textarea className={ui.input} rows={4} value={text} maxLength={state.config.limits?.resolution ?? state.config.limits?.message_body} placeholder={t('ui_resolution_ph')} onChange={(e) => setText(e.target.value)} />
+            <textarea className={ui.input} rows={4} value={text} placeholder={t('ui_resolution_ph')} onChange={(e) => setText(e.target.value)} />
           </label>
+          <LimitHint text={text} max={resolutionMax} />
         </Dialog>
       )}
       {!isLite && dialog?.kind === 'ban' && tk && (
@@ -411,7 +426,7 @@ export function TicketsView() {
           onClose={close}
           footer={<>
             <Button onClick={close}>{t('ui_cancel')}</Button>
-            <Button variant="primary" disabled={!text.trim()} onClick={() => { void send('ticket_create', { category, priority: isLite ? 'normal' : newPriority, body: text.trim() }); close(); }}>{t('report_submit')}</Button>
+            <Button variant="primary" disabled={!text.trim() || overLimit(text, reportMax)} onClick={() => { void send('ticket_create', { category, priority: isLite ? 'normal' : newPriority, body: text.trim() }); close(); }}>{t('report_submit')}</Button>
           </>}
         >
           <div className={v.queueRow}>
@@ -430,8 +445,9 @@ export function TicketsView() {
           </div>
           <label className={ui.field}>
             <span className={ui.label}>{t('report_description')}</span>
-            <textarea className={ui.input} rows={4} value={text} maxLength={state.config.limits?.reason} onChange={(e) => setText(e.target.value)} />
+            <textarea className={ui.input} rows={4} value={text} onChange={(e) => setText(e.target.value)} />
           </label>
+          <LimitHint text={text} max={reportMax} />
         </Dialog>
       )}
     </main>
