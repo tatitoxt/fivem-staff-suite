@@ -90,7 +90,7 @@ export function DashboardView() {
                         <Badge tone={severityTone[a.severity]}>{t(`ui_sev_${a.severity}`)}</Badge>
                         {' '}{formatRelative(a.ts, loc)}
                       </span>
-                      <Button size="small" onClick={() => dispatch({ type: 'view', view: 'audit', auditActor: a.actor })}>
+                      <Button size="small" onClick={() => dispatch({ type: 'view', view: 'audit', auditActor: a.actor === 'system' ? '' : a.actor })}>
                         {t('ui_alert_view')}
                       </Button>
                     </div>

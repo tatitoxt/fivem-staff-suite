@@ -77,6 +77,7 @@ export interface Kpis {
 export interface PlayerInfo {
   name: string;
   rank: string;
+  identifier?: string;
   capabilities?: Capability[];
 }
 

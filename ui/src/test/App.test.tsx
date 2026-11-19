@@ -58,4 +58,21 @@ describe('NUI smoke', () => {
     fireEvent.click(await screen.findByRole('radio', { name: 'English' }));
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
   });
+
+  it('oculta las secciones sin capability y salta a la primera permitida', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    window.postMessage({
+      type: 'init',
+      payload: {
+        locale: 'es', strings: {}, version: '0.1.0', config: {},
+        player: { name: 'Lu.Helper', rank: 'helper', identifier: 'license:aa', capabilities: ['report.view', 'report.claim'] },
+      },
+    }, '*');
+    // strings vacíos: t() devuelve la clave
+    expect(await screen.findByRole('button', { name: /tab_tickets/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /tab_audit/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ui_nav_dashboard/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'tab_tickets' })).toBeInTheDocument());
+  });
 });

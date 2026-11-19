@@ -7,6 +7,8 @@ local uiLocale = Config.Locale or 'es'
 local rank = 'helper'
 local ticketsCache = {}
 local dutyCache = {}
+local alertsCache = {}
+local playerInfo = nil
 
 local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
@@ -24,7 +26,7 @@ local function sendInit()
     locale = uiLocale,
     strings = strings(uiLocale),
     version = GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '',
-    player = { name = GetPlayerName(PlayerId()), rank = rank },
+    player = playerInfo or { name = GetPlayerName(PlayerId()), rank = rank },
     config = {
       panel_key = Config.PanelKey or 'F6',
       locales = locales,
@@ -82,7 +84,7 @@ local function sendDashboard()
       avg_rating = gN > 0 and gSum / gN or nil,
     },
     leaderboard = dutyCache,
-    alerts = {},
+    alerts = alertsCache,
   })
 end
 
@@ -143,8 +145,7 @@ on('ticket_message', function(d)
   TriggerServerEvent('staff_suite:ticketMessage', d.id, d.body, d.internal == true)
 end)
 on('ticket_create', function(d)
-  local body = tostring(d.body or ''):gsub('[\r\n]+', ' ')
-  ExecuteCommand(('%s %s %s'):format(Config.Commands.report, d.category or 'other', body))
+  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''))
   refreshSoon()
 end)
 on('mod_action', function(d)
@@ -158,7 +159,15 @@ end)
 -- ===== server -> NUI =====
 RegisterNetEvent('staff_suite:state', function(state)
   state = state or {}
-  if state.rank and state.rank ~= rank then rank = state.rank; sendInit() end
+  if state.player then
+    playerInfo = state.player
+    rank = state.player.rank or rank
+    sendInit()
+  elseif state.rank and state.rank ~= rank then
+    rank = state.rank
+    sendInit()
+  end
+  if state.alerts then alertsCache = state.alerts end
   if state.tickets then
     ticketsCache = ticketList(state.tickets)
     nui('tickets', { tickets = ticketsCache })
@@ -170,11 +179,14 @@ RegisterNetEvent('staff_suite:state', function(state)
       verify = v and verifyResult(v[1], v[2]) or nil,
     })
   end
-  if state.duty then
-    dutyCache = state.duty
-    local me, selfOn = GetPlayerName(PlayerId()), false
-    for _, s in ipairs(dutyCache) do
-      if s.actor == me then selfOn = s.on_duty == true end
+  if state.duty or state.dutySelf then
+    if state.duty then dutyCache = state.duty end
+    local selfOn = state.dutySelf and state.dutySelf.on_duty == true
+    if not state.dutySelf then
+      local me = playerInfo and playerInfo.identifier or GetPlayerName(PlayerId())
+      for _, s in ipairs(dutyCache) do
+        if s.actor == me then selfOn = s.on_duty == true end
+      end
     end
     nui('duty', { self = { on_duty = selfOn }, staff = dutyCache })
   end

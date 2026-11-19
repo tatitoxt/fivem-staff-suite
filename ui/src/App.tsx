@@ -13,9 +13,13 @@ import { SettingsView } from './views/SettingsView';
 import { TicketsView } from './views/TicketsView';
 
 function CurrentView() {
-  const { state, t } = useApp();
+  const { state, dispatch, t } = useApp();
   const nav = useNav();
-  if (!nav.some((n) => n.id === state.view)) {
+  const allowed = nav.some((n) => n.id === state.view);
+  useEffect(() => {
+    if (!allowed && nav.length) dispatch({ type: 'view', view: nav[0].id });
+  }, [allowed, nav, dispatch]);
+  if (!allowed) {
     return <main className={s.main}><Empty>{t('ui_no_access')}</Empty></main>;
   }
   switch (state.view) {

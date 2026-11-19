@@ -60,6 +60,8 @@ export function initialState(visible: boolean): AppState {
   };
 }
 
+const arr = <T,>(x: T[] | unknown): T[] => (Array.isArray(x) ? x : []);
+
 function normalizeTickets(t: Ticket[] | Record<string, Ticket>): Ticket[] {
   const list = Array.isArray(t) ? t : Object.values(t);
   return list
@@ -100,7 +102,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     }
     case 'audit': {
       const p = msg.payload;
-      const entries = p.entries ?? state.audit.entries;
+      const entries = p.entries !== undefined ? arr<AuditEntry>(p.entries) : state.audit.entries;
       const head = p.head ?? (entries.length ? entries[entries.length - 1].hash : state.audit.head);
       const gotVerify = p.verify !== undefined;
       return {
@@ -117,9 +119,12 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'tickets':
       return { ...state, tickets: normalizeTickets(msg.payload.tickets ?? []) };
     case 'dashboard':
-      return { ...state, dashboard: msg.payload };
+      return {
+        ...state,
+        dashboard: { ...msg.payload, leaderboard: arr(msg.payload.leaderboard), alerts: arr(msg.payload.alerts) },
+      };
     case 'duty':
-      return { ...state, duty: msg.payload };
+      return { ...state, duty: { ...msg.payload, staff: arr(msg.payload.staff) } };
     case 'toast':
       return pushToast(state, msg.payload.kind, msg.payload.text);
     case 'open':

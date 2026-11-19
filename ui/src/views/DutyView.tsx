@@ -14,7 +14,8 @@ export function DutyView() {
     () => [...(state.duty?.staff ?? [])].sort((a, b) => Number(b.on_duty) - Number(a.on_duty) || b.duty_hours - a.duty_hours),
     [state.duty],
   );
-  const me = staff.find((s) => s.actor === state.player?.name);
+  const meId = state.player?.identifier || state.player?.name;
+  const me = staff.find((s) => s.actor === meId);
   const onCount = staff.filter((s) => s.on_duty).length;
 
   return (
