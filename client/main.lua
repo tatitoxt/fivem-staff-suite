@@ -1,6 +1,7 @@
 -- client/main.lua — Puente NUI (React, ui/dist) <-> server. Contrato: NUI_SPEC.md.
 -- Traduce los eventos del adapter (staff_suite:state/auditResult/notify) a los
 -- mensajes tipados de la NUI (init/audit/tickets/dashboard/duty/toast).
+-- luacheck: globals GetResourceMetadata GetPlayerName PlayerId SetTimeout GetCloudTimeAsInt ExecuteCommand
 local t = StaffSuiteTranslate
 local panelOpen = false
 local uiLocale = Config.Locale or 'es'
@@ -45,8 +46,8 @@ end
 
 local function ticketList(map)
   local list = {}
-  for _, t in pairs(map or {}) do
-    if type(t) == 'table' and t.id then list[#list + 1] = t end
+  for _, tk in pairs(map or {}) do
+    if type(tk) == 'table' and tk.id then list[#list + 1] = tk end
   end
   table.sort(list, function(a, b) return a.id < b.id end)
   return list
@@ -68,8 +69,8 @@ end
 
 local function sendDashboard()
   local open, resolved, onDuty = 0, 0, 0
-  for _, t in ipairs(ticketsCache) do
-    if t.state == 'resolved' or t.state == 'closed' then resolved = resolved + 1 else open = open + 1 end
+  for _, tk in ipairs(ticketsCache) do
+    if tk.state == 'resolved' or tk.state == 'closed' then resolved = resolved + 1 else open = open + 1 end
   end
   local rSum, rN, gSum, gN = 0, 0, 0, 0
   for _, s in ipairs(dutyCache) do
