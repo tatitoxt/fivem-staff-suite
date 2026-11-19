@@ -194,4 +194,10 @@ Locale['es'] = {
   ui_rate_send = 'Enviar valoración',
   ui_rate_later = 'Ahora no',
   ui_rate_star = '%{n} de 5',
+
+  -- ===== NUI: estados =====
+  ui_loading = 'Cargando datos…',
+  ui_load_error = 'No se pudieron cargar los datos del servidor.',
+  ui_retry = 'Reintentar',
+  ui_error_action = 'No se pudo completar la acción. Probá de nuevo.',
 }

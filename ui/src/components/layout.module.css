@@ -353,3 +353,32 @@
   height: min(780px, calc(100vh - 128px));
   margin-bottom: 56px;
 }
+
+/* Pantallas grandes: el panel escala en vez de quedar chico en 1440p/4K */
+@media (min-width: 2400px) and (min-height: 1350px) { .panel { zoom: 1.333; } }
+@media (min-width: 3600px) and (min-height: 2000px) { .panel { zoom: 2; } }
+
+/* Estados de carga y error */
+.loadingView {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 16px;
+  text-align: center;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--green);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
+  .panel { animation: none; }
+}

@@ -194,4 +194,10 @@ Locale['en'] = {
   ui_rate_send = 'Send rating',
   ui_rate_later = 'Not now',
   ui_rate_star = '%{n} out of 5',
+
+  -- ===== NUI: estados =====
+  ui_loading = 'Loading data…',
+  ui_load_error = 'Couldn\'t load data from the server.',
+  ui_retry = 'Retry',
+  ui_error_action = 'The action couldn\'t be completed. Please try again.',
 }

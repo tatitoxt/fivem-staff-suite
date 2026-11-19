@@ -44,14 +44,29 @@ export function Empty({ icon, children }: { icon?: ReactNode; children: ReactNod
 export function Segmented<T extends string>({
   value, options, onChange, label,
 }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const current = Math.max(0, options.findIndex((o) => o.value === value));
+  const move = (i: number) => {
+    const next = (i + options.length) % options.length;
+    onChange(options[next].value);
+    refs.current[next]?.focus();
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (step) { e.preventDefault(); move(current + step); }
+    else if (e.key === 'Home') { e.preventDefault(); move(0); }
+    else if (e.key === 'End') { e.preventDefault(); move(options.length - 1); }
+  };
   return (
-    <div className={s.segmented} role="radiogroup" aria-label={label}>
-      {options.map((o) => (
+    <div className={s.segmented} role="radiogroup" aria-label={label} onKeyDown={onKeyDown}>
+      {options.map((o, i) => (
         <button
           key={o.value}
+          ref={(el) => { refs.current[i] = el; }}
           type="button"
           role="radio"
           aria-checked={value === o.value}
+          tabIndex={i === current ? 0 : -1}
           className={cx(s.segment, value === o.value && s.segmentOn)}
           onClick={() => onChange(o.value)}
         >
@@ -80,6 +95,8 @@ export function ViewHeader({ title, subtitle, children }: { title: string; subti
   );
 }
 
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]';
+
 export function Dialog({
   title, children, footer, onClose,
 }: { title: string; children: ReactNode; footer: ReactNode; onClose: () => void }) {
@@ -87,16 +104,31 @@ export function Dialog({
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
-    const el = ref.current?.querySelector<HTMLElement>('input, textarea, select, button');
-    el?.focus();
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusables = () => Array.from(ref.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
+      .filter((x) => !x.hasAttribute('disabled') && x.tabIndex >= 0);
+    focusables()[0]?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
         closeRef.current();
+        return;
       }
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!ref.current?.contains(active)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
     };
     window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      if (opener?.isConnected) opener.focus();
+    };
   }, []);
   return (
     <div className={v.overlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

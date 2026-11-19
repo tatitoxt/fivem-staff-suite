@@ -13,7 +13,7 @@ export function DevHarness() {
   }, []);
   if (!backend) return null;
   return (
-    <div className={s.harness}>
+    <aside className={s.harness} aria-label="Harness dev">
       <span>Harness dev</span>
       {!state.visible && <button onClick={() => window.postMessage({ type: 'open' }, '*')}>Abrir panel</button>}
       <button onClick={() => backend.promptRate()}>Simular valoración del jugador</button>
@@ -22,6 +22,6 @@ export function DevHarness() {
       ) : (
         <button onClick={() => { backend.tamper(); setTampered(true); }}>Simular manipulación #27</button>
       )}
-    </div>
+    </aside>
   );
 }

@@ -10,7 +10,10 @@ local function sandbox()
     RegisterKeyMapping = function() end,
     RegisterNetEvent = function(event, fn) events[event] = fn end,
     RegisterNUICallback = function(action, fn) callbacks[action] = fn end,
-    AddEventHandler = function(event, fn) hooks[event] = fn end,
+    AddEventHandler = function(event, fn)
+      local previous = hooks[event]
+      hooks[event] = previous and function(...) previous(...); fn(...) end or fn
+    end,
     GetCurrentResourceName = function() return 'staff_suite' end,
     SetNuiFocus = function() end,
     SendNUIMessage = function() end,
@@ -87,6 +90,25 @@ function T.test_standalone_revive_and_nui_ban_duration()
     assert(response.ok)
   end)
   assert(c.args[1] == 'staff_suite:modAction' and c.args[3] == 'license:test' and c.args[5] == 0)
+end
+
+function T.test_nui_focus_released_on_close_dismiss_and_resource_stop()
+  local _, env, _, callbacks, hooks = sandbox()
+  local focus
+  env.SetNuiFocus = function(a, b) focus = { a, b } end
+  local noop = function() end
+  callbacks['close_ui']({}, noop)
+  assert(focus and focus[1] == false and focus[2] == false, 'cerrar libera teclado y mouse')
+  focus = nil
+  if callbacks['rate_dismiss'] then
+    callbacks['rate_dismiss']({}, noop)
+    assert(focus and focus[1] == false, 'descartar la valoración libera el foco')
+  end
+  focus = nil
+  hooks['onClientResourceStop']('otro_recurso')
+  assert(focus == nil)
+  hooks['onClientResourceStop']('staff_suite')
+  assert(focus and focus[1] == false and focus[2] == false, 'parar el recurso libera el foco')
 end
 
 return T

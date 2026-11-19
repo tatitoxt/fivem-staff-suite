@@ -118,6 +118,7 @@ function T.test_client_opens_basic_panel_and_registers_basic_actions()
     RegisterKeyMapping = function() end,
     RegisterNetEvent = function(name, handler) events[name] = handler end,
     RegisterNUICallback = function(name, handler) callbacks[name] = handler end,
+    AddEventHandler = function() end,
     GetCurrentResourceName = function() return 'staff_suite' end,
     GetResourceMetadata = function() return '0.1.0' end,
     GetPlayerName = function() return 'Lite player' end,
