@@ -69,6 +69,7 @@ Locale['en'] = {
   mod_save_failed = 'The sanction could not be saved. Check persistence.',
   persistence_starting = 'Staff Suite is loading its data. Try again in a few seconds.',
   persistence_fallback = '[StaffSuite] oxmysql is unavailable. The JSON checkpoint will be used until the resource restarts.',
+  persistence_migration_failed = '[StaffSuite] Could not apply migration %{file} to the database. Check that the MySQL user has CREATE and ALTER privileges, or apply it manually. The JSON backup is used meanwhile.',
   persistence_save_failed = '[StaffSuite] The data could not be saved.',
   ban_invalid_duration = 'Ban duration must be between 1 second and 1 year, or 0 for a permanent ban.',
   ban_pending = 'A ban for this player is already being saved.',

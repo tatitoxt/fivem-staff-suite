@@ -1,8 +1,8 @@
 -- Tickets F2: primera respuesta, quién resolvió y evidencia con screenshot-basic.
--- Aplicar una sola vez, después de 001_staff_suite.sql, con Config.Persistence = 'oxmysql'.
-ALTER TABLE staff_tickets
-  ADD COLUMN first_response_ts BIGINT NULL,
-  ADD COLUMN resolved_by VARCHAR(191) NULL;
+-- Staff Suite la aplica sola al iniciar (staff_schema). Una sentencia ALTER por columna
+-- para que el runner pueda saltear las que ya existan.
+ALTER TABLE staff_tickets ADD COLUMN first_response_ts BIGINT NULL;
+ALTER TABLE staff_tickets ADD COLUMN resolved_by VARCHAR(191) NULL;
 
 CREATE TABLE IF NOT EXISTS staff_evidence (
   ticket_id BIGINT NOT NULL,

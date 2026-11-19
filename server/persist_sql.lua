@@ -1,6 +1,14 @@
 -- Traduce el snapshot del core a filas y escribe lotes en una sola transacción.
 local M = {}
 
+local function t(key, vars) return StaffSuiteTranslate(key, vars) end
+
+-- Migraciones de sql/ que se aplican solas al iniciar y quedan registradas en staff_schema.
+M.MIGRATIONS = {
+  { version = 1, file = 'sql/001_staff_suite.sql' },
+  { version = 2, file = 'sql/002_tickets_f2.sql' },
+}
+
 local specs = {
   { name = 'audit', keys = { 'seq' },
     columns = { 'seq', 'ts', 'actor', 'action', 'target', 'reason', 'payload', 'prev_hash', 'hash' },
@@ -102,6 +110,60 @@ local function restore(tables, meta)
   return state
 end
 
+local function statements(raw)
+  local out = {}
+  for stmt in raw:gsub('%-%-[^\n]*', ''):gmatch('[^;]+') do
+    stmt = stmt:match('^%s*(.-)%s*$')
+    if stmt ~= '' then out[#out + 1] = stmt end
+  end
+  return out
+end
+
+-- Idempotente: CREATE TABLE IF NOT EXISTS y ADD COLUMN solo si la columna no existe.
+function M.migrate(cb)
+  local schema = 'CREATE TABLE IF NOT EXISTS staff_schema (version INT PRIMARY KEY, name VARCHAR(191) NOT NULL, '
+    .. 'applied_at BIGINT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin'
+  call('query', schema, {}, function(created)
+    if created == nil then cb(false, 'staff_schema'); return end
+    call('query', 'SELECT version FROM staff_schema', {}, function(rows)
+      if type(rows) ~= 'table' then cb(false, 'staff_schema'); return end
+      local applied = {}
+      for _, row in ipairs(rows) do applied[tonumber(row.version)] = true end
+      local function step(i)
+        local migration = M.MIGRATIONS[i]
+        if not migration then cb(true); return end
+        if applied[migration.version] then step(i + 1); return end
+        local raw = LoadResourceFile(GetCurrentResourceName(), migration.file)
+        if type(raw) ~= 'string' then cb(false, migration.file); return end
+        local list = statements(raw)
+        local function run(j)
+          local stmt = list[j]
+          local function proceed(result)
+            if result == nil then cb(false, migration.file) else run(j + 1) end
+          end
+          if not stmt then
+            call('query', 'INSERT INTO staff_schema (version, name, applied_at) VALUES (?, ?, ?) '
+              .. 'ON DUPLICATE KEY UPDATE name = VALUES(name)', { migration.version, migration.file, os.time() },
+              function(result)
+                if result == nil then cb(false, migration.file) else step(i + 1) end
+              end)
+            return
+          end
+          local tbl, col = stmt:match('^ALTER%s+TABLE%s+`?([%w_]+)`?%s+ADD%s+COLUMN%s+`?([%w_]+)`?')
+          if not tbl then call('query', stmt, {}, proceed); return end
+          call('query', 'SELECT COUNT(*) AS n FROM information_schema.COLUMNS '
+            .. 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?', { tbl, col }, function(found)
+            if type(found) ~= 'table' then cb(false, migration.file); return end
+            if (tonumber(found[1] and found[1].n) or 0) > 0 then run(j + 1) else call('query', stmt, {}, proceed) end
+          end)
+        end
+        run(1)
+      end
+      step(1)
+    end)
+  end)
+end
+
 function M.available()
   return GetResourceState('oxmysql') == 'started'
 end
@@ -147,7 +209,14 @@ function M.load(cb)
       readTable(i + 1)
     end)
   end
-  readTable(1)
+  M.migrate(function(ok, failed)
+    if not ok then
+      print(t('persistence_migration_failed', { file = failed }))
+      cb(false)
+      return
+    end
+    readTable(1)
+  end)
 end
 
 local function rowsFor(state)
