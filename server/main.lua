@@ -20,6 +20,7 @@ require = loadmod
 local audit  = loadmod('core.audit_chain')
 local tickets = loadmod('core.tickets')
 local perms  = loadmod('core.permissions')
+local bridges = loadmod('server.bridges.init')
 local duty   = loadmod('core.duty')
 local persist = loadmod('server.persist')
 local export = loadmod('server.export')
@@ -79,41 +80,42 @@ local function record(action, actor, target, reason, payload)
 end
 
 -- ===== Permisos / rangos =====
+local function getPlayer(src)
+  return bridges.resolve(src, Config)
+end
+
+local function actorId(player, src)
+  return player.identifier or ('src:' .. tostring(src))
+end
+
 local function getIdentifier(src)
-  for _, id in ipairs(GetPlayerIdentifiers(src)) do
-    if id:sub(1, 8) == 'license:' then return id end
-  end
-  return GetPlayerIdentifiers(src)[1] or ('src:' .. src)
+  return actorId(getPlayer(src), src)
 end
 
-local function getRank(src)
-  -- Standalone: todos owner (QA). Con framework, mapear grupo (adapter bridge).
-  if Config.Persistence == 'json' then return Config.StandaloneRank end
-  return Config.StandaloneRank
-end
-
-local function can(src, cap)
-  return perms.can(pmodel, getIdentifier(src), getRank(src), cap)
+local function can(player, cap)
+  return perms.can(pmodel, player.identifier, player.rank, cap)
 end
 
 -- ===== Moderación (wrappers server-authoritative) =====
 local modActions = {
   ['goto'] = function(src, tgt) local p = GetPlayerPed(tgt); local c = GetEntityCoords(p); TriggerClientEvent('staff_suite:tp', src, c) end,
   bring   = function(src, tgt) local p = GetPlayerPed(src); local c = GetEntityCoords(p); TriggerClientEvent('staff_suite:tp', tgt, c) end,
-  freeze  = function(src, tgt) FreezeEntityPosition(GetPlayerPed(tgt), true) end,
-  heal    = function(src, tgt) SetEntityHealth(GetPlayerPed(tgt), 200) end,
-  kick    = function(src, tgt, reason) DropPlayer(tgt, reason or 'Kicked') end,
+  freeze  = function(_, tgt) FreezeEntityPosition(GetPlayerPed(tgt), true) end,
+  heal    = function(_, tgt) SetEntityHealth(GetPlayerPed(tgt), 200) end,
+  kick    = function(_, tgt, reason) DropPlayer(tgt, reason or 'Kicked') end,
 }
 
 local function doMod(src, action, tgt, reason)
+  local player = getPlayer(src)
   local cap = 'mod.' .. action
-  if not can(src, cap) then return false, t('no_permission') end
+  if not can(player, cap) then return false, t('no_permission') end
   if Config.Moderation.require_reason and (action == 'kick' or action == 'ban' or action == 'warn') and (not reason or reason == '') then
     return false, t('reason_required')
   end
+  local target = getIdentifier(tgt)
   local fn = modActions[action]
   if fn then fn(src, tgt, reason) end
-  record('mod_' .. action, getIdentifier(src), getIdentifier(tgt), reason, { action = action })
+  record('mod_' .. action, actorId(player, src), target, reason, { action = action })
   return true
 end
 
@@ -132,8 +134,9 @@ end, false)
 
 RegisterCommand(Config.Commands.duty, function(src)
   if src == 0 then return end
-  if not can(src, 'staff.duty') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
-  local id = getIdentifier(src)
+  local player = getPlayer(src)
+  if not can(player, 'staff.duty') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
+  local id = actorId(player, src)
   local s = dreg.staff[id]
   local ev
   if s and s.on_duty then ev = duty.clock_out(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_out', { time = string.format('%.1fh', (ev.seconds or 0) / 3600) }))
@@ -147,7 +150,7 @@ RegisterCommand(Config.Commands.audit, function(src)
     print(ok and ('[StaffSuite] audit OK: ' .. #chain.entries .. ' entries') or ('[StaffSuite] audit BROKEN at ' .. tostring(at)))
     return
   end
-  if not can(src, 'audit.view') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
+  if not can(getPlayer(src), 'audit.view') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
   local ok, at = audit.verify(chain)
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
 end, false)
@@ -155,21 +158,39 @@ end, false)
 -- ===== NUI / eventos de panel =====
 RegisterNetEvent('staff_suite:getState', function()
   local src = source
+  local player = getPlayer(src)
+  local capabilities = {}
+  for _, cap in ipairs(perms.CAPS) do
+    if can(player, cap) then capabilities[#capabilities + 1] = cap end
+  end
+  local rank = player.rank or 'player'
+  local canViewAudit = can(player, 'audit.view')
   TriggerClientEvent('staff_suite:state', src, {
-    tickets = store.tickets, audit = chain.entries,
-    duty = duty.snapshot(dreg, os.time()),
-    verify = { audit.verify(chain) },
-    rank = getRank(src), locale = Config.Locale,
+    tickets = can(player, 'report.view') and store.tickets or {},
+    audit = canViewAudit and chain.entries or {},
+    duty = can(player, 'staff.analytics') and duty.snapshot(dreg, os.time()) or {},
+    verify = canViewAudit and { audit.verify(chain) } or {},
+    player = { name = player.name, rank = rank, capabilities = capabilities },
+    rank = rank, locale = Config.Locale,
   })
 end)
 
+local ticketActionCaps = {
+  claim = 'report.claim', start = 'report.claim', unclaim = 'report.claim',
+  transfer = 'report.resolve', resolve = 'report.resolve', close = 'report.resolve', reopen = 'report.resolve',
+}
+
 RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
   local src = source
-  if not can(src, 'report.claim') then return end
-  local ticket, ev = tickets.transition(store, id, action, getIdentifier(src), extra)
+  local player = getPlayer(src)
+  local cap = ticketActionCaps[action]
+  if not cap or not can(player, cap) then return end
+  local ticket, ev = tickets.transition(store, id, action, actorId(player, src), extra)
   if not ticket then TriggerClientEvent('staff_suite:notify', src, t(ev or 'invalid_transition')); return end
   record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to })
-  TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets })
+  if can(player, 'report.view') then
+    TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets })
+  end
 end)
 
 RegisterNetEvent('staff_suite:modAction', function(action, tgt, reason)
@@ -180,9 +201,10 @@ end)
 
 RegisterNetEvent('staff_suite:verify', function()
   local src = source
-  if not can(src, 'audit.verify') then return end
+  local player = getPlayer(src)
+  if not can(player, 'audit.verify') then return end
   local ok, at = audit.verify(chain)
-  record('audit_verify', getIdentifier(src), '', ok and 'ok' or ('broken:' .. tostring(at)), {})
+  record('audit_verify', actorId(player, src), '', ok and 'ok' or ('broken:' .. tostring(at)), {})
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
 end)
 
@@ -202,9 +224,9 @@ exports('Verify', function() return audit.verify(chain) end)
 exports('GetChain', function() return chain.entries end)
 exports('CreateTicket', function(data) local tk, ev = tickets.create(store, data); record(ev.action, ev.actor, ev.target, '', { ticket = tk.id }); return tk.id end)
 exports('TicketAction', function(id, action, actor, extra)
-  local t, ev = tickets.transition(store, id, action, actor, extra)
-  if t and ev then record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to }) end
-  return t, ev
+  local ticket, ev = tickets.transition(store, id, action, actor, extra)
+  if ticket and ev then record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to }) end
+  return ticket, ev
 end)
 exports('GetState', snapshot)
 
@@ -215,7 +237,8 @@ CreateThread(function()
   else
     restore(persist.load_json(Config.JsonFile))
   end
-  print(('[StaffSuite] iniciado · %d entradas de auditoría · persistencia=%s'):format(#chain.entries, Config.Persistence))
+  print(('[StaffSuite] iniciado · %d entradas de auditoría · persistencia=%s · framework=%s')
+    :format(#chain.entries, Config.Persistence, bridges.select(Config)))
 end)
 
 -- Guardado periódico + al apagar

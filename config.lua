@@ -14,17 +14,32 @@ Config.Commands = {
 Config.Categories = { 'bug', 'player', 'staff', 'question', 'other' }
 Config.Priorities = { 'low', 'normal', 'high', 'urgent' }
 
--- Mapeo de grupos del framework -> rangos de Staff Suite (least-privilege).
--- El adapter auto-detecta ESX/QBCore/Qbox; standalone usa Config.StandaloneRank.
+-- 'auto' prioriza Qbox, QBCore, ESX y finalmente standalone.
+-- Forzá 'qbox', 'qbcore', 'esx' o 'standalone' si hay más de uno en tu servidor.
+Config.Framework = 'auto'
+
+-- Grupo ESX, permiso QBCore u objeto ACE de Qbox -> rango de Staff Suite.
 Config.RankMap = {
-  ['helper']       = 'helper',
-  ['mod']          = 'moderator',
-  ['moderator']    = 'moderator',
-  ['admin']        = 'admin',
-  ['superadmin']   = 'senior_admin',
-  ['owner']        = 'owner',
+  helper = 'helper',
+  support = 'helper',
+  mod = 'moderator',
+  moderator = 'moderator',
+  admin = 'admin',
+  superadmin = 'senior_admin',
+  owner = 'owner',
+  god = 'owner',
 }
-Config.StandaloneRank = 'owner'      -- rango por defecto en standalone (sin framework)
+
+-- Jobs activos que pueden dar acceso, por ejemplo esx = { staff = 'helper' }.
+-- Si coinciden varios mapeos de grupo, permiso o job, se aplica el rango más alto.
+Config.JobRankMap = {
+  esx = {},
+  qbcore = {},
+  qbox = {},
+}
+
+-- En standalone, otorgá staff_suite.<rango> por ACE en server.cfg.
+-- Ejemplo: add_ace group.admin staff_suite.admin allow
 
 -- Persistencia: 'json' (Lite, standalone, sin DB) | 'oxmysql' (Core, MySQL).
 Config.Persistence = 'json'
