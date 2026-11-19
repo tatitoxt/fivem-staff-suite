@@ -1,95 +1,50 @@
 # Guion del video showcase (60–90 s) — ES y EN
 
-> Dos videos separados (YouTube ES y YouTube EN), mismo montaje. Grabado en el server QA con OBS (Fausto, PC Windows, D007), 1920×1080 a 60 fps, de día in-game, HUD limpio.
-> Estructura sugerida por Tebex para videos de scripts: presentación → features únicas → script en acción, en 30–90 s.
-> **Prerrequisito:** números de resmon (#19). El panel ya está (#13–16): grabar las escenas [PANEL] in-game en el server QA, no con el modo demo del navegador. La **variante consola** de cada escena queda como alternativa (también es real).
-> En el ticket, Advertir y Banear aparecen en gris (próximamente): encuadrar para que no se lean como features.
-> Nada de mockups presentados como producto. Si una feature todavía no existe, no aparece en pantalla.
+> Dos videos separados (YouTube ES y YouTube EN), mismo montaje. Grabado in-game en el server QA con OBS (Fausto, PC Windows, D007), 1920×1080 a 60 fps, de día, HUD limpio. Se muestra **Core**; el cierre menciona Lite.
+> Estructura sugerida por Tebex: presentación → lo que lo diferencia → el script en acción, en 30–90 s.
+> Nada del modo demo del navegador ni mockups. Si algo no existe (unfreeze, chat con el jugador, Pro), no aparece en pantalla.
+> La escena 9 muestra resmon: hasta medirlo queda **[RESMON PENDIENTE]** y el video no se publica.
 
-## Datos de prueba para la grabación
-- 3 jugadores de prueba (`Jugador_01`, `Jugador_02`, `Mod_Lucas`), nombres inventados.
-- Antes de grabar: ~15 entradas en la cadena (reports, claims, un kick con razón, duty in/out).
-- Para la escena de manipulación: frenar el resource, editar a mano en `staff_suite_data.json` el campo `reason` de una entrada (ej. #7: "cheating" → "bug"), y volver a iniciar.
+## Preparación de la grabación
+- 3 cuentas de prueba en el server QA: `Jugador_01` (reporta), `Mod_Lucas` (rango mod) y la de Fausto (admin). Nombres inventados.
+- `screenshot-basic` iniciado (evidencia) y `set staff_suite_webhook` apuntando a un canal de prueba (ancla).
+- Antes de grabar: ~15 entradas en la cadena (reportes, reclamos, un turno, un warn).
+- Para la escena de manipulación: frenar el resource, editar a mano en `staff_suite_data.json` el `reason` de una entrada (ej. #7: "cheating" → "bug") y volver a iniciar. Con oxmysql, editar la fila en la base.
 
 ---
 
-## ES — "¿Quién audita a tu staff?" (~80 s)
+## ES — "¿Quién audita a tu staff?" (~85 s)
 
 | # | Tiempo | En pantalla | Texto en pantalla | Voz en off |
 |---|---|---|---|---|
-| 1 | 0–5 s | Plano negro → un log de texto plano se edita solo: "baneó a X por cheating" pasa a "baneó a X por bug" | "Un admin puede editar esto." | "En casi todos los servers, el log del staff es un archivo que cualquier admin con acceso puede editar." |
-| 2 | 5–10 s | Logo + nombre | **Staff Integrity Suite** · "El staff suite que audita a tu staff" | "Staff Integrity Suite registra lo que hace tu staff, y si alguien lo toca, se nota." |
-| 3 | 10–22 s | Jugador escribe `/report player me mató sin rol` → notificación "Reporte #4 creado" | `/report` | "El jugador reporta con un comando. El ticket llega al staff." |
-| 4 | 22–34 s | [PANEL] Mod_Lucas abre F6 → cola → reclama el #4 → otro staff intenta reclamarlo → "Este reporte ya fue reclamado". *Variante consola:* salida del resource de E2E (`tests/e2e_resource`): `[SSTEST] ok   doble claim rechazado`. | "Reclamar · transferir · resolver" | "Lo reclama un staff, y nadie más se lo puede pisar. Se puede transferir, resolver o reabrir." |
-| 5 | 34–46 s | [PANEL] Desde el ticket: goto → "Expulsar" está en gris → escribe la razón "RDM reiterado" → se habilita → expulsar | "Razón obligatoria" | "La moderación se hace desde el mismo ticket, y para expulsar a alguien, la razón es obligatoria." |
-| 6 | 46–58 s | [PANEL] Visor de auditoría: timeline con seq, actor → target, razón, hash. Zoom a `prev_hash` de una entrada = `hash` de la anterior. *Variante consola:* el JSON con dos entradas, resaltando los hashes. | "Cada entrada lleva el hash de la anterior" | "Todo queda en una cadena SHA-256: cada entrada lleva el hash de la anterior." |
-| 7 | 58–70 s | Corte: archivo editado (entrada #7). Clic en "Verificar cadena" → rojo "Cadena rota en #7", la #7 marcada "Alterada" y las siguientes "Sin garantía". *Variante consola:* `audit` → `[StaffSuite] auditoría ROTA en la entrada 7`. | "Alguien editó la #7" | "Si alguien cambia una razón, borra un ban o reordena entradas, la verificación te dice exactamente dónde se rompió." |
-| 8 | 70–76 s | Canal de Discord con mensajes "Ancla de auditoría · seq 20 · hash…" | "Ancla fuera del server" | "Y cada tantas entradas, el hash queda en tu Discord, fuera del alcance del que tenga acceso al server." |
-| 9 | 76–84 s | resmon con `staff_suite` · tabla Lite / Core | "Lite gratis · Core {{PRECIO_CORE}}" · "Standalone · ESX · QBCore · Qbox · ES/EN" | "Funciona standalone o con ESX, QBCore y Qbox, sin base de datos. Lite gratis, Core con moderación y permisos por rango." |
-| 10 | 84–90 s | Links | "Link en la descripción" | "Probalo gratis. Link abajo." |
+| 1 | 0–5 s | Un log de texto plano: "baneó a X por cheating" pasa a "por bug" y nada avisa | "Un admin puede editar esto." | "En casi todos los servers, el log del staff es un archivo que cualquiera con acceso puede editar." |
+| 2 | 5–10 s | Logo + tagline | "Staff Integrity Suite" | "Staff Integrity Suite: reportes, moderación y turnos, con un registro que no se puede tocar sin que se note." |
+| 3 | 10–20 s | `Jugador_01` escribe `/report player me mató sin rol`. Fausto abre el panel con F6 y el ticket aparece en la cola | "/report → panel (F6)" | "El jugador reporta y tu staff lo ve en el panel." |
+| 4 | 20–30 s | Fausto reclama. `Mod_Lucas` intenta reclamarlo también → "ya fue reclamado". Fausto usa una respuesta predefinida y pide evidencia: la captura aparece en el ticket con la marca de verificada | "Sin doble reclamo · evidencia verificada" | "Uno lo toma, el otro se entera. La captura de pantalla queda en la cadena." |
+| 5 | 30–42 s | Desde el ticket: spectate al acusado → vuelve → "Banear" → escribe "RDM reiterado", elige 1 día → banear | "Ban con razón y duración" | "Moderás desde el ticket. Sin razón no se banea, y el ban cubre todas las cuentas del jugador." |
+| 6 | 42–48 s | `Mod_Lucas` (moderador) intenta expulsar a Fausto → "No podés moderar a un staff de rango superior." | "Los rangos se respetan" | "Y nadie puede sancionar a alguien de rango más alto." |
+| 7 | 48–54 s | Se resuelve el ticket. A `Jugador_01` le aparece la calificación → elige 5. Corte al dashboard: resueltos, tiempo de respuesta y calificación de Fausto | "Calificación 1–5 · estadísticas por staff" | "El jugador califica la atención y vos ves cómo responde cada uno." |
+| 8 | 54–70 s | Visor de auditoría con todo lo anterior → "Verificar cadena" en verde. Corte: se edita la entrada #7 → reinicio → "Verificar cadena" → rojo en la #7 y "sin garantía" en las siguientes. Inserto: el mensaje del ancla en Discord | "Cambiás una letra → se rompe en la #7" | "Cada entrada guarda el hash de la anterior. Si alguien cambia una letra, la verificación te dice dónde. Y el ancla en Discord guarda el original." |
+| 9 | 70–78 s | `resmon` con `staff_suite` → **[RESMON PENDIENTE]**. Al lado: "Standalone · ESX · QBCore · Qbox · txAdmin · oxmysql" | "[RESMON PENDIENTE] ms" | "Funciona solo o con tu framework, y también registra lo que pasa en txAdmin." |
+| 10 | 78–85 s | Logo + "Core en Tebex · Lite gratis en GitHub" + links | "Probá Lite gratis" | "Probalo gratis con Lite. Link abajo." |
 
-**Descripción de YouTube (ES):**
-```
-Staff Integrity Suite: reportes, moderación desde el ticket y un registro del staff que no se puede editar sin que se note (cadena SHA-256).
-
-00:00 El problema de los logs del staff
-00:10 Reportes (/report)
-00:22 Reclamar tickets
-00:34 Moderación con razón obligatoria
-00:46 Cadena de auditoría
-00:58 Detección de manipulación
-01:10 Ancla en Discord
-
-Lite gratis: {{GITHUB_URL}}
-Core: {{TEBEX_URL}}
-Docs: {{DOCS_URL}}
-Soporte: {{DISCORD_URL}}
-
-No es un anticheat ni reemplaza a txAdmin: se usa junto a él.
-#FiveM #GTARP #FiveMScripts #ServerFiveM
-```
-
----
-
-## EN — "Who audits your staff?" (~80 s)
+## EN — "Who audits your staff?" (~85 s)
 
 | # | Time | On screen | On-screen text | Voice-over |
 |---|---|---|---|---|
-| 1 | 0–5 s | Black → a plain-text log edits itself: "banned X for cheating" becomes "banned X for bug" | "An admin can edit this." | "On most servers, the staff log is a file any admin with access can edit." |
-| 2 | 5–10 s | Logo + name | **Staff Integrity Suite** · "The staff suite that audits your staff" | "Staff Integrity Suite records what your staff does, and if someone touches the record, it shows." |
-| 3 | 10–22 s | Player types `/report player killed me with no RP` → "Report #4 created" | `/report` | "Players report with one command. The ticket goes to staff." |
-| 4 | 22–34 s | [PANEL] Mod_Lucas opens F6 → queue → claims #4 → another staff tries → "already claimed". *Console variant:* output of the E2E resource (`tests/e2e_resource`): `[SSTEST] ok   doble claim rechazado`. | "Claim · transfer · resolve" | "One staff member claims it, and nobody else can take it over. Transfer, resolve or reopen it." |
-| 5 | 34–46 s | [PANEL] From the ticket: goto → "Kick" is greyed out → type the reason "repeated RDM" → it enables → kick | "Reason required" | "Moderation happens right from the ticket, and kicks require a reason." |
-| 6 | 46–58 s | [PANEL] Audit viewer: timeline with seq, actor → target, reason, hash. Zoom on `prev_hash` matching the previous `hash`. *Console variant:* the JSON with two entries, hashes highlighted. | "Each entry carries the previous hash" | "Everything goes into a SHA-256 chain: each entry carries the hash of the one before it." |
-| 7 | 58–70 s | Cut: edited file (entry #7). Click "Verify chain" → red "Chain broken at #7", #7 tagged "Altered" and the rest "Not guaranteed". *Console variant:* `audit` → `[StaffSuite] audit BROKEN at entry 7`. | "Someone edited #7" | "If someone changes a reason, deletes a ban or reorders entries, verification shows exactly where it broke." |
-| 8 | 70–76 s | Discord channel with "Audit anchor · seq 20 · hash…" | "Anchored off-server" | "And every few entries, the hash is posted to your Discord, out of reach of whoever has server access." |
-| 9 | 76–84 s | resmon with `staff_suite` · Lite / Core table | "Lite free · Core {{PRECIO_CORE}}" · "Standalone · ESX · QBCore · Qbox · EN/ES" | "It runs standalone or on ESX, QBCore and Qbox, no database needed. Lite is free; Core adds moderation and rank permissions." |
-| 10 | 84–90 s | Links | "Link in the description" | "Try it free. Link below." |
+| 1 | 0–5 s | A plain-text log: "banned X for cheating" becomes "for bug" and nothing complains | "Any admin can edit this." | "On most servers the staff log is a file anyone with access can edit." |
+| 2 | 5–10 s | Logo + tagline | "Staff Integrity Suite" | "Staff Integrity Suite: reports, moderation and duty, with a record nobody can touch without it showing." |
+| 3 | 10–20 s | `Jugador_01` types `/report player killed me with no RP`. Fausto opens the panel with F6 and the ticket is in the queue | "/report → panel (F6)" | "The player reports it and your staff sees it in the panel." |
+| 4 | 20–30 s | Fausto claims it. `Mod_Lucas` tries to claim it too → "already claimed". Fausto sends a canned reply and requests evidence: the screenshot shows up in the ticket marked as verified | "No double claims · verified evidence" | "One takes it, the other gets told. The screenshot goes into the chain." |
+| 5 | 30–42 s | From the ticket: spectate the accused → back → "Ban" → types "repeated RDM", picks 1 day → ban | "Ban with reason and duration" | "You moderate from the ticket. No reason, no ban, and the ban covers all of the player's accounts." |
+| 6 | 42–48 s | `Mod_Lucas` (moderator) tries to kick Fausto → rejected for higher rank | "Ranks are enforced" | "And nobody can sanction someone above them." |
+| 7 | 48–54 s | Ticket resolved. `Jugador_01` gets the rating prompt → picks 5. Cut to the dashboard: Fausto's resolved count, response time and rating | "1–5 rating · per-staff stats" | "Players rate the help and you see how each staff member responds." |
+| 8 | 54–70 s | Audit viewer with everything above → "Verify chain" green. Cut: entry #7 is edited → restart → "Verify chain" → red at #7, "not guaranteed" after it. Insert: the anchor message in Discord | "Change one letter → breaks at #7" | "Every entry stores the hash of the one before. If someone changes a letter, verification shows you where. And the Discord anchor keeps the original." |
+| 9 | 70–78 s | `resmon` with `staff_suite` → **[RESMON PENDIENTE]**. Next to it: "Standalone · ESX · QBCore · Qbox · txAdmin · oxmysql" | "[RESMON PENDIENTE] ms" | "Works standalone or with your framework, and it logs what happens in txAdmin too." |
+| 10 | 78–85 s | Logo + "Core on Tebex · Lite free on GitHub" + links | "Try Lite for free" | "Try it free with Lite. Link below." |
 
-**YouTube description (EN):**
-```
-Staff Integrity Suite: reports, moderation from the ticket and a staff log that can't be edited without it showing (SHA-256 hash chain).
-
-00:00 The problem with staff logs
-00:10 Reports (/report)
-00:22 Claiming tickets
-00:34 Moderation with a required reason
-00:46 The audit chain
-00:58 Tamper detection
-01:10 Discord anchor
-
-Lite (free): {{GITHUB_URL}}
-Core: {{TEBEX_URL}}
-Docs: {{DOCS_URL}}
-Support: {{DISCORD_URL}}
-
-Not an anticheat and not a txAdmin replacement: it runs alongside it.
-#FiveM #GTARP #FiveMScripts #FiveMServer
-```
-
-## Notas de producción
-- Voz: la de Fausto (ES) es lo más creíble. EN: la misma voz con subtítulos, o una voz TTS gratis avisando que es TTS. Nada de voces de famosos.
+## Notas de edición
 - Subtítulos quemados en los dos idiomas (mucha gente mira sin sonido).
-- Música sin copyright (YouTube Audio Library), baja, debajo de la voz.
-- Escena 7 es la que vende: darle 2–3 s de pausa al rojo antes de cortar.
-- Versión vertical de 30 s (escenas 1, 6, 7, 10) → sirve como clip #1 de `clips.md`.
+- Escena 8 es la más importante: si hay que recortar, recortar 3 o 7.
+- Versión corta de 30 s para el carrusel de Tebex: escenas 2, 5, 8 y 10.
+- La voz la graba Fausto. Si se usa TTS, avisarlo en la descripción.
