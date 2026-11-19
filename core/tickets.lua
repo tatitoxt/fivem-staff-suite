@@ -44,13 +44,13 @@ end
 function M.transition(store, id, action, actor, extra)
   local t = store.tickets[id]
   if not t then return nil, "ticket_not_found" end
+  -- conflicto de claim primero (mensaje claro aunque el estado no admita claim)
+  if action == "claim" and t.claimer and t.claimer ~= actor then
+    return nil, "already_claimed"
+  end
   local allowed = TRANSITIONS[t.state]
   if not allowed or not allowed[action] then
     return nil, "invalid_transition:" .. t.state .. "->" .. action
-  end
-  -- claim/transfer requieren actor staff; claim solo si no hay claimer o es transfer
-  if action == "claim" and t.claimer and t.claimer ~= actor then
-    return nil, "already_claimed"
   end
   local from = t.state
   t.state = allowed[action]
