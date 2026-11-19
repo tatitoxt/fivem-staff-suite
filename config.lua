@@ -1,49 +1,49 @@
--- config.lua — ABIERTO (editable por el comprador). Toda la configuración del Staff Suite.
+-- config.lua — ABIERTO (editable por el comprador). Staff Suite.
 Config = {}
 
 Config.Locale = 'es'                 -- 'es' | 'en'
-Config.Keybind = 'F6'                -- tecla para abrir el panel (client)
-Config.Command = 'staffpanel'        -- comando alternativo
+Config.PanelKey = 'F6'               -- tecla para abrir el panel NUI
 
--- Framework: 'auto' detecta ESX/QBCore/Qbox; o 'standalone'
-Config.Framework = 'auto'
-
--- Persistencia: 'oxmysql' (recomendado) o 'json' (fallback standalone)
-Config.Storage = 'oxmysql'
-Config.JsonPath = 'data/staff_suite.json'   -- solo si Storage='json'
-
--- Auditoría
-Config.Audit = {
-  ExportEvery = 25,                  -- exportar head off-box cada N entradas
-  DiscordWebhook = '',               -- webhook para export off-box (opcional)
-  ExportFile = 'data/audit_export.jsonl',  -- archivo append-only local
-  CaptureCommands = true,            -- auditar comandos de admin registrados
-  CaptureFrameworkEvents = true,     -- auditar eventos del framework (grants, bans)
+Config.Commands = {
+  report  = 'report',                -- jugador: abrir report
+  reports = 'reports',               -- staff: cola de tickets
+  audit   = 'audit',                 -- staff: visor de auditoría
+  duty    = 'duty',                  -- staff: on/off duty
 }
 
--- Moderación: acciones habilitadas (todas requieren razón)
-Config.Moderation = {
-  RequireReason = true,
-  Actions = { 'kick','ban','warn','freeze','heal','teleport','spectate' },
-}
+Config.Categories = { 'bug', 'player', 'staff', 'question', 'other' }
+Config.Priorities = { 'low', 'normal', 'high', 'urgent' }
 
--- Tickets
-Config.Tickets = {
-  Categories = { 'bug','player_report','harassment','cheating','question','other' },
-  Priorities = { 'low','normal','high','urgent' },
-  MaxOpenPerPlayer = 3,
-  AllowRating = true,
-}
-
--- Mapeo de rangos del framework -> ranks del core (helper/moderator/admin/senior_admin/owner)
+-- Mapeo de grupos del framework -> rangos de Staff Suite (least-privilege).
+-- El adapter auto-detecta ESX/QBCore/Qbox; standalone usa Config.StandaloneRank.
 Config.RankMap = {
-  -- ESX groups
-  ['user'] = 'helper', ['mod'] = 'moderator', ['admin'] = 'admin',
-  ['superadmin'] = 'senior_admin', ['owner'] = 'owner',
-  -- QBCore/Qbox permissions
-  ['mod'] = 'moderator', ['admin'] = 'admin', ['god'] = 'owner',
+  ['helper']       = 'helper',
+  ['mod']          = 'moderator',
+  ['moderator']    = 'moderator',
+  ['admin']        = 'admin',
+  ['superadmin']   = 'senior_admin',
+  ['owner']        = 'owner',
 }
-Config.DefaultRank = 'helper'
+Config.StandaloneRank = 'owner'      -- rango por defecto en standalone (sin framework)
 
--- Debug
-Config.Debug = false
+-- Persistencia: 'json' (Lite, standalone, sin DB) | 'oxmysql' (Core, MySQL).
+Config.Persistence = 'json'
+Config.JsonFile = 'staff_suite_data.json'
+
+-- Export off-box de la cadena de auditoría.
+Config.Export = {
+  webhook = '',                      -- Discord webhook URL (credencial, server-side)
+  file = true,                       -- archivo append-only local
+  anchor_every = 20,                 -- anclar head cada N entradas
+}
+
+-- Captura de auditoría.
+Config.Audit = {
+  capture_commands = true,           -- comandos de admin registrados
+  capture_framework = true,          -- eventos de grants/bans del framework
+}
+
+-- Moderación dentro del ticket (acciones permitidas por capability).
+Config.Moderation = {
+  require_reason = true,             -- razón obligatoria en kick/ban/warn
+}

@@ -9,10 +9,10 @@
 | 2 | Repo + git (separate-git-dir ext4) | ✅ |
 | 3 | core/sha256.lua (NIST) | ✅ 4 tests |
 | 4 | core/audit_chain.lua + tamper | ✅ 6 tests |
-| 5 | core/tickets.lua (state machine) | 🔨 |
-| 6 | core/permissions.lua (capabilities) | 🔨 |
-| 7 | core/analytics.lua (duty/stats) | ⏳ |
-| 8 | Adapter FiveM: fxmanifest + server main | ⏳ |
+| 5 | core/tickets.lua (state machine) | ✅ 7 tests |
+| 6 | core/permissions.lua (capabilities) | ✅ 7 tests |
+| 7 | core/duty.lua (analytics) | ✅ 3 tests |
+| 8 | Adapter FiveM: fxmanifest + server main | 🔨 |
 | 9 | Adapter: captura eventos framework + comandos | ⏳ |
 | 10 | Adapter: persistencia oxmysql + fallback JSON | ⏳ |
 | 11 | Adapter: export off-box (webhook + archivo) | ⏳ |

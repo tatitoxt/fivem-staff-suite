@@ -1,0 +1,8 @@
+fx_version 'cerulean'
+game 'gta5'
+lua54 'yes'
+name 'staff_suite_tests'
+description 'E2E tests de Staff Suite contra el server vivo (exports).'
+version '0.1.0'
+server_script 'server.lua'
+dependency 'staff_suite'
