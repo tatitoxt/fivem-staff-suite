@@ -381,6 +381,10 @@ RegisterNetEvent('staff_suite:evidenceGet', function(id, n)
   local hash = sha256.hex(data)
   local ok = entry ~= nil and entry.action == 'ticket_evidence' and entry.target == 'ticket:' .. id
     and type(entry.payload) == 'string' and entry.payload:find(hash, 1, true) ~= nil
+  if ok then
+    local chainOk, brokenAt = audit.verify(chain)
+    ok = chainOk or (brokenAt ~= nil and brokenAt > item.audit_seq)
+  end
   TriggerLatentClientEvent('staff_suite:evidence', src, 250000, { id = id, n = n, data = data, ok = ok })
 end)
 

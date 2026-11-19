@@ -569,6 +569,9 @@ function T.test_evidence_detected_captured_and_verified()
   item.sha256 = s.env.StaffSuiteModules.loadmod('core.sha256').hex(forged)
   s.event('evidenceGet', id, 1)
   assert(latent.data.ok == false, 'reescribir archivo y ticket no alcanza: manda la auditoría')
+  entries[item.audit_seq].payload = '{"sha256":"' .. item.sha256 .. '"}'
+  s.event('evidenceGet', id, 1)
+  assert(latent.data.ok == false, 'reescribir también la auditoría rompe la cadena')
 end
 
 return T
