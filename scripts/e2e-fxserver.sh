@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # E2E de Staff Suite en un FXServer real (Linux x86_64, headless, OneSync).
 #
-# Uso: scripts/e2e-fxserver.sh [--resource <carpeta|zip>] [--download-only] [--dry-run]
-#   --resource       carpeta del resource o ZIP de release (default: la raíz del repo)
+# Uso: scripts/e2e-fxserver.sh [--edition core|lite] [--resource <carpeta|zip>] [--download-only] [--dry-run]
+#   --edition        suite Core (default) o Lite
+#   --resource       carpeta o ZIP de release (default: raíz del repo para Core, generar el ZIP para Lite)
 #   --download-only  descarga y extrae el artifact recomendado, sin levantar el server
 #   --dry-run        además arma server-data y server.cfg, sin levantar el server
 #
@@ -15,10 +16,12 @@
 set -euo pipefail
 
 root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-resource_src=$root_dir
+resource_src=
+edition=core
 mode=run
 while (($#)); do
   case $1 in
+    --edition) edition=${2:-}; [[ $edition == core || $edition == lite ]] || { echo '--edition requiere core o lite' >&2; exit 2; }; shift 2 ;;
     --resource) resource_src=${2:?--resource requiere una ruta}; shift 2 ;;
     --download-only) mode=download; shift ;;
     --dry-run) mode=dry; shift ;;
@@ -61,6 +64,15 @@ fi
 info "FXServer $build listo en $fx_dir"
 [[ $mode == download ]] && exit 0
 
+if [[ -z $resource_src ]]; then
+  resource_src=$root_dir
+  if [[ $edition == lite ]]; then
+    "$root_dir/scripts/build-release.sh" --edition lite || die 'falló el build de Lite'
+    version=$(sed -n "s/^version '\(.*\)'$/\1/p" "$root_dir/fxmanifest.lua")
+    resource_src=$root_dir/dist/staff_suite_lite-$version.zip
+  fi
+fi
+
 # ===== server-data =====
 work_dir=${E2E_WORK_DIR:-$(mktemp -d)}
 mkdir -p -- "$work_dir"
@@ -71,11 +83,14 @@ rm -rf -- "$data_dir"; mkdir -p -- "$resources"
 
 if [[ -f $resource_src && $resource_src == *.zip ]]; then
   command -v unzip >/dev/null || die 'falta unzip'
-  unzip -q "$resource_src" -d "$work_dir/zip"
-  manifest=$(find "$work_dir/zip" -maxdepth 2 -name fxmanifest.lua -print -quit)
+  zip_dir=$(mktemp -d -- "$work_dir/zip.XXXXXX")
+  trap 'rm -rf -- "$zip_dir"' EXIT
+  unzip -q "$resource_src" -d "$zip_dir"
+  manifest=$(find "$zip_dir" -maxdepth 2 -name fxmanifest.lua -print -quit)
   [[ -n $manifest ]] || die "el ZIP no contiene fxmanifest.lua: $resource_src"
   mv -- "$(dirname -- "$manifest")" "$resources/staff_suite"
-  rm -rf -- "$work_dir/zip"
+  rm -rf -- "$zip_dir"
+  trap - EXIT
 elif [[ -f $resource_src/fxmanifest.lua ]]; then
   tar -C "$resource_src" --exclude=.git --exclude=.cache --exclude=node_modules --exclude=./tests \
     --exclude=./dist --exclude=./.github --exclude=./scripts --exclude=./plan --exclude=./launch --exclude=./docs -cf - . \
@@ -85,6 +100,17 @@ else
 fi
 rm -f -- "$resources/staff_suite/staff_suite_data.json" "$resources/staff_suite/audit_export.log"
 cp -R -- "$root_dir/tests/e2e_resource" "$resources/staff_suite_tests"
+
+manifest=$resources/staff_suite/fxmanifest.lua
+if [[ $edition == lite ]]; then
+  grep -Fq "'server/lite.lua'" "$manifest" || die '--edition lite requiere un recurso Free Lite'
+  # El ZIP queda intacto. El probe se carga antes del adapter, solo en server-data.
+  cp -- "$root_dir/tests/e2e_resource/lite_probe.lua" "$resources/staff_suite/e2e_lite_probe.lua"
+  sed -i "/^server_scripts[[:space:]]*{/a\  'e2e_lite_probe.lua'," "$manifest"
+  grep -Fq "'e2e_lite_probe.lua'" "$manifest" || die 'no se pudo cargar el probe de Lite'
+elif grep -Fq "'server/lite.lua'" "$manifest"; then
+  die 'usá --edition lite con el recurso Free Lite'
+fi
 
 profile=$work_dir/profile.json
 log=$work_dir/fxserver.log
@@ -97,6 +123,7 @@ sv_hostname "staff_suite e2e"
 set onesync on
 exec secrets.cfg
 set staff_suite_webhook "http://127.0.0.1:$port/staff_suite_tests/webhook"
+set staff_suite_e2e_edition "$edition"
 set staff_suite_e2e_autoquit true
 set staff_suite_e2e_profile_file "$profile"
 add_ace resource.staff_suite_tests command.quit allow
