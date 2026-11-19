@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it } from 'vitest';
 import { App } from '../App';
 import { loadMock } from '../nui';
+import { LOCALES } from '../mock/locales';
 
 const nav = async (name: RegExp) => fireEvent.click(await screen.findByRole('button', { name }));
 
@@ -73,6 +74,23 @@ describe('NUI smoke', () => {
     }, '*');
     await nav(/ui_nav_settings/);
     expect(await screen.findAllByText('ui_export_unknown')).toHaveLength(2);
+  });
+
+  it('deshabilita Transferir sin report.resolve', async () => {
+    render(<App />);
+    await nav(/Reportes/);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Abiertos' }));
+    fireEvent.click(screen.getByLabelText('Cola de tickets').querySelector('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Reclamar' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Transferir' })).toBeEnabled());
+    window.postMessage({
+      type: 'init',
+      payload: {
+        locale: 'es', strings: LOCALES.es, version: '0.1.0', config: {},
+        player: { name: 'Fausto', rank: 'mod', capabilities: ['report.view', 'report.claim'] },
+      },
+    }, '*');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Transferir' })).toBeDisabled());
   });
 
   it('cambia el idioma a inglés', async () => {

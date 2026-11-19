@@ -101,7 +101,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
 
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
-  const canTransfer = st === 'claimed' && can('report.claim');
+  const canTransfer = st === 'claimed' && can('report.resolve');
   const canResolve = (st === 'claimed' || st === 'in_progress') && can('report.resolve');
   const canClose = st !== 'closed' && can('report.resolve');
   const canReopen = DONE.has(st) && can('report.resolve');
