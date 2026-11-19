@@ -21,11 +21,11 @@
 | 14 | NUI: visor auditoría (timeline + filtros + verify) | ⏳ |
 | 15 | NUI: panel tickets (cola, claim, chat, moderación) | ⏳ |
 | 16 | NUI: dashboard staff (duty, leaderboard) | ⏳ |
-| 17 | Locales ES/EN completos | ⏳ |
+| 17 | Locales ES/EN completos | ✅ test_locales (8 tests) |
 | 18 | Test resource E2E (eventos simulados → asserts) | ⏳ |
 | 19 | Deploy QA + E2E green + resmon <0.05ms | ⏳ |
 | 20 | Sesión in-game Fausto (beta) + feedback | ⏳ (requiere Fausto) |
-| 21 | Docs ES/EN (install, config, permisos, FAQ) | ⏳ |
+| 21 | Docs ES/EN (install, config, permisos, FAQ) | ✅ README + docs/es + docs/en |
 | 22 | Escrow packaging (portal.cfx.re) | ⏳ (requiere Fausto) |
 | 23 | Launch materials: Tebex listing copy + imágenes | ⏳ |
 | 24 | Launch materials: post foro ES/EN + video script | ⏳ |
