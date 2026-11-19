@@ -13,6 +13,7 @@ local modules = {
   "tests.test_client_moderation",
   "tests.test_persist",
   "tests.test_ratelimit",
+  "tests.test_lite",
 }
 local pass, fail = 0, 0
 local failed = {}

@@ -116,6 +116,26 @@
 .navAlert {
   background: var(--red-strong);
 }
+.upgrade {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 12px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.upgrade:hover,
+.upgrade:focus-visible {
+  text-decoration: underline;
+}
+
 .sideFooter {
   margin-top: auto;
   display: flex;

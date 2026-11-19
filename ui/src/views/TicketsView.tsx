@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
 import { formatDateTime, formatRelative, shortId } from '../format';
+import { isLite } from '../edition';
 import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone } from '../labels';
 import { useApp } from '../store';
 import type { ModAction, Priority, Ticket, TicketState } from '../types';
@@ -31,7 +32,7 @@ function TicketCard({ tk, selected, onSelect }: { tk: Ticket; selected: boolean;
       </div>
       <div className={v.tcardDesc}>{tk.description}</div>
       <div className={v.tcardMeta}>
-        <Badge tone={priorityTone[tk.priority]} dot>{priorityLabel(t, tk.priority)}</Badge>
+        {!isLite && <Badge tone={priorityTone[tk.priority]} dot>{priorityLabel(t, tk.priority)}</Badge>}
         <span>{formatRelative(tk.created_ts, state.locale)}</span>
         <span>{tk.claimer ? shortId(tk.claimer) : t('ui_unassigned')}</span>
       </div>
@@ -120,7 +121,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
 
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
-  const canTransfer = st === 'claimed' && can('report.resolve');
+  const canTransfer = !isLite && st === 'claimed' && can('report.resolve');
   const canResolve = (st === 'claimed' || st === 'in_progress') && can('report.resolve');
   const canClose = st !== 'closed' && can('report.resolve');
   const canReopen = DONE.has(st) && can('report.resolve');
@@ -137,7 +138,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
         <div className={v.detailTitle}>
           <h2>#{tk.id} · {categoryLabel(t, tk.category)}</h2>
           <Badge tone={stateTone[st]}>{stateLabel(t, st)}</Badge>
-          <Badge tone={priorityTone[tk.priority]} dot>{priorityLabel(t, tk.priority)}</Badge>
+          {!isLite && <Badge tone={priorityTone[tk.priority]} dot>{priorityLabel(t, tk.priority)}</Badge>}
         </div>
         <dl className={v.detailMeta}>
           <div><dt>{t('ui_ticket_reporter')}</dt><dd title={tk.reporter}>{shortId(tk.reporter)}</dd></div>
@@ -148,7 +149,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
         {tk.resolution != null && DONE.has(st) && (
           <div className={v.resolution}>
             <span><strong>{t('ui_ticket_resolution')}:</strong> {tk.resolution || '—'}</span>
-            {tk.rating != null && (
+            {!isLite && tk.rating != null && (
               <span className={v.stars} aria-label={`${tk.rating}/5`}>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <Star key={n} size={16} fill="currentColor" className={n > tk.rating! ? v.starOff : undefined} />
@@ -159,8 +160,8 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
         )}
       </section>
 
-      <div className={v.detailBody}>
-        <section className={cx(ui.card, v.chat)}>
+      <div className={isLite ? undefined : v.detailBody}>
+        {!isLite && <section className={cx(ui.card, v.chat)}>
           <div className={v.chatHead}>{t('ui_chat_title')}</div>
           {tk.messages.length ? (
             <div className={cx(ui.scroll, v.messages)} ref={listRef}>
@@ -179,20 +180,20 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
             <Empty icon={<MessageSquare size={22} />}>{t('ui_chat_empty')}</Empty>
           )}
           <Composer tk={tk} />
-        </section>
+        </section>}
 
         <div className={cx(v.rail, ui.scroll)}>
           <section className={cx(ui.card, v.railCard)}>
             <h3>{t('ui_ticket_actions')}</h3>
             <div className={v.railGrid}>
               <Button variant="primary" className={v.railWide} disabled={!canClaim} onClick={() => void send('ticket_claim', { id: tk.id })}>{t('claim')}</Button>
-              <Button disabled={!canTransfer} onClick={() => openDialog({ kind: 'transfer' })}>{t('transfer')}</Button>
+              {!isLite && <Button disabled={!canTransfer} onClick={() => openDialog({ kind: 'transfer' })}>{t('transfer')}</Button>}
               <Button disabled={!canResolve} onClick={() => openDialog({ kind: 'resolve' })}>{t('resolve')}</Button>
               <Button disabled={!canClose} onClick={() => void send('ticket_close', { id: tk.id })}>{t('close')}</Button>
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
             </div>
           </section>
-          {(state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (
+          {!isLite && (state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (
             <section className={cx(ui.card, v.railCard)}>
               <h3>{t('ui_evidence')}</h3>
               {tk.evidence?.length ? (
@@ -212,7 +213,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               )}
             </section>
           )}
-          {viewing != null && (
+          {!isLite && viewing != null && (
             <Dialog
               title={t('ui_evidence_item', { n: viewing })}
               onClose={closeViewer}
@@ -228,7 +229,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               ) : <p className={v.setHint}>{t('ui_evidence_loading')}</p>}
             </Dialog>
           )}
-          <section className={cx(ui.card, v.railCard)}>
+          {!isLite && <section className={cx(ui.card, v.railCard)}>
             <h3>{t('ui_mod_title')}</h3>
             <div className={v.target}>{t('ui_mod_target')}: <strong>{shortId(tk.reporter)}</strong></div>
             <label className={ui.field}>
@@ -254,7 +255,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
                 </Button>
               ))}
             </div>
-          </section>
+          </section>}
         </div>
       </div>
     </div>
@@ -278,10 +279,10 @@ export function TicketsView() {
   const list = useMemo(() => {
     const states = GROUPS[group];
     return state.tickets
-      .filter((x) => (!states || states.includes(x.state)) && (!priority || x.priority === priority))
+      .filter((x) => (!states || states.includes(x.state)) && (isLite || !priority || x.priority === priority))
       .sort((a, b) =>
         Number(DONE.has(a.state)) - Number(DONE.has(b.state))
-        || PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority]
+        || (isLite ? 0 : PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority])
         || b.created_ts - a.created_ts);
   }, [state.tickets, group, priority]);
 
@@ -300,7 +301,7 @@ export function TicketsView() {
 
   return (
     <main className={lay.main}>
-      <ViewHeader title={t('tab_tickets')} subtitle={t('ui_tickets_sub')}>
+      <ViewHeader title={t('tab_tickets')} subtitle={t(isLite ? 'ui_lite_tickets_sub' : 'ui_tickets_sub')}>
         <Button variant="primary" onClick={() => setDialog({ kind: 'create' })}><Plus size={18} />{t('ui_ticket_new')}</Button>
       </ViewHeader>
       <div className={v.tickets}>
@@ -317,12 +318,12 @@ export function TicketsView() {
                 { value: 'done', label: t('ui_tickets_done') },
               ]}
             />
-            <div className={v.queueRow}>
+            {!isLite && <div className={v.queueRow}>
               <select className={ui.input} aria-label={t('report_priority')} value={priority} onChange={(e) => setPriority(e.target.value as Priority | '')}>
                 <option value="">{t('report_priority')}: {t('ui_filter_all_f')}</option>
                 {priorities.map((p) => <option key={p} value={p}>{priorityLabel(t, p)}</option>)}
               </select>
-            </div>
+            </div>}
           </div>
           <div className={cx(ui.scroll, v.queueList)} aria-label={t('ui_queue')}>
             {list.length ? list.map((x) => (
@@ -335,7 +336,7 @@ export function TicketsView() {
         )}
       </div>
 
-      {dialog?.kind === 'transfer' && tk && (
+      {!isLite && dialog?.kind === 'transfer' && tk && (
         <Dialog
           title={t('ui_transfer_title', { id: tk.id })}
           onClose={close}
@@ -369,7 +370,7 @@ export function TicketsView() {
           </label>
         </Dialog>
       )}
-      {dialog?.kind === 'ban' && tk && (
+      {!isLite && dialog?.kind === 'ban' && tk && (
         <Dialog
           title={t('ui_confirm_ban_title')}
           onClose={close}
@@ -409,7 +410,7 @@ export function TicketsView() {
           onClose={close}
           footer={<>
             <Button onClick={close}>{t('ui_cancel')}</Button>
-            <Button variant="primary" disabled={!text.trim()} onClick={() => { void send('ticket_create', { category, priority: newPriority, body: text.trim() }); close(); }}>{t('report_submit')}</Button>
+            <Button variant="primary" disabled={!text.trim()} onClick={() => { void send('ticket_create', { category, priority: isLite ? 'normal' : newPriority, body: text.trim() }); close(); }}>{t('report_submit')}</Button>
           </>}
         >
           <div className={v.queueRow}>
@@ -419,12 +420,12 @@ export function TicketsView() {
                 {categories.map((c) => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
               </select>
             </label>
-            <label className={ui.field} style={{ flex: 1 }}>
+            {!isLite && <label className={ui.field} style={{ flex: 1 }}>
               <span className={ui.label}>{t('report_priority')}</span>
               <select className={ui.input} value={newPriority} onChange={(e) => setNewPriority(e.target.value as Priority)}>
                 {priorities.map((p) => <option key={p} value={p}>{priorityLabel(t, p)}</option>)}
               </select>
-            </label>
+            </label>}
           </div>
           <label className={ui.field}>
             <span className={ui.label}>{t('report_description')}</span>

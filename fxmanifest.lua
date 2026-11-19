@@ -30,6 +30,7 @@ server_scripts {
   'server/bridges/qbox.lua',
   'server/bridges/init.lua',
   'server/persist_sql.lua',
+  'server/persist_json.lua',
   'server/persist.lua',
   'server/export.lua',
   'server/capture.lua',
@@ -39,6 +40,7 @@ server_scripts {
 ui_page 'ui/dist/index.html'
 client_scripts {
   'client/main.lua',
+  'client/moderation.lua',
 }
 files {
   'ui/dist/index.html',

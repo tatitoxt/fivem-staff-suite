@@ -14,7 +14,7 @@ local function sandbox()
     GetCurrentResourceName = function() return 'staff_suite' end,
     SetNuiFocus = function() end,
     SendNUIMessage = function() end,
-    TriggerEvent = function() end,
+    TriggerEvent = function(event) if hooks[event] then hooks[event]() end end,
     TriggerServerEvent = function(...) client.args = { ... } end,
     PlayerPedId = function() return 10 end,
     IsEntityDead = function() return client.dead end,
@@ -44,6 +44,7 @@ local function sandbox()
     Wait = coroutine.yield,
   }, { __index = _G })
   assert(loadfile('client/main.lua', 't', env))()
+  assert(loadfile('client/moderation.lua', 't', env))()
   return client, env, events, callbacks, hooks
 end
 
