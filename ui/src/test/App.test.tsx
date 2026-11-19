@@ -52,6 +52,29 @@ describe('NUI smoke', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Reclamar' })).toBeDisabled());
   });
 
+  it('transfiere usando transfer_targets del server', async () => {
+    render(<App />);
+    await nav(/Reportes/);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Abiertos' }));
+    fireEvent.click(screen.getByLabelText('Cola de tickets').querySelector('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Reclamar' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Transferir' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Transferir' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('option', { name: 'Sofi.Mod' })).toBeInTheDocument();
+  });
+
+  it('muestra el export como sin dato si el server no lo informa', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    window.postMessage({
+      type: 'init',
+      payload: { locale: 'es', strings: {}, version: '0.1.0', config: {}, player: { name: 'Fausto', rank: 'owner' } },
+    }, '*');
+    await nav(/ui_nav_settings/);
+    expect(await screen.findAllByText('ui_export_unknown')).toHaveLength(2);
+  });
+
   it('cambia el idioma a inglés', async () => {
     render(<App />);
     await nav(/Ajustes/);

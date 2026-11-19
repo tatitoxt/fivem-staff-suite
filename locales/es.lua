@@ -123,6 +123,7 @@ Locale['es'] = {
   ui_set_keybind = 'Tecla del panel', ui_set_keybind_hint = 'Cada jugador puede cambiarla en Ajustes de GTA V > Teclas > FiveM.',
   ui_set_export = 'Exportación de auditoría', ui_set_export_hint = 'Se configura en config.lua del servidor.',
   ui_export_discord = 'Webhook de Discord', ui_export_on = 'Conectado', ui_export_off = 'Sin configurar',
+  ui_export_unknown = 'Sin dato del servidor', ui_transfer_none = 'No hay staff disponible para recibir el reporte.',
   ui_export_file = 'Copia en archivo', ui_export_anchor = 'Anclaje del hash', ui_export_anchor_every = 'Cada %{n} entradas',
   ui_set_about = 'Acerca de', ui_set_version = 'Versión', ui_set_rank = 'Tu rango', ui_set_persistence = 'Persistencia',
 }

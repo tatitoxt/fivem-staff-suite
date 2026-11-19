@@ -123,6 +123,7 @@ Locale['en'] = {
   ui_set_keybind = 'Panel key', ui_set_keybind_hint = 'Each player can rebind it in GTA V Settings > Key Bindings > FiveM.',
   ui_set_export = 'Audit export', ui_set_export_hint = 'Configured in the server config.lua.',
   ui_export_discord = 'Discord webhook', ui_export_on = 'Connected', ui_export_off = 'Not configured',
+  ui_export_unknown = 'Not reported by server', ui_transfer_none = 'No staff available to receive this report.',
   ui_export_file = 'File copy', ui_export_anchor = 'Hash anchoring', ui_export_anchor_every = 'Every %{n} entries',
   ui_set_about = 'About', ui_set_version = 'Version', ui_set_rank = 'Your rank', ui_set_persistence = 'Persistence',
 }

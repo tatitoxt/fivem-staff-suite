@@ -81,6 +81,11 @@ export interface PlayerInfo {
   capabilities?: Capability[];
 }
 
+export interface TransferTarget {
+  name: string;
+  identifier: string;
+}
+
 export interface UiConfig {
   panel_key?: string;
   locales?: string[];
@@ -88,7 +93,8 @@ export interface UiConfig {
   priorities?: Priority[];
   require_reason?: boolean;
   persistence?: string;
-  export?: { webhook: boolean; file: boolean; anchor_every: number };
+  export?: { webhook: boolean; file: boolean; anchor_every?: number };
+  transfer_targets?: TransferTarget[];
 }
 
 export interface InitPayload {

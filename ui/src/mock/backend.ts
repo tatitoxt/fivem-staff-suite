@@ -79,6 +79,8 @@ export class MockBackend {
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
           export: { webhook: true, file: true, anchor_every: 20 },
+          transfer_targets: ['Nahuel_R', 'Sofi.Mod', 'Kevo', 'Lu.Helper', 'Martin_B']
+            .map((name) => ({ name, identifier: name })),
         },
       },
     });

@@ -35,15 +35,15 @@ export function SettingsView() {
             <div className={v.rows}>
               <div className={v.row}>
                 <span>{t('ui_export_discord')}</span>
-                {exp?.webhook ? <Badge tone="green" dot>{t('ui_export_on')}</Badge> : <Badge tone="orange" dot>{t('ui_export_off')}</Badge>}
+                {!exp ? <Badge tone="gray" dot>{t('ui_export_unknown')}</Badge> : exp.webhook ? <Badge tone="green" dot>{t('ui_export_on')}</Badge> : <Badge tone="orange" dot>{t('ui_export_off')}</Badge>}
               </div>
               <div className={v.row}>
                 <span>{t('ui_export_file')}</span>
-                {exp?.file ? <Badge tone="green" dot>{t('ui_enabled')}</Badge> : <Badge tone="gray" dot>{t('ui_disabled')}</Badge>}
+                {!exp ? <Badge tone="gray" dot>{t('ui_export_unknown')}</Badge> : exp.file ? <Badge tone="green" dot>{t('ui_enabled')}</Badge> : <Badge tone="gray" dot>{t('ui_disabled')}</Badge>}
               </div>
               <div className={v.row}>
                 <span>{t('ui_export_anchor')}</span>
-                <strong>{exp ? t('ui_export_anchor_every', { n: exp.anchor_every }) : '—'}</strong>
+                <strong>{exp?.anchor_every ? t('ui_export_anchor_every', { n: exp.anchor_every }) : '—'}</strong>
               </div>
             </div>
             <p className={v.setHint}>{t('ui_set_export_hint')}</p>

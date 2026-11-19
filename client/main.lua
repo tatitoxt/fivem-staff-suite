@@ -10,6 +10,8 @@ local ticketsCache = {}
 local dutyCache = {}
 local alertsCache = {}
 local playerInfo = nil
+local transferTargets = nil
+local exportStatus = nil
 
 local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
@@ -35,11 +37,16 @@ local function sendInit()
       priorities = Config.Priorities,
       require_reason = Config.Moderation and Config.Moderation.require_reason ~= false,
       persistence = Config.Persistence,
-      export = Config.Export and {
+      export = (exportStatus and {
+        webhook = exportStatus.webhook == true,
+        file = exportStatus.file == true,
+        anchor_every = exportStatus.anchor_every,
+      }) or (Config.Export and {
         webhook = (Config.Export.webhook or '') ~= '',
         file = Config.Export.file == true,
-        anchor_every = Config.Export.anchor_every or 0,
-      } or nil,
+        anchor_every = Config.Export.anchor_every,
+      }) or nil,
+      transfer_targets = transferTargets,
     },
   })
 end
@@ -160,14 +167,18 @@ end)
 -- ===== server -> NUI =====
 RegisterNetEvent('staff_suite:state', function(state)
   state = state or {}
+  local initDirty = false
+  if state.transferTargets then transferTargets = state.transferTargets; initDirty = true end
+  if state.exportStatus then exportStatus = state.exportStatus; initDirty = true end
   if state.player then
     playerInfo = state.player
     rank = state.player.rank or rank
-    sendInit()
+    initDirty = true
   elseif state.rank and state.rank ~= rank then
     rank = state.rank
-    sendInit()
+    initDirty = true
   end
+  if initDirty then sendInit() end
   if state.alerts then alertsCache = state.alerts end
   if state.tickets then
     ticketsCache = ticketList(state.tickets)

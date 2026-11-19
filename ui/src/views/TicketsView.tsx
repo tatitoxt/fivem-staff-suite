@@ -235,7 +235,10 @@ export function TicketsView() {
   }, [list, selected]);
 
   const close = () => { setDialog(null); setText(''); setTarget(''); };
-  const staff = (state.duty?.staff ?? []).map((s) => s.actor).filter((a) => a !== tk?.claimer);
+  const targets = Array.isArray(state.config.transfer_targets)
+    ? state.config.transfer_targets.map((x) => ({ value: x.identifier, label: x.name || shortId(x.identifier) }))
+    : (state.duty?.staff ?? []).map((s) => ({ value: s.actor, label: shortId(s.actor) }));
+  const staff = targets.filter((x) => x.value !== tk?.claimer);
   const categories = state.config.categories ?? ['bug', 'player', 'staff', 'question', 'other'];
   const priorities = state.config.priorities ?? ['low', 'normal', 'high', 'urgent'];
 
@@ -287,11 +290,12 @@ export function TicketsView() {
         >
           <label className={ui.field}>
             <span className={ui.label}>{t('ui_transfer_to')}</span>
-            <select className={ui.input} value={target} onChange={(e) => setTarget(e.target.value)}>
+            <select className={ui.input} value={target} onChange={(e) => setTarget(e.target.value)} disabled={!staff.length}>
               <option value="">—</option>
-              {staff.map((a) => <option key={a} value={a}>{shortId(a)}</option>)}
+              {staff.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
             </select>
           </label>
+          {!staff.length && <p className={v.setHint}>{t('ui_transfer_none')}</p>}
         </Dialog>
       )}
       {dialog?.kind === 'resolve' && tk && (
