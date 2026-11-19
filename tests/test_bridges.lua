@@ -377,10 +377,18 @@ function T.test_ticket_transfer_assigns_eligible_recipient()
   s.event('ticketAction', 1, 'transfer', { to = 'license:offline' })
   s.event('ticketAction', 1, 'transfer', {})
   assert(ticket.claimer == 'license:account17' and #s.api.GetChain() == 2)
+  assert(not s.recipients[18])
   s.event('ticketAction', 1, 'transfer', { to = 'license:account18' })
   local entry = s.api.GetChain()[3]
   assert(ticket.claimer == 'license:account18' and entry.actor == 'license:account17')
   assert(s.payloads[tonumber(entry.payload)].assigned_to == 'license:account18')
+  assert(s.recipients[18]['staff_suite:state'].tickets[1].claimer == 'license:account18')
+
+  perms.revoke(s.api.GetState().perms, 'license:account19', 'report.view')
+  perms.grant(s.api.GetState().perms, 'license:account19', 'report.claim')
+  s.recipients[19] = nil
+  s.event('ticketAction', 1, 'transfer', { to = 'license:account19' })
+  assert(ticket.claimer == 'license:account18' and not s.recipients[19] and #s.api.GetChain() == 3)
 end
 
 function T.test_ticket_create_preserves_priority()

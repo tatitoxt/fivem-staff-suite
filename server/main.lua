@@ -241,9 +241,10 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
   id = positiveInteger(id)
   if not id then return end
   extra = type(extra) == 'table' and extra or {}
+  local recipientSrc, recipient
   if action == 'transfer' then
-    local _, recipient = findPlayerByIdentifier(extra.to)
-    if not recipient or not can(recipient, 'report.claim') then
+    recipientSrc, recipient = findPlayerByIdentifier(extra.to)
+    if not recipient or not can(recipient, 'report.claim') or not can(recipient, 'report.view') then
       TriggerClientEvent('staff_suite:notify', src, t('ticket_invalid_recipient'))
       return
     end
@@ -260,6 +261,7 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
   end
   record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   sendTickets(src, player)
+  if recipientSrc and recipientSrc ~= tonumber(src) then sendTickets(recipientSrc, recipient) end
 end)
 
 RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal)
