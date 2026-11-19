@@ -13,7 +13,7 @@ local chain = audit.new()
 if saved.chain then
   chain.entries = saved.chain.entries or {}
   local last = chain.entries[#chain.entries]
-  chain.head = last and last.hash or audit.GENESIS
+  chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
 end
 local store = tickets.new_store()
 for _, ticket in pairs(saved.tickets and saved.tickets.tickets or {}) do
@@ -54,7 +54,13 @@ end
 
 local function cleanText(value, maxBytes)
   if type(value) ~= 'string' then return nil end
-  value = value:gsub('[\0-\8\11\12\14-\31\127]', ''):match('^%s*(.-)%s*$')
+  -- Corte previo: el recorte y los patrones nunca procesan strings enormes.
+  if maxBytes and #value > maxBytes * 4 + 64 then return nil, maxBytes end
+  value = value:gsub('[\0-\8\11\12\14-\31\127]', '')
+  local first = value:find('%S')
+  if not first then return '' end
+  local _, last = value:find('.*%S')
+  value = value:sub(first, last)
   if maxBytes and #value > maxBytes then return nil, maxBytes end
   return value
 end

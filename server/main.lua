@@ -53,9 +53,9 @@ local function restore(data)
     chain.entries = data.chain.entries or {}
     -- El head sale de la última entrada: un head ausente o distinto encadenaría lo nuevo a otra rama.
     local last = chain.entries[#chain.entries]
-    chain.head = last and last.hash or audit.GENESIS
-    local ok, at = audit.verify(chain)
-    if not ok then print(t('console_chain_broken', { at = at })) end
+    chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
+    local verified, ok, at = pcall(audit.verify, chain)
+    if not verified or not ok then print(t('console_chain_broken', { at = at or '?' })) end
   end
   if data.tickets then
     store.next_id = data.tickets.next_id or 1
@@ -137,7 +137,13 @@ end
 -- recortado y dentro del límite en bytes. Devuelve nil, error si no cumple.
 local function cleanText(value, maxBytes)
   if type(value) ~= 'string' then return nil end
-  value = value:gsub('[\0-\8\11\12\14-\31\127]', ''):match('^%s*(.-)%s*$')
+  -- Corte previo: el recorte y los patrones nunca procesan strings enormes.
+  if maxBytes and #value > maxBytes * 4 + 64 then return nil, t('input_too_long', { max = maxBytes }) end
+  value = value:gsub('[\0-\8\11\12\14-\31\127]', '')
+  local first = value:find('%S')
+  if not first then return '' end
+  local _, last = value:find('.*%S')
+  value = value:sub(first, last)
   if maxBytes and #value > maxBytes then return nil, t('input_too_long', { max = maxBytes }) end
   return value
 end
@@ -304,7 +310,8 @@ AddEventHandler('playerConnecting', function(_, setKickReason)
       -- Evasión con cuentas nuevas: el ban se extiende a los identificadores que no tenía.
       local added = {}
       for _, id in ipairs(identifiers) do
-        if not bans[id] then bans[id] = ban; added[#added + 1] = id end
+        local old = bans[id]
+        if not old or (old.expires_at ~= 0 and old.expires_at <= now) then bans[id] = ban; added[#added + 1] = id end
       end
       if #added > 0 then
         record('mod_ban_extended', 'system', identifier, ban.reason, { identifiers = added, expires_at = ban.expires_at })
@@ -639,7 +646,7 @@ expose('CreateTicket', function(data)
   local description = exportText(data.description, limit('ticket_body'))
   if not reporter or not description then return nil, 'invalid_input' end
   local tk, ev = tickets.create(store, {
-    ts = os.time(),
+    ts = tonumber(data.ts) or os.time(),
     reporter = reporter,
     reporter_name = exportText(data.reporter_name, 64) or reporter,
     category = configuredValue(Config.Categories, data.category, 'other'),
@@ -658,7 +665,7 @@ expose('TicketAction', function(id, action, actor, extra)
   local resolution = exportText(extra.resolution, limit('message_body'))
   if not reason or not resolution then return nil, 'invalid_input' end
   local ticket, ev = tickets.transition(store, id, action, actor, {
-    ts = os.time(),
+    ts = tonumber(extra.ts) or os.time(),
     reason = reason ~= '' and reason or nil,
     resolution = resolution ~= '' and resolution or nil,
     to = idText(extra.to),

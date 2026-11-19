@@ -923,4 +923,26 @@ function T.test_evidence_detected_captured_and_verified()
   assert(latent.data.ok == false, 'reescribir también la auditoría rompe la cadena')
 end
 
+function T.test_review_regressions_ban_expired_alias_export_ts_and_huge_whitespace()
+  local s = serverSandbox()
+  s.ace.admin = true
+  s.api.GetState().bans['discord:old'] = { reason = 'viejo', created_at = 1, expires_at = 5 }
+  local ids = { ['18'] = { 'license:account18', 'discord:old' } }
+  local base = s.env.GetPlayerIdentifiers
+  s.env.GetPlayerIdentifiers = function(src) return ids[tostring(src)] or base(src) end
+  s.event('modAction', 'ban', 18, 'nuevo', 0)
+  ids['50'] = { 'license:nueva', 'discord:old' }
+  s.env.source = 50
+  s.hook('playerConnecting', '', function() end)
+  assert(s.api.GetState().bans['license:nueva'].reason == 'nuevo')
+
+  local id = s.api.CreateTicket({ reporter = 'license:account19', description = 'x', ts = 1234 })
+  assert(s.api.GetState().tickets.tickets[id].created_ts == 1234)
+  s.env.source = 19
+  local clock = os.clock()
+  s.event('ticketCreate', 'bug', 'low', 'a' .. string.rep(' ', 3000) .. 'b')
+  s.event('ticketCreate', 'bug', 'low', 'a' .. string.rep(' ', 2000000) .. 'b')
+  assert(os.clock() - clock < 1)
+end
+
 return T
