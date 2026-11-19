@@ -32,8 +32,9 @@ Lo que hay hoy:
 - /report con reclamo y transferencia (no se puede reclamar dos veces)
 - moderación desde el ticket con razón obligatoria
 - /duty con turnos registrados
+- rangos desde ESX, QBCore, Qbox o ACE: nadie es staff hasta que lo configures
 - standalone, sin base de datos obligatoria
-- 27 tests del core en verde
+- 39 tests en verde, con CI en cada PR
 
 **6/**
 Lo que NO hace, para que quede claro:
@@ -78,8 +79,9 @@ What works today:
 - /report with claim and transfer (no double claims)
 - moderation from the ticket with a required reason
 - /duty with logged shifts
+- ranks from ESX, QBCore, Qbox or ACE: nobody is staff until you configure it
 - standalone, no database required
-- 27 core tests passing
+- 39 tests passing, with CI on every PR
 
 **6/**
 What it does NOT do:

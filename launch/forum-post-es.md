@@ -10,9 +10,9 @@
 ---
 
 ## Título
-`[GRATIS] Staff Integrity Suite Lite — Reportes + auditoría del staff a prueba de manipulación (SHA-256) | Standalone | ES/EN`
+`[GRATIS] Staff Integrity Suite Lite — Reportes + auditoría del staff a prueba de manipulación (SHA-256) | Standalone / ESX / QBCore / Qbox | ES/EN`
 
-(Versión paga: `Staff Integrity Suite — Reportes, moderación en el ticket y auditoría verificable del staff | Standalone | ES/EN`)
+(Versión paga: `Staff Integrity Suite — Reportes, moderación en el ticket y auditoría verificable del staff | Standalone / ESX / QBCore / Qbox | ES/EN`)
 
 ## Cuerpo
 
@@ -44,18 +44,18 @@ Si no carga el video, [hacé clic acá]({{YOUTUBE_ES}}).
 * Cada paso del ticket queda en la cadena.
 
 **Lo que suma Core (pago)**
-* **Moderación desde el ticket:** goto, bring, freeze, heal y kick. kick/warn/ban piden razón obligatoria. Todo queda en la cadena.
+* **Moderación desde el ticket:** goto, bring, freeze, heal y kick. El kick pide razón obligatoria. Todo queda en la cadena.
 * **Permisos por rango:** 5 rangos, 20 permisos, altas y bajas por persona.
+* **Rangos desde tu framework:** detecta Qbox, QBCore o ESX (o lo forzás con `Config.Framework`) y mapea grupos, permisos y jobs a los rangos (`Config.RankMap`, `Config.JobRankMap`). En standalone, por ACE (`staff_suite.<rango>`). Nadie tiene permisos de staff hasta que los configures.
 * **Registro de comandos de admin (best-effort):** `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`.
 * **Turnos:** `/duty` on/off con la duración registrada.
 * **Persistencia:** JSON sin base de datos, u oxmysql.
 
 **Próximamente** (sin fechas; lo anuncio cuando esté probado)
-* Panel in-game (F6): cola de tickets, timeline de auditoría y equipo
-* Chat del ticket con notas internas, calificación del jugador, prioridades
+* Panel in-game (F6): cola de tickets, timeline de auditoría y equipo. Los mensajes del staff, las notas internas y las prioridades ya funcionan en el server; falta el panel
+* Chat con el jugador y calificación del jugador
 * ban / warn / spectate / revive
 * Analytics del staff: horas, tickets resueltos, tiempo de respuesta, ranking
-* Rangos desde ESX / QBCore / Qbox
 
 ## Lo que NO hace
 * No es un anticheat y no frena el abuso: hace que quede a la vista y que borrarlo se note.
@@ -69,7 +69,8 @@ Si no carga el video, [hacé clic acá]({{YOUTUBE_ES}}).
 ## Instalación
 1. Descargalo de {{GITHUB_URL}} (Lite) o {{TEBEX_URL}} (Core).
 2. Copiá `staff_suite` a `resources/` y agregá `ensure staff_suite` en `server.cfg`.
-3. En `config.lua` elegí idioma, comandos y rangos. Opcional: webhook de Discord en `Config.Export.webhook`.
+3. En `config.lua`: idioma, comandos, framework (`auto` por defecto) y mapeo de rangos. En standalone: `add_ace group.admin staff_suite.admin allow` en `server.cfg`.
+4. Ancla en Discord (opcional): `set staff_suite_webhook "URL"` en `server.cfg`. Queda solo en el server (no uses `setr`).
 Docs completas: {{DOCS_URL}}
 
 ## Links
@@ -83,7 +84,7 @@ Docs completas: {{DOCS_URL}}
 | Código accesible            | Parcial (config, locales y UI abiertos; core con escrow) |
 | Por suscripción             | No                                       |
 | Líneas (aprox.)             | ~{{LINEAS}}                              |
-| Requisitos y dependencias   | FXServer actualizado, OneSync (acciones de moderación); oxmysql opcional |
+| Requisitos y dependencias   | FXServer actualizado, OneSync (acciones de moderación); oxmysql opcional; ESX/QBCore/Qbox opcional |
 | Soporte                     | Sí                                       |
 ```
 
@@ -95,7 +96,7 @@ Reportes + un registro de lo que hace tu staff que no se puede editar sin que se
 • /report con reclamo, transferencia y cierre
 • Cada acción queda en una cadena SHA-256: si alguien edita o borra un log, /audit te dice cuál
 • Ancla del hash en tu Discord (webhook) por si reescriben todo
-• Standalone, sin base de datos obligatoria, ES/EN
+• Standalone o ESX/QBCore/Qbox, sin base de datos obligatoria, ES/EN
 
 Lo armé porque en casi todos los servers el log del staff es un .txt que cualquier admin con acceso puede tocar.
 Video: {{YOUTUBE_ES}} · Descarga: {{GITHUB_URL}}

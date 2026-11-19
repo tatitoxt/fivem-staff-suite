@@ -6,9 +6,9 @@
 ## Nombre y tagline
 - **Nombre del paquete:** Staff Integrity Suite
 - **Título largo (SEO Tebex/Google):**
-  - ES: `Staff Integrity Suite — Reportes, moderación y auditoría verificable del staff [Standalone]`
-  - EN: `Staff Integrity Suite — Reports, moderation & verifiable staff audit log [Standalone]`
-  - Cuando #12 esté listo, cambiar `[Standalone]` por `[Standalone / ESX / QBCore / Qbox]`.
+  - ES: `Staff Integrity Suite — Reportes, moderación y auditoría verificable del staff [Standalone / ESX / QBCore / Qbox]`
+  - EN: `Staff Integrity Suite — Reports, moderation & verifiable staff audit log [Standalone / ESX / QBCore / Qbox]`
+  - Los bridges están probados con mocks (`tests/test_bridges.lua`). Confirmarlos en un server real con cada framework (#19) antes de publicar.
 - **Tagline:**
   - ES: **"El staff suite que audita a tu staff."**
   - EN: **"The staff suite that audits your staff."**
@@ -35,7 +35,7 @@ Cada acción que pasa por el sistema (un reporte, un reclamo, una moderación, u
 - Español e inglés. `config.lua` y los locales se pueden editar.
 - *Próximamente:* panel in-game (F6) con cola de tickets y visor de auditoría.
 
-**Requisitos:** FXServer actualizado (Lua 5.4, `fx_version cerulean`). No necesita framework.
+**Requisitos:** FXServer actualizado (Lua 5.4, `fx_version cerulean`). Standalone (rangos por ACE) o ESX, QBCore o Qbox: los detecta solo.
 
 ### EN
 **Staff Integrity Suite Lite (free)**
@@ -54,7 +54,7 @@ Every action that goes through the system (a report, a claim, a moderation actio
 - Spanish and English. `config.lua` and locales are editable.
 - *Coming soon:* in-game panel (F6) with ticket queue and audit viewer.
 
-**Requirements:** up-to-date FXServer (Lua 5.4, `fx_version cerulean`). No framework needed.
+**Requirements:** up-to-date FXServer (Lua 5.4, `fx_version cerulean`). Standalone (ACE ranks) or ESX, QBCore or Qbox, detected automatically.
 
 ---
 
@@ -66,15 +66,16 @@ Every action that goes through the system (a report, a claim, a moderation actio
 Todo el flujo de trabajo de tu staff en un solo script: reportes, moderación desde el ticket, turnos y una auditoría que se puede verificar. Se usa junto a txAdmin, no lo reemplaza. Noclip, god y spawn los sigue haciendo txAdmin.
 
 **Todo lo del Lite, más:**
-- **Moderación desde el ticket:** goto, bring, freeze, heal y kick. kick/warn/ban piden razón obligatoria. Cada acción queda en la cadena con quién, a quién, cuándo y por qué.
+- **Moderación desde el ticket:** goto, bring, freeze, heal y kick. El kick pide razón obligatoria. Cada acción queda en la cadena con quién, a quién, cuándo y por qué.
 - **Permisos por rango:** 5 rangos (helper, moderator, admin, senior admin, owner) y 20 permisos individuales. Se pueden dar o sacar permisos a una persona puntual.
+- **Rangos desde tu framework:** detecta Qbox, QBCore o ESX (o lo forzás con `Config.Framework`) y mapea grupos, permisos y jobs a los rangos (`Config.RankMap`, `Config.JobRankMap`). En standalone, por ACE (`staff_suite.<rango>`). Nadie tiene permisos de staff hasta que los configures.
 - **Registro de comandos de admin:** `ban`, `kick`, `warn`, `giveitem`, `givemoney` y `setjob` quedan en la auditoría (best-effort, depende de cómo los registre tu server).
 - **API para tus scripts:** `exports.staff_suite:Record(...)` agrega cualquier acción de otro resource a la misma cadena.
 - **Persistencia en MySQL** vía oxmysql. Si no tenés, usa JSON.
 - **Updates de por vida** de la edición Core.
-- *Próximamente:* chat del ticket con notas internas, calificación del jugador (1–5), prioridades, ban/warn/spectate/revive, respuestas predefinidas, evidencia con screenshot-basic, analytics del staff (horas, tickets resueltos, tiempo de respuesta, ranking), soporte para ESX, QBCore y Qbox.
+- *Próximamente:* panel in-game (F6) con mensajes y notas internas del staff en el ticket y prioridades (la lógica en el server ya está; falta la interfaz), chat con el jugador, calificación del jugador (1–5), ban/warn/spectate/revive, respuestas predefinidas, evidencia con screenshot-basic, analytics del staff (horas, tickets resueltos, tiempo de respuesta, ranking).
 
-**Requisitos:** FXServer actualizado, OneSync (para goto/bring/freeze/heal), oxmysql opcional.
+**Requisitos:** FXServer actualizado, OneSync (para goto/bring/freeze/heal), oxmysql opcional. Standalone, ESX, QBCore o Qbox.
 **Escrow:** el core va protegido con el Asset Escrow de Cfx. `config.lua`, locales y la interfaz quedan abiertos para editar.
 
 ### EN
@@ -83,15 +84,16 @@ Todo el flujo de trabajo de tu staff en un solo script: reportes, moderación de
 Your staff's whole workflow in one script: reports, moderation from the ticket, duty tracking and an audit log you can verify. It runs next to txAdmin and doesn't replace it. Noclip, god mode and spawning stay in txAdmin.
 
 **Everything in Lite, plus:**
-- **Moderation from the ticket:** goto, bring, freeze, heal and kick. kick/warn/ban require a reason. Every action is written to the chain with who, to whom, when and why.
+- **Moderation from the ticket:** goto, bring, freeze, heal and kick. Kicks require a reason. Every action is written to the chain with who, to whom, when and why.
 - **Rank permissions:** 5 ranks (helper, moderator, admin, senior admin, owner) and 20 individual permissions. You can grant or revoke permissions for a specific person.
+- **Ranks from your framework:** detects Qbox, QBCore or ESX (or force it with `Config.Framework`) and maps groups, permissions and jobs to ranks (`Config.RankMap`, `Config.JobRankMap`). Standalone uses ACE (`staff_suite.<rank>`). Nobody gets staff permissions until you configure them.
 - **Admin command logging:** `ban`, `kick`, `warn`, `giveitem`, `givemoney` and `setjob` are written to the audit log (best-effort, depends on how your server registers them).
 - **API for your scripts:** `exports.staff_suite:Record(...)` adds any action from another resource to the same chain.
 - **MySQL storage** via oxmysql. Without it, JSON is used.
 - **Lifetime updates** for the Core edition.
-- *Coming soon:* ticket chat with internal notes, player rating (1–5), priorities, ban/warn/spectate/revive, canned responses, screenshot-basic evidence, staff analytics (hours, resolved tickets, response time, leaderboard), ESX, QBCore and Qbox support.
+- *Coming soon:* in-game panel (F6) with staff messages and internal notes on tickets plus priorities (the server logic is done; the UI isn't), chat with the player, player rating (1–5), ban/warn/spectate/revive, canned responses, screenshot-basic evidence, staff analytics (hours, resolved tickets, response time, leaderboard).
 
-**Requirements:** up-to-date FXServer, OneSync (for goto/bring/freeze/heal), oxmysql optional.
+**Requirements:** up-to-date FXServer, OneSync (for goto/bring/freeze/heal), oxmysql optional. Standalone, ESX, QBCore or Qbox.
 **Escrow:** the core is protected with Cfx Asset Escrow. `config.lua`, locales and the UI stay open for editing.
 
 ---
@@ -141,7 +143,7 @@ Priced per server, not per staff member: your team can grow without paying more.
 | Tickets con reclamo y transferencia | Tickets with claim and transfer |
 | Moderación desde el ticket, con razón | Moderation from the ticket, with a reason |
 | Turnos de staff registrados | Staff duty shifts recorded |
-| Standalone, sin DB obligatoria | Standalone, no database required |
+| Standalone o ESX/QBCore/Qbox, sin DB obligatoria | Standalone or ESX/QBCore/Qbox, no database required |
 | Español e inglés, config abierta | Spanish and English, open config |
 
 ## Comparativa por edición (tabla para la descripción)
@@ -152,6 +154,7 @@ Priced per server, not per staff member: your team can grow without paying more.
 | Duty on/off | ✅ | ✅ | ✅ |
 | Moderación desde el ticket | — | ✅ | ✅ |
 | Permisos por rango + overrides | — | ✅ | ✅ |
+| Rangos desde ESX / QBCore / Qbox | — | ✅ | ✅ |
 | Registro de comandos de admin + API `Record` | — | ✅ | ✅ |
 | Analytics de staff | — | próximamente | próximamente |
 | Inventario de permisos, flags, casos, apelaciones | — | — | próximamente |
@@ -168,7 +171,8 @@ Priced per server, not per staff member: your team can grow without paying more.
 - **¿Impide que un admin haga abuso?** No. Lo que hace es que quede registrado y que borrarlo se note. No es un anticheat.
 - **¿Captura todo lo que pasa en mi server?** No. Registra lo que pasa por el sistema, los comandos de admin listados y lo que otros scripts manden por `exports.staff_suite:Record`. Lo que otros resources hacen por su cuenta, sin pasar por ahí, no siempre se puede interceptar desde el server.
 - **¿Necesito base de datos?** No. Usa JSON por defecto; oxmysql es opcional.
-- **¿Funciona con ESX / QBCore / Qbox?** Hoy corre standalone. El soporte de frameworks está en desarrollo; se anuncia cuando esté probado.
+- **¿Funciona con ESX / QBCore / Qbox?** Sí. Detecta el framework solo (o lo elegís en `Config.Framework`) y toma los rangos de tus grupos, permisos o jobs. Sin framework, los rangos se dan por ACE.
+- **¿Quién tiene permisos apenas lo instalo?** Nadie. Ningún jugador es staff hasta que mapeás los rangos en `config.lua` o por ACE.
 - **¿Cómo lo recibo?** Tebex lo entrega en tu cuenta de cfx.re (portal.cfx.re → Granted Assets) apenas pagás.
 - **¿Puedo editar el código?** `config.lua`, locales y la interfaz sí. El core va con escrow.
 - **¿Pago por cada staff?** No. Core es pago único por server; Pro es mensual por server, sin importar cuántos staff tengas.
@@ -182,7 +186,8 @@ Priced per server, not per staff member: your team can grow without paying more.
 - **Does it stop admin abuse?** No. It makes sure abuse is recorded and that deleting the record shows. It isn't an anticheat.
 - **Does it capture everything on my server?** No. It records what goes through the system, the listed admin commands, and anything other scripts send via `exports.staff_suite:Record`. Actions other resources take on their own can't always be intercepted server-side.
 - **Do I need a database?** No. JSON by default; oxmysql is optional.
-- **ESX / QBCore / Qbox?** Standalone today. Framework support is in development and will be announced once tested.
+- **ESX / QBCore / Qbox?** Yes. It detects the framework automatically (or you set `Config.Framework`) and reads ranks from your groups, permissions or jobs. Without a framework, ranks come from ACE.
+- **Who has permissions right after install?** Nobody. No player is staff until you map ranks in `config.lua` or via ACE.
 - **How do I get it?** Tebex delivers it to your cfx.re account (portal.cfx.re → Granted Assets) right after payment.
 - **Can I edit it?** `config.lua`, locales and the UI, yes. The core is escrowed.
 - **Do I pay per staff member?** No. Core is a one-time payment per server; Pro is monthly per server, whatever your team size.
@@ -208,8 +213,8 @@ Estilo: el del panel (BUILD_PLAN: fondo claro, Manrope 800 para títulos, DM San
 | 6 | `shot-audit.png` | 1920×1080 | Visor de auditoría: timeline con seq, acción, actor → target, razón, hash truncado | Carrusel Tebex + foro |
 | 7 | `shot-broken.png` | 1920×1080 | Resultado de verificar con una entrada manipulada a mano, resaltada en rojo | Carrusel + foro (la imagen más importante) |
 | 8 | `shot-ticket.png` | 1920×1080 | Ticket abierto: estado, reclamado por, botones de moderación, pedido de razón | Carrusel + foro |
-| 9 | `shot-discord.png` | 1280×720 | Mensaje del webhook "Audit anchor · seq N · hash" en un canal de Discord | Carrusel + foro |
-| 10 | `shot-console.png` | 1280×720 | Consola del server: `[StaffSuite] audit OK: N entries` y después `audit BROKEN at N` | Foro (prueba técnica) |
+| 9 | `shot-discord.png` | 1280×720 | Mensaje del webhook "Ancla de auditoría · seq N · hash" (EN: "Audit anchor · seq N · hash") en un canal de Discord | Carrusel + foro |
+| 10 | `shot-console.png` | 1280×720 | Consola del server: `[StaffSuite] auditoría OK: N entradas` y después `auditoría ROTA en la entrada N` (o en inglés: `audit OK: N entries` / `audit BROKEN at entry N`) | Foro (prueba técnica) |
 | 11 | `shot-resmon.png` | recorte real | resmon con `staff_suite` (#19) | Foro (exigido por las reglas) |
 | 12 | `gif-verify.gif` | 600×338, ≤5 MB | Loop de 5–8 s: clic en "Verificar cadena" → verde; editar → rojo | Post del foro (como hacen los releases top) |
 

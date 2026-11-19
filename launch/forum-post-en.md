@@ -12,9 +12,9 @@
 ---
 
 ## Topic title
-- Lite: `[FREE] Staff Integrity Suite Lite | Reports + tamper-evident staff audit log (SHA-256) | Standalone | EN/ES`
-- Core: `[PAID] Staff Integrity Suite | Reports, in-ticket moderation & verifiable staff audit | Standalone | EN/ES`
-- When #12 is merged, replace `Standalone` with `Standalone / ESX / QBCore / Qbox`.
+- Lite: `[FREE] Staff Integrity Suite Lite | Reports + tamper-evident staff audit log (SHA-256) | Standalone / ESX / QBCore / Qbox | EN/ES`
+- Core: `[PAID] Staff Integrity Suite | Reports, in-ticket moderation & verifiable staff audit | Standalone / ESX / QBCore / Qbox | EN/ES`
+- The bridges are tested with mocks. Confirm them on a real server with each framework (#19) before posting.
 
 ## Body (Core topic; for Lite, drop the "Core adds" section and use the Lite table)
 
@@ -46,18 +46,18 @@ If the video doesn't load, [click here]({{YOUTUBE_EN}}).
 * Every ticket step goes into the audit chain.
 
 **Core adds**
-* **Moderation from the ticket:** goto, bring, freeze, heal, kick. kick/warn/ban require a reason. Every action goes into the chain.
+* **Moderation from the ticket:** goto, bring, freeze, heal, kick. Kicks require a reason. Every action goes into the chain.
 * **Rank permissions:** 5 ranks, 20 capabilities, per-person grants and revokes.
+* **Ranks from your framework:** detects Qbox, QBCore or ESX (or force it with `Config.Framework`) and maps groups, permissions and jobs to ranks (`Config.RankMap`, `Config.JobRankMap`). Standalone uses ACE (`staff_suite.<rank>`). Nobody gets staff permissions until you configure them.
 * **Admin command logging (best-effort):** `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`.
 * **Duty:** `/duty` on/off, shift length logged.
 * **Storage:** JSON with no database, or oxmysql.
 
 **Coming soon** (no dates; announced here when tested)
-* In-game panel (F6) with ticket queue, audit timeline and team view
-* Ticket chat with internal notes, player ratings, priorities
+* In-game panel (F6) with ticket queue, audit timeline and team view. Staff messages, internal notes and priorities already work server-side; they need the panel
+* Chat with the player and player ratings
 * ban / warn / spectate / revive actions
 * Staff analytics: hours, resolved tickets, response time, leaderboard
-* ESX / QBCore / Qbox rank mapping
 
 ## What it does NOT do
 * It's not an anticheat and it doesn't stop abuse. It makes abuse visible and hard to erase.
@@ -71,7 +71,8 @@ If the video doesn't load, [click here]({{YOUTUBE_EN}}).
 ## Installation
 1. Download from {{TEBEX_URL}} (Core) / {{GITHUB_URL}} (Lite).
 2. Drop `staff_suite` into `resources/` and add `ensure staff_suite` to `server.cfg`.
-3. Set language, commands and ranks in `config.lua`. Optional: a Discord webhook in `Config.Export.webhook`.
+3. In `config.lua`: language, commands, framework (`auto` by default) and rank mapping. Standalone: `add_ace group.admin staff_suite.admin allow` in `server.cfg`.
+4. Optional Discord anchor: `set staff_suite_webhook "URL"` in `server.cfg`. It stays server-side (don't use `setr`).
 Full docs: {{DOCS_URL}}
 
 ## Links
@@ -89,7 +90,7 @@ Full docs: {{DOCS_URL}}
 | Code is accessible          | Partial (config, locales and UI open; core escrowed) |
 | Subscription-based          | No                                       |
 | Lines (approximately)       | ~{{LINEAS}}                              |
-| Requirements & dependencies | Up-to-date FXServer, OneSync (moderation actions); oxmysql optional |
+| Requirements & dependencies | Up-to-date FXServer, OneSync (moderation actions); oxmysql optional; ESX/QBCore/Qbox optional |
 | Support                     | Yes                                      |
 ```
 
