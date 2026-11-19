@@ -2,23 +2,8 @@
 local loadmod = StaffSuiteModules and StaffSuiteModules.loadmod or require
 local sql = loadmod('server.persist_sql')
 local audit = loadmod('core.audit_chain')
+local localFile = loadmod('server.persist_json')
 local M = {}
-
-local function res() return GetCurrentResourceName() end
-
--- ===== JSON (Lite, sin DB) =====
-function M.load_json(file)
-  local raw = LoadResourceFile(res(), file)
-  if not raw or raw == '' then return nil end
-  local ok, data = pcall(json.decode, raw)
-  if ok and type(data) == 'table' then return data end
-  return nil
-end
-
-function M.save_json(file, state)
-  local raw = json.encode(state)
-  return SaveResourceFile(res(), file, raw, #raw)
-end
 
 -- Solo se recupera un checkpoint más reciente que prolonga la misma cadena.
 local function extends(backup, database)
@@ -48,7 +33,7 @@ function M.new(config, snapshot)
 
   local function checkpoint(state)
     state.database_checkpoint = wantsDb or nil
-    local ok, result = pcall(M.save_json, config.JsonFile, state)
+    local ok, result = pcall(localFile.save, config.JsonFile, state)
     return ok and result == true
   end
 
@@ -96,7 +81,7 @@ function M.new(config, snapshot)
   end
 
   function storage.load(cb)
-    local backup = M.load_json(config.JsonFile)
+    local backup = localFile.load(config.JsonFile)
     if wantsDb and sql.available() then
       sql.load(function(ok, state, dbCache)
         if ok then

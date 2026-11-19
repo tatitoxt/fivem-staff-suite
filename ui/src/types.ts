@@ -111,6 +111,7 @@ export interface TransferTarget {
 }
 
 export interface UiConfig {
+  core_url?: string;
   panel_key?: string;
   locales?: string[];
   categories?: string[];

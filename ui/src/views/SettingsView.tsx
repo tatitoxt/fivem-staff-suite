@@ -1,6 +1,7 @@
 import { Info, Keyboard, Languages, Send } from 'lucide-react';
 import { Badge, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
+import { isLite } from '../edition';
 import { rankLabel } from '../labels';
 import { useApp } from '../store';
 import v from './views.module.css';
@@ -30,7 +31,7 @@ export function SettingsView() {
             <span className={v.kbd}>{cfg.panel_key ?? 'F6'}</span>
             <p className={v.setHint}>{t('ui_set_keybind_hint')}</p>
           </section>
-          <section className={cx(ui.card, v.setCard)}>
+          {!isLite && <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Send size={20} /></span><h2>{t('ui_set_export')}</h2></div>
             <div className={v.rows}>
               <div className={v.row}>
@@ -47,13 +48,13 @@ export function SettingsView() {
               </div>
             </div>
             <p className={v.setHint}>{t('ui_set_export_hint')}</p>
-          </section>
+          </section>}
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Info size={20} /></span><h2>{t('ui_set_about')}</h2></div>
             <div className={v.rows}>
               <div className={v.row}><span>{t('ui_set_version')}</span><strong>v{state.version || '—'}</strong></div>
-              <div className={v.row}><span>{t('ui_set_rank')}</span><strong>{state.player ? rankLabel(t, state.player.rank) : '—'}</strong></div>
-              <div className={v.row}><span>{t('ui_set_persistence')}</span><strong>{cfg.persistence === 'oxmysql' ? 'MySQL (oxmysql)' : 'JSON'}</strong></div>
+              {!isLite && <div className={v.row}><span>{t('ui_set_rank')}</span><strong>{state.player ? rankLabel(t, state.player.rank) : '—'}</strong></div>}
+              <div className={v.row}><span>{t('ui_set_persistence')}</span><strong>{!isLite && cfg.persistence === 'oxmysql' ? 'MySQL (oxmysql)' : 'JSON'}</strong></div>
             </div>
           </section>
         </div>

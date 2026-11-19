@@ -27,9 +27,16 @@ jobs:
         run: luacheck .
 
   release:
-    name: Paquete de release Cfx
+    name: Paquete de release (${{ matrix.edition }})
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    strategy:
+      matrix:
+        include:
+          - edition: core
+            archive: staff_suite
+          - edition: lite
+            archive: staff_suite_lite
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -42,19 +49,25 @@ jobs:
       - name: Instalar Lua y zip
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.4 zip
+          sudo apt-get install -y lua5.4 zip unzip
       - name: Compilar y empaquetar el recurso
         id: release
         run: |
-          ./scripts/build-release.sh
-          archives=(dist/staff_suite-*.zip)
-          printf 'name=%s\n' "${archives[0]##*/}" >> "$GITHUB_OUTPUT"
+          ./scripts/build-release.sh --edition "${{ matrix.edition }}"
+          archives=(dist/${{ matrix.archive }}-*.zip)
+          printf 'path=%s\nname=%s\n' "${archives[0]}" "${archives[0]##*/}" >> "$GITHUB_OUTPUT"
+      - name: Verificar el contenido del ZIP
+        run: bash tests/test_release.sh "${{ matrix.edition }}" "${{ steps.release.outputs.path }}"
+      - name: Correr tests de NUI para ambas ediciones
+        if: matrix.edition == 'core'
+        working-directory: ui
+        run: npm test
       - name: Subir el ZIP
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           # La acción usa este nombre para borrar el artifact anterior al reintentar.
           name: ${{ steps.release.outputs.name }}
-          path: dist/staff_suite-*.zip
+          path: ${{ steps.release.outputs.path }}
           archive: false
           overwrite: true
           if-no-files-found: error

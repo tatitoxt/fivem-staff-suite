@@ -42,6 +42,7 @@ files['**/fxmanifest.lua'].read_globals = {
 
 -- Globals que estos archivos inicializan mediante el entorno del resource.
 files['config.lua'].globals = { 'Config' }
+files['editions/lite/config.lua'].globals = { 'Config' }
 files['server/config.lua'].globals = { 'Config.Export', 'Config.StandaloneRanks' }
 files['locales/*.lua'].globals = { 'Locale' }
 files['shared/constants.lua'].globals = { 'SS' }
@@ -52,6 +53,7 @@ files['shared/loader.lua'].globals = { 'StaffSuiteModules' }
 files['core/*.lua'].globals = { 'StaffSuiteModules' }
 files['server/bridges/*.lua'].globals = { 'StaffSuiteModules' }
 files['server/persist.lua'].globals = { 'StaffSuiteModules' }
+files['server/persist_json.lua'].globals = { 'StaffSuiteModules' }
 files['server/persist_sql.lua'].globals = { 'StaffSuiteModules' }
 files['server/export.lua'].globals = { 'StaffSuiteModules' }
 
