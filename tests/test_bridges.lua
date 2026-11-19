@@ -366,6 +366,60 @@ function T.test_state_includes_identity_capabilities_duty_and_alerts()
   assert(next(s.sent['staff_suite:state'].alerts) == nil)
 end
 
+function T.test_state_lists_transfer_targets_without_analytics()
+  local s = serverSandbox()
+  s.env.Config.Framework = 'standalone'
+  s.env.Config.StandaloneRanks = {
+    ['license:account17'] = 'moderator',
+    ['license:account18'] = 'helper',
+    ['license:account19'] = 'helper',
+    ['license:account20'] = 'helper',
+    ['license:account21'] = 'helper',
+  }
+  s.online['21'] = true
+  local permissions = s.api.GetState().perms
+  perms.revoke(permissions, 'license:account19', 'report.view')
+  perms.revoke(permissions, 'license:account21', 'report.claim')
+
+  s.event('getState')
+  local state = s.sent['staff_suite:state']
+  assert(state.player.rank == 'moderator' and next(state.duty) == nil)
+  assert(#state.transferTargets == 2)
+  local names = {}
+  for _, target in ipairs(state.transferTargets) do
+    names[target.identifier] = target.name
+    assert(target.rank == nil)
+  end
+  assert(names['license:account17'] == 'Alex RP' and names['license:account18'] == 'Alex RP')
+
+  s.env.source = 18
+  s.event('getState')
+  assert(next(s.sent['staff_suite:state'].transferTargets) == nil)
+  s.env.source = 17
+  perms.revoke(permissions, 'license:account17', 'report.resolve')
+  s.event('getState')
+  assert(next(s.sent['staff_suite:state'].transferTargets) == nil)
+end
+
+function T.test_state_reports_export_flags_without_webhook_url()
+  local s = serverSandbox()
+  s.event('getState')
+  local state = s.sent['staff_suite:state']
+  assert(state.exportStatus.webhook == false and state.exportStatus.file == true)
+  assert(state.player.rank == 'player')
+
+  local webhook = 'https://example.invalid/private-webhook'
+  s.env.Config.Export.webhook = webhook
+  s.env.Config.Export.file = false
+  s.event('getState')
+  state = s.sent['staff_suite:state']
+  assert(state.exportStatus.webhook == true and state.exportStatus.file == false)
+  for key, value in pairs(state.exportStatus) do
+    assert((key == 'file' or key == 'webhook') and type(value) == 'boolean')
+  end
+  assert(not state.export and not state.webhook)
+end
+
 function T.test_ticket_transfer_assigns_eligible_recipient()
   local s = serverSandbox()
   s.ace.admin = true
