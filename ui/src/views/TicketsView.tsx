@@ -71,6 +71,7 @@ function Composer({ tk }: { tk: Ticket }) {
       <textarea
         className={ui.input}
         value={body}
+        maxLength={state.config.limits?.message_body}
         disabled={disabled}
         aria-label={internal ? t('ui_note_placeholder') : t('ui_msg_placeholder')}
         placeholder={internal ? t('ui_note_placeholder') : t('ui_msg_placeholder')}
@@ -366,7 +367,7 @@ export function TicketsView() {
         >
           <label className={ui.field}>
             <span className={ui.label}>{t('ui_ticket_resolution')}</span>
-            <textarea className={ui.input} rows={4} value={text} placeholder={t('ui_resolution_ph')} onChange={(e) => setText(e.target.value)} />
+            <textarea className={ui.input} rows={4} value={text} maxLength={state.config.limits?.resolution ?? state.config.limits?.message_body} placeholder={t('ui_resolution_ph')} onChange={(e) => setText(e.target.value)} />
           </label>
         </Dialog>
       )}
@@ -429,7 +430,7 @@ export function TicketsView() {
           </div>
           <label className={ui.field}>
             <span className={ui.label}>{t('report_description')}</span>
-            <textarea className={ui.input} rows={4} value={text} onChange={(e) => setText(e.target.value)} />
+            <textarea className={ui.input} rows={4} value={text} maxLength={state.config.limits?.reason} onChange={(e) => setText(e.target.value)} />
           </label>
         </Dialog>
       )}
