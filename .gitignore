@@ -5,3 +5,4 @@ core/
 node_modules/
 ui/dist/
 /dist/
+.cache/
