@@ -174,7 +174,7 @@ export interface OutgoingPayloads {
   ticket_reopen: { id: number };
   ticket_message: { id: number; body: string; internal: boolean };
   ticket_create: { category: string; priority: Priority; body: string };
-  mod_action: { action: ModAction; target: string; reason: string; ticket?: number };
+  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };
@@ -185,6 +185,6 @@ export interface OutgoingPayloads {
 
 export type OutgoingAction = keyof OutgoingPayloads;
 
-export type ModAction = 'goto' | 'bring' | 'freeze' | 'heal' | 'warn' | 'kick' | 'ban';
+export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
 
 export type ViewId = 'audit' | 'tickets' | 'dashboard' | 'duty' | 'settings';

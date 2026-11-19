@@ -16,8 +16,8 @@ const GROUPS: Record<Group, TicketState[] | null> = {
   done: ['resolved', 'closed'],
 };
 const DONE = new Set<TicketState>(['resolved', 'closed']);
-const MODS: ModAction[] = ['goto', 'bring', 'freeze', 'heal', 'warn', 'kick', 'ban'];
-const NEEDS_REASON = new Set<ModAction>(['warn', 'kick', 'ban']);
+const MODS: ModAction[] = ['goto', 'bring', 'spectate', 'freeze', 'heal', 'revive', 'warn', 'kick', 'ban'];
+const NEEDS_REASON = new Set<ModAction>(['warn', 'ban']);
 
 type DialogState = null | { kind: 'transfer' | 'resolve' | 'ban' | 'create' };
 
@@ -128,7 +128,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
   const mod = (action: ModAction) => {
     if (action === 'ban') return openDialog({ kind: 'ban' });
     void send('mod_action', { action, target: tk.reporter, reason: reason.trim(), ticket: tk.id });
-    if (NEEDS_REASON.has(action)) setReason('');
+    if (NEEDS_REASON.has(action) || action === 'kick') setReason('');
   };
 
   return (
@@ -247,7 +247,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
                   size="small"
                   variant={m === 'ban' ? 'danger' : 'secondary'}
                   className={m === 'ban' ? v.railWide : undefined}
-                  disabled={!can(`mod.${m}`) || (requireReason && NEEDS_REASON.has(m) && !reason.trim())}
+                  disabled={!can(`mod.${m}`) || ((NEEDS_REASON.has(m) || (m === 'kick' && requireReason)) && !reason.trim())}
                   onClick={() => mod(m)}
                 >
                   {t(`mod_${m}`)}
@@ -272,6 +272,7 @@ export function TicketsView() {
   const [category, setCategory] = useState('player');
   const [newPriority, setNewPriority] = useState<Priority>('normal');
   const [reason, setReason] = useState('');
+  const [banDuration, setBanDuration] = useState('');
   useEffect(() => setReason(''), [selected]);
 
   const list = useMemo(() => {
@@ -289,7 +290,7 @@ export function TicketsView() {
     if (selected == null && list.length) setSelected(list[0].id);
   }, [list, selected]);
 
-  const close = () => { setDialog(null); setText(''); setTarget(''); };
+  const close = () => { setDialog(null); setText(''); setTarget(''); setBanDuration(''); };
   const targets = Array.isArray(state.config.transfer_targets)
     ? state.config.transfer_targets.map((x) => ({ value: x.identifier, label: x.name || shortId(x.identifier) }))
     : (state.duty?.staff ?? []).map((s) => ({ value: s.actor, label: shortId(s.actor) }));
@@ -376,9 +377,10 @@ export function TicketsView() {
             <Button onClick={close}>{t('ui_cancel')}</Button>
             <Button
               variant="danger"
-              disabled={!can('mod.ban')}
+              disabled={!can('mod.ban') || !reason.trim()}
               onClick={() => {
-                void send('mod_action', { action: 'ban', target: tk.reporter, reason: reason.trim(), ticket: tk.id });
+                const duration = banDuration === '' ? undefined : Number(banDuration);
+                void send('mod_action', { action: 'ban', target: tk.reporter, reason: reason.trim(), ticket: tk.id, duration });
                 setReason('');
                 close();
               }}
@@ -389,6 +391,16 @@ export function TicketsView() {
         >
           <p>{t('ui_confirm_ban_body', { target: shortId(tk.reporter) })}</p>
           <p className={ui.label}>{t('ui_mod_reason')}: {reason || '—'}</p>
+          <label className={ui.field}>
+            <span className={ui.label}>{t('ui_ban_duration')}</span>
+            <select className={ui.input} value={banDuration} onChange={(e) => setBanDuration(e.target.value)}>
+              <option value="">{t('ui_ban_default')}</option>
+              <option value="3600">{t('ui_ban_hour')}</option>
+              <option value="86400">{t('ui_ban_day')}</option>
+              <option value="604800">{t('ui_ban_week')}</option>
+              <option value="0">{t('ui_ban_permanent')}</option>
+            </select>
+          </label>
         </Dialog>
       )}
       {dialog?.kind === 'create' && (

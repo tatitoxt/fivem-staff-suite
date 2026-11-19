@@ -84,15 +84,15 @@ A transfer is only accepted if the recipient is online and has `report.claim` an
 
 ## Moderation
 
-Every action goes through: capability check → online target (by server id or identifier) → mandatory reason for `kick` (if `Config.Moderation.require_reason`) → execution → audit entry (`mod_<action>`).
+Every action goes through: capability check → online target (by server id or identifier) → mandatory reason for `ban` and `warn`, and for `kick` if `Config.Moderation.require_reason` → execution → audit entry (`mod_<action>`).
 
 | Action | Status in 0.1.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Working. |
-| `ban`, `warn`, `spectate`, `revive` | Disabled: they reply "This moderation action is unavailable.", are not audited; in the panel warn and ban show as disabled and spectate and revive do not appear **(coming soon)**. |
+| `ban`, `warn`, `spectate`, `revive` | Available in the panel to staff with the corresponding capability. |
 | Unfreeze | **(coming soon)** |
 
-Staff Suite does **not** replace txAdmin: noclip, god mode, spawning, bans, etc. stay in txAdmin or your framework.
+Noclip, god mode and spawning remain in txAdmin or your framework.
 
 ## Per-person overrides (coming soon)
 

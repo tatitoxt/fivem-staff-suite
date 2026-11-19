@@ -15,5 +15,11 @@ function B.get_player(src)
   }
 end
 
+function B.revive(src)
+  if GetResourceState('qb-ambulancejob') ~= 'started' then return end
+  TriggerClientEvent('hospital:client:Revive', src)
+  return true
+end
+
 if StaffSuiteModules then StaffSuiteModules['server.bridges.qbcore'] = B end
 return B

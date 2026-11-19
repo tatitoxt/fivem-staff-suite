@@ -190,10 +190,20 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
   assert(env.Config.Export.webhook == webhook and convar_reads == 1)
 end
 
-local function serverSandbox()
+local function clone(value)
+  if type(value) ~= 'table' then return value end
+  local copy = {}
+  for key, item in pairs(value) do copy[key] = clone(item) end
+  return copy
+end
+
+local function serverSandbox(options)
+  options = options or {}
   local env, states, ace = sandbox()
   local events, commands, api, sent, recipients, payloads = {}, {}, {}, {}, {}, {}
-  local threads, reads = {}, {}
+  local threads, reads, hooks, timers = {}, {}, {}, {}
+  local files = options.files or {}
+  local server
   states.qbx_core = 'started'
   env.exports.qbx_core = {
     GetPlayer = function()
@@ -203,14 +213,23 @@ local function serverSandbox()
   setmetatable(env.exports, { __call = function(_, name, handler) api[name] = handler end })
   env.RegisterNetEvent = function(name, handler) events[name] = handler end
   env.RegisterCommand = function(name, handler) commands[name] = handler end
-  env.TriggerClientEvent = function(event, src, data)
+  env.TriggerClientEvent = function(event, src, data, ...)
     sent[event] = data
     recipients[src] = recipients[src] or {}
     recipients[src][event] = data
+    server.lastClientEvent = { event, src, data, ... }
   end
-  env.AddEventHandler = function() end
+  env.AddEventHandler = function(name, fn)
+    hooks[name] = hooks[name] or {}
+    hooks[name][#hooks[name] + 1] = fn
+  end
+  env.GetInvokingResource = function() return server.invoker end
   env.CreateThread = function(handler) threads[#threads + 1] = handler end
-  env.GetPlayerIdentifiers = function(src) return { 'license:account' .. src } end
+  env.SetTimeout = function(_, handler) timers[#timers + 1] = handler end
+  env.GetPlayerIdentifiers = function(src)
+    local identifier = server.identifiers[tostring(src)]
+    return identifier == false and {} or { identifier or ('license:account' .. src) }
+  end
   local online = { ['17'] = true, ['18'] = true, ['19'] = true }
   env.GetPlayers = function()
     local players = {}
@@ -218,36 +237,54 @@ local function serverSandbox()
     return players
   end
   env.GetPlayerName = function(src) return online[tostring(src)] and 'Alex RP' end
-  local server = {
+  server = {
     env = env, ace = ace, api = api, sent = sent, recipients = recipients,
     event = function(name, ...) return events['staff_suite:' .. name](...) end,
+    hook = function(name, ...)
+      for _, fn in ipairs(hooks[name] or {}) do fn(...) end
+    end,
     commands = commands, online = online, payloads = payloads,
-    threads = threads, reads = reads, states = states,
+    threads = threads, timers = timers, reads = reads, states = states, identifiers = {}, files = files, now = 10000,
   }
-  env.DropPlayer = function(src) server.kicked = src end
+  env.GetPlayerPed = function(src) return online[tostring(src)] and src * 10 or 0 end
+  env.GetEntityCoords = function(ped) return { x = ped, y = 0, z = 0 } end
+  server.buckets = {}
+  env.GetPlayerRoutingBucket = function(src) return server.buckets[src] or 0 end
+  env.DropPlayer = function(src, reason) server.kicked, server.kickReason = src, reason end
+  env.CancelEvent = function() server.cancelled = true end
+  env.os = setmetatable({ time = function() return server.now end }, { __index = os })
   env.GetCurrentResourceName = function() return 'staff_suite' end
   env.LoadResourceFile = function(_, path)
     assert(not path:lower():match('%.lua$'), 'LoadResourceFile intentó leer código Lua: ' .. path)
     reads[#reads + 1] = path
+    if files[path] then return path end
   end
-  env.SaveResourceFile = function() end
+  env.SaveResourceFile = function(_, path, data)
+    if server.failWrites then return false end
+    if path == env.Config.JsonFile then files[path] = clone(payloads[tonumber(data)]) end
+    return true
+  end
   env.json = { encode = function(value)
     payloads[#payloads + 1] = value
     return tostring(#payloads)
-  end }
+  end, decode = function(path) return clone(files[path]) end }
   env.require = function(name) error('require no está disponible en FiveM: ' .. name) end
   env.print = function() end
   local manifest = readManifest()
   for _, scripts in ipairs({ manifest.shared, manifest.server }) do
-    for _, path in ipairs(scripts) do assert(loadfile(path, 't', env))() end
+    for _, path in ipairs(scripts) do
+      if path == 'server/main.lua' and options.setup then options.setup(server) end
+      assert(loadfile(path, 't', env))()
+    end
   end
 
   env.source = 17
+  if not options.deferBoot then threads[1]() end
   return server
 end
 
 function T.test_server_boots_from_manifest_without_reading_lua()
-  local s = serverSandbox()
+  local s = serverSandbox({ deferBoot = true })
   assert(#s.reads == 0)
   s.threads[1]()
   s.env.Config.Export.anchor_every = 1
@@ -261,7 +298,7 @@ end
 
 function T.test_server_enforces_mapped_capabilities_and_overrides()
   local server = serverSandbox()
-  local env, ace, commands, api, sent = server.env, server.ace, server.commands, server.api, server.sent
+  local ace, commands, api, sent = server.ace, server.commands, server.api, server.sent
   local event = server.event
   commands.report(17, { 'bug', 'reporte de prueba' })
   assert(api.GetState().tickets.tickets[1].reporter == 'license:account17')
@@ -294,15 +331,10 @@ function T.test_server_enforces_mapped_capabilities_and_overrides()
   perms.grant(api.GetState().perms, 'license:account17', 'audit.view')
   event('getState')
   assert(sent['staff_suite:state'].audit[1].actor == 'license:account17')
-  for _, cap in ipairs(sent['staff_suite:state'].player.capabilities) do
-    assert(cap ~= 'mod.ban' and cap ~= 'mod.warn' and cap ~= 'mod.spectate' and cap ~= 'mod.revive')
-  end
-  local entry_count = #api.GetChain()
+  local capabilities = table.concat(sent['staff_suite:state'].player.capabilities, ',')
   for _, action in ipairs({ 'ban', 'warn', 'spectate', 'revive' }) do
-    event('modAction', action, 18, 'regla del servidor')
-    assert(sent['staff_suite:notify'] == env.Locale.es.mod_unavailable)
+    assert(capabilities:find('mod.' .. action, 1, true))
   end
-  assert(#api.GetChain() == entry_count)
   event('ticketAction', 1, 'resolve')
   assert(api.GetState().tickets.tickets[1].state == 'resolved')
   event('modAction', 'kick', 18, 'regla del servidor')
@@ -356,6 +388,189 @@ function T.test_moderation_resolves_connected_identifier()
   s.online['18'], s.kicked = nil, nil
   s.event('modAction', 'kick', 'license:account18', 'regla')
   assert(not s.kicked and #entries == 1 and s.sent['staff_suite:notify'] == s.env.Locale.es.mod_invalid_target)
+end
+
+function T.test_warn_requires_reason_permission_and_durable_audit()
+  local s = serverSandbox()
+  s.event('modAction', 'warn', 18, 'regla')
+  assert(#s.api.GetChain() == 0 and not s.recipients[18])
+  s.ace.mod = true
+  s.env.Config.Moderation.require_reason = false
+  s.event('modAction', 'warn', 18, '   ')
+  assert(s.sent['staff_suite:notify'] == s.env.Locale.es.reason_required and #s.api.GetChain() == 0)
+  s.event('modAction', 'warn', 'license:account18', '  regla del servidor ')
+  local chain = s.files[s.env.Config.JsonFile].chain
+  assert(chain.entries[1].action == 'mod_warn' and chain.entries[1].reason == 'regla del servidor')
+  assert(s.recipients[18]['staff_suite:notify']:find('regla del servidor', 1, true))
+  assert(s.api.Verify())
+  s.failWrites = true
+  s.event('modAction', 'warn', 19, 'fallo de escritura')
+  assert(not s.recipients[19] and s.recipients[17]['staff_suite:notify'] == s.env.Locale.es.mod_save_failed)
+end
+
+function T.test_ban_persists_before_drop_and_checks_expiration_on_reconnect()
+  local s = serverSandbox()
+  s.ace.mod = true
+  s.event('modAction', 'ban', 18, 'regla', 60)
+  assert(#s.api.GetChain() == 0 and not s.kicked)
+  s.ace.admin = true
+  s.event('modAction', 'ban', 18, '  ', 60)
+  assert(s.sent['staff_suite:notify'] == s.env.Locale.es.reason_required)
+  s.event('modAction', 'ban', 18, 'regla', -1)
+  assert(s.sent['staff_suite:notify'] == s.env.Locale.es.ban_invalid_duration)
+  assert(#s.api.GetChain() == 0 and not s.kicked)
+
+  s.event('modAction', 'ban', 18, 'regla', 60)
+  local saved = s.files[s.env.Config.JsonFile]
+  assert(s.kicked == 18 and s.kickReason:find('regla', 1, true))
+  assert(saved.bans['license:account18'].expires_at == 10060)
+  assert(saved.chain.entries[1].action == 'mod_ban' and s.api.Verify())
+
+  local reboot = serverSandbox({ files = s.files, deferBoot = true })
+  reboot.env.source, reboot.identifiers['42'] = 42, 'license:account18'
+  local reason
+  local function connecting()
+    reason, reboot.cancelled = nil, false
+    reboot.hook('playerConnecting', '', function(message) reason = message end)
+  end
+  connecting()
+  assert(reboot.cancelled and reason == reboot.env.Locale.es.persistence_starting)
+  reboot.threads[1]()
+  connecting()
+  assert(reboot.cancelled and reason:find('regla', 1, true))
+  reboot.now = 10060
+  connecting()
+  assert(not reboot.cancelled and reason == nil)
+
+  s.event('modAction', 'ban', 19, 'perma', 0)
+  assert(s.api.GetState().bans['license:account19'].expires_at == 0)
+  s.env.source = 19
+  s.now = 10000000
+  s.hook('playerConnecting', '', function(message) reason = message end)
+  assert(s.cancelled and reason:find('perma', 1, true))
+end
+
+function T.test_failed_ban_does_not_block_connections_or_return_on_retry()
+  local s = serverSandbox()
+  s.ace.admin = true
+  s.failWrites = true
+  s.event('modAction', 'ban', 18, 'regla', 60)
+  assert(s.recipients[17]['staff_suite:notify'] == s.env.Locale.es.mod_save_failed)
+  assert(not s.kicked and not s.api.GetState().bans['license:account18'])
+  s.env.source = 18
+  s.hook('playerConnecting', '', function() error('un ban fallido no debe bloquear la conexión') end)
+  assert(not s.cancelled)
+
+  s.failWrites = false
+  s.timers[1]()
+  local saved = s.files[s.env.Config.JsonFile]
+  assert(not saved.bans['license:account18'])
+  assert(saved.chain.entries[2].action == 'mod_ban_failed' and s.api.Verify())
+end
+
+function T.test_revive_dispatches_framework_bridge_or_standalone()
+  local s = serverSandbox()
+  local called
+  s.states.qbx_medical = 'started'
+  s.env.exports.qbx_medical = { Revive = function(_, src) called = src end }
+  s.event('modAction', 'revive', 18)
+  assert(not called and #s.api.GetChain() == 0)
+  s.ace.admin = true
+  s.event('modAction', 'revive', 18)
+  assert(called == 18 and s.api.GetChain()[1].action == 'mod_revive')
+
+  s.env.Config.Framework, s.states.es_extended, s.states.esx_death = 'esx', 'started', 'started'
+  s.env.exports.es_extended = { getSharedObject = function()
+    return { GetPlayerFromId = function()
+      return { getGroup = function() return 'admin' end, getJob = function() return nil end,
+        getName = function() return 'RP' end, getIdentifier = function() return 'account' end }
+    end }
+  end }
+  s.env.exports.esx_death = { Revive = function(_, src, via)
+    assert(via == 'staff_suite')
+    called = src
+    return false
+  end }
+  s.event('modAction', 'revive', 19)
+  assert(called == 19 and #s.api.GetChain() == 1)
+  s.states.esx_death, s.states.esx_ambulancejob = 'missing', 'started'
+  s.event('modAction', 'revive', 19)
+  assert(s.lastClientEvent[1] == 'esx_ambulancejob:revive' and s.lastClientEvent[2] == 19)
+  s.states.esx_ambulancejob = 'missing'
+  s.event('modAction', 'revive', 19)
+  assert(s.lastClientEvent[1] == 'staff_suite:revive' and s.lastClientEvent[2] == 19)
+
+  s.env.Config.Framework, s.states['qb-core'], s.states['qb-ambulancejob'] = 'qbcore', 'started', 'started'
+  s.env.exports['qb-core'] = { GetCoreObject = function()
+    return { Functions = {
+      GetPlayer = function() return { PlayerData = {} } end,
+      HasPermission = function(_, group) return group == 'admin' end,
+    } }
+  end }
+  s.event('modAction', 'revive', 18)
+  assert(s.lastClientEvent[1] == 'hospital:client:Revive' and s.lastClientEvent[2] == 18)
+  assert(#s.api.GetChain() == 4 and s.api.Verify())
+end
+
+function T.test_spectate_only_dispatches_to_authorized_observer()
+  local s = serverSandbox()
+  s.event('modAction', 'spectate', 18)
+  assert(s.lastClientEvent[1] ~= 'staff_suite:spectate')
+  s.ace.mod, s.buckets[18] = true, 1
+  s.event('modAction', 'spectate', 18)
+  assert(s.sent['staff_suite:notify'] == s.env.Locale.es.spectate_unavailable)
+  s.event('modAction', 'spectate', 17)
+  assert(#s.api.GetChain() == 0)
+  s.buckets[18] = 0
+  s.event('modAction', 'spectate', 'license:account18')
+  local sent = s.lastClientEvent
+  assert(sent[1] == 'staff_suite:spectate' and sent[2] == 17 and sent[3] == 18 and sent[4].x == 180)
+  assert(s.api.GetChain()[1].action == 'mod_spectate' and s.api.Verify())
+end
+
+function T.test_capture_honors_config_and_only_accepts_documented_server_senders()
+  local off = serverSandbox({ setup = function(s) s.env.Config.Audit.capture_framework = false end })
+  off.invoker = 'monitor'
+  off.hook('txAdmin:events:playerKicked', { author = 'staff', target = 18, reason = 'test' })
+  assert(#off.api.GetChain() == 0)
+
+  local s = serverSandbox()
+  s.env.Config.Framework = 'esx'
+  s.hook('esx:setGroup', 18, 'admin', 'user')
+  s.invoker = 'other-resource'
+  s.hook('esx:setGroup', 18, 'admin', 'user')
+  s.invoker = 'es_extended'
+  s.hook('esx:setGroup', nil, 'admin', 'user')
+  s.hook('esx:onAddInventoryItem', 18, 'item', 'bad count')
+  assert(#s.api.GetChain() == 0 and s.commands.ban == nil)
+  s.hook('esx:setGroup', 18, 'admin', 'user')
+  s.hook('esx:setJob', 18, { name = 'police', grade = 2 })
+  s.hook('esx:addAccountMoney', 18, 'bank', 123, 'grant')
+  s.hook('esx:onAddInventoryItem', 18, 'bread', 10)
+  s.env.Config.Framework, s.invoker = 'qbcore', 'qb-core'
+  s.hook('QBCore:Server:OnPlayerUpdated', 18, 'job', { name = 'mechanic', grade = { level = 4 } })
+  s.hook('QBCore:Server:OnMoneyChange', 18, 'cash', 3, 'remove', 'purchase')
+  s.hook('QBCore:Server:OnMoneyChange', 18, 'cash', 5, 'add', 'gift')
+  s.env.Config.Framework, s.invoker = 'qbox', 'qbx_core'
+  s.hook('qbx_core:server:onGroupUpdate', 19, 'police')
+  s.hook('QBCore:Server:OnMoneyChange', 19, 'bank', 7, 'set')
+  s.env.Config.Framework, s.invoker = 'standalone', 'monitor'
+  s.hook('txAdmin:events:playerBanned', {
+    author = 'operator', targetIds = { 'license:offline' }, actionId = 'B12', reason = 'regla', expiration = false,
+  })
+  s.hook('txAdmin:events:playerKicked', { author = 'operator', target = -1 })
+  s.hook('txAdmin:events:playerWarned', { author = 'operator', targetNetId = 18 })
+  s.hook('txAdmin:events:playerHealed', { author = 'operator', target = 18 })
+  local entries = s.api.GetChain()
+  assert(#entries == 12 and s.api.Verify())
+  assert(entries[1].action == 'framework_group' and entries[1].actor == 'system')
+  assert(entries[3].action == 'framework_money' and entries[3].reason == 'grant')
+  assert(entries[5].target == 'license:account18' and s.payloads[tonumber(entries[5].payload)].grade == 4)
+  assert(s.payloads[tonumber(entries[7].payload)].removed == true)
+  assert(s.payloads[tonumber(entries[8].payload)].framework == 'qbox')
+  assert(entries[9].action == 'txadmin_ban' and entries[9].actor == 'txAdmin:operator')
+  assert(entries[9].target == 'license:offline' and s.payloads[tonumber(entries[9].payload)].expiration == false)
+  assert(entries[10].target == 'all' and entries[11].action == 'txadmin_warn' and entries[12].action == 'txadmin_heal')
 end
 
 function T.test_state_includes_identity_capabilities_duty_and_alerts()

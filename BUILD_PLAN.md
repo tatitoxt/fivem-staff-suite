@@ -13,8 +13,8 @@
 | 6 | core/permissions.lua (capabilities) | ✅ 7 tests |
 | 7 | core/duty.lua (analytics) | ✅ 3 tests |
 | 8 | Adapter FiveM: fxmanifest + server main | 🔨 |
-| 9 | Adapter: captura eventos framework + comandos | ⏳ |
-| 10 | Adapter: persistencia oxmysql + fallback JSON | ⏳ |
+| 9 | Adapter: captura de eventos de framework y txAdmin | ✅ Hooks server-side con mocks en ESX, QBCore, Qbox y txAdmin |
+| 10 | Adapter: persistencia oxmysql + fallback JSON | ✅ Migración SQL versionada, transacciones y recuperación de respaldo |
 | 11 | Adapter: export off-box (webhook + archivo) | ⏳ |
 | 12 | Adapter: bridges ESX/QBCore/Qbox/standalone | ✅ Tests Lua con mocks |
 | 13 | NUI: design system + layout (light, Manrope/DM Sans) | ✅ React 18+TS+Vite, `ui/` |
@@ -22,8 +22,8 @@
 | 15 | NUI: panel tickets (cola, claim, chat, moderación) | ✅ smoke test claim |
 | 16 | NUI: dashboard staff (duty, leaderboard) | ✅ + Duty + Ajustes |
 | 17 | Locales ES/EN completos | ✅ test_locales (8 tests) |
-| 18 | Test resource E2E (eventos simulados → asserts) | ⏳ |
-| 19 | Deploy QA + E2E green + resmon <0.05ms | ⏳ |
+| 18 | Test resource E2E (eventos simulados → asserts) | ✅ `tests/e2e_resource` (27 asserts, validado con natives mockeados) · corrida real en #19 |
+| 19 | Deploy QA + E2E green + resmon <0.05ms | 🔨 `scripts/e2e-fxserver.sh` + job CI opcional + `docs/*/qa.md` · falta correrlo con `FIVEM_LICENSE_KEY` |
 | 20 | Sesión in-game Fausto (beta) + feedback | ⏳ (requiere Fausto) |
 | 21 | Docs ES/EN (install, config, permisos, FAQ) | ✅ README + docs/es + docs/en |
 | 22 | Escrow packaging (portal.cfx.re) | ⏳ (requiere Fausto) |

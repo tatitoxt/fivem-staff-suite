@@ -53,11 +53,11 @@ Config.JsonFile = 'staff_suite_data.json'
 
 -- Captura de auditoría.
 Config.Audit = {
-  capture_commands = true,           -- comandos de admin registrados
-  capture_framework = true,          -- eventos de grants/bans del framework
+  capture_framework = true,          -- eventos del framework seleccionado y de txAdmin
 }
 
 -- Moderación dentro del ticket (acciones permitidas por capability).
 Config.Moderation = {
   require_reason = true,             -- razón obligatoria para expulsar
+  ban_duration = 86400,              -- duración predeterminada en segundos, 0 = permanente
 }

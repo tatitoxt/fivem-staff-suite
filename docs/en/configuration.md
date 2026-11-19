@@ -63,20 +63,20 @@ If a player matches several groups, permissions or jobs, the highest rank wins. 
 | `Config.Persistence` | `'json'` | `'json'` (file) or `'oxmysql'` (MySQL/MariaDB). With `'oxmysql'` and oxmysql not running, it falls back to JSON. |
 | `Config.JsonFile` | `'staff_suite_data.json'` | File inside the resource folder. |
 
-Data is saved after every audit entry, every 60 seconds and when the resource stops. With oxmysql the whole state is stored in one row of the `staff_state` table.
+Changes are saved in batches, with a JSON checkpoint for pending changes when the resource stops. With oxmysql, each batch uses a transaction and keeps a JSON backup. Ban and warn wait for the save before dropping or notifying the player.
 
 ### `Config.Audit`
 
 | Key | Default | Description |
 |---|---|---|
-| `capture_commands` | `true` | Registers restricted `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob` commands and logs each use as `cmd_<command>`. If it clashes with same-named commands from another resource, set it to `false`. |
-| `capture_framework` | `true` | Framework event capture (grants, bans) **(coming soon)**: no effect yet. |
+| `capture_framework` | `true` | Enables event capture for the active framework and txAdmin. |
 
 ### `Config.Moderation`
 
 | Key | Default | Description |
 |---|---|---|
-| `require_reason` | `true` | Requires a reason for `kick`. |
+| `require_reason` | `true` | Requires a reason for `kick`. Ban and warn always require a reason. |
+| `ban_duration` | `86400` | Default ban duration in seconds. Use `0` for a permanent ban. |
 
 ## `server/config.lua`
 

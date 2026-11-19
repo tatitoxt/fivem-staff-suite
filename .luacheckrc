@@ -15,15 +15,23 @@ local function runtime_with(globals)
 end
 
 files['server/**/*.lua'].read_globals = runtime_with({
-  'DropPlayer', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
-  'GetPlayerName', 'GetPlayerPed', 'GetPlayers', 'IsPlayerAceAllowed', 'PerformHttpRequest',
-  'SaveResourceFile', 'SetEntityHealth', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',
+  'CancelEvent', 'DropPlayer', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
+  'GetInvokingResource',
+  'GetPlayerName', 'GetPlayerPed', 'GetPlayerRoutingBucket', 'GetPlayers', 'IsPlayerAceAllowed', 'PerformHttpRequest',
+  'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',
 })
 files['client/**/*.lua'].read_globals = runtime_with({
+  'DoesEntityExist', 'FreezeEntityPosition', 'GetEntityCollisionDisabled', 'GetEntityCoords', 'GetEntityHeading', 'GetEntityMaxHealth',
+  'GetGameTimer', 'GetPlayerFromServerId', 'GetPlayerPed', 'IsControlJustPressed', 'IsEntityDead',
+  'IsEntityPositionFrozen', 'IsEntityVisible', 'IsPedInAnyVehicle', 'NetworkResurrectLocalPlayer', 'NetworkSetInSpectatorMode',
   'PlayerPedId', 'RegisterKeyMapping', 'RegisterNUICallback', 'SendNUIMessage',
-  'SetEntityCoords', 'SetNuiFocus', 'TriggerServerEvent',
+  'SetEntityCollision', 'SetEntityCoords', 'SetEntityCoordsNoOffset', 'SetEntityHealth', 'SetEntityVisible',
+  'SetNuiFocus', 'TriggerServerEvent',
+  'source',
 })
-files['tests/e2e_resource/server.lua'].read_globals = runtime
+files['tests/e2e_resource/server.lua'].read_globals = runtime_with({
+  'ExecuteCommand', 'GetConvar', 'GetConvarInt', 'GetGameTimer', 'SetHttpHandler',
+})
 files['shared/loader.lua'].read_globals = runtime
 
 files['**/fxmanifest.lua'].read_globals = {
@@ -39,15 +47,14 @@ files['locales/*.lua'].globals = { 'Locale' }
 files['shared/constants.lua'].globals = { 'SS' }
 files['shared/i18n.lua'].read_globals = { 'Config', 'Locale' }
 files['shared/i18n.lua'].globals = { 'StaffSuiteTranslate' }
-files['server/capture.lua'].globals = { 'SS' }
-files['server/persistence.lua'].globals = { 'SS' }
+files['server/capture.lua'].globals = { 'StaffSuiteModules' }
 files['shared/loader.lua'].globals = { 'StaffSuiteModules' }
 files['core/*.lua'].globals = { 'StaffSuiteModules' }
 files['server/bridges/*.lua'].globals = { 'StaffSuiteModules' }
 files['server/persist.lua'].globals = { 'StaffSuiteModules' }
+files['server/persist_sql.lua'].globals = { 'StaffSuiteModules' }
 files['server/export.lua'].globals = { 'StaffSuiteModules' }
 
 -- Advertencias preexistentes, acotadas al archivo y al símbolo.
 files['core/tickets.lua'].ignore = { '212/ts' }
-files['tests/e2e_resource/server.lua'].ignore = { '211/at' }
 files['tests/test_audit_chain.lua'].ignore = { '211/at' }

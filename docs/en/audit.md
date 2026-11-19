@@ -19,13 +19,15 @@ If someone edits a field, deletes an entry in the middle or reorders entries, th
 |---|---|
 | `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reports (`/report`, panel and the `TicketAction` export) |
 | `ticket_message` | ticket messages (the `payload` says whether it is an internal note, not the text) |
-| `mod_<action>` | moderation from the panel (`goto`, `bring`, `freeze`, `heal`, `kick`) |
-| `duty.in`, `duty.out` | `/duty` |
+| `mod_<action>` | moderation from the panel (`goto`, `bring`, `freeze`, `heal`, `kick`, `ban`, `warn`, `spectate`, `revive`) |
+| `mod_ban_failed` | ban attempt that failed to take effect because of a persistence error |
+| `duty.in`, `duty.out` | `/duty` and the `SetDuty` export |
 | `audit_verify` | verification from the panel (result in `reason`) |
-| `cmd_<command>` | captured commands when `Config.Audit.capture_commands = true` |
+| `framework_job`, `framework_group`, `framework_item_added`, `framework_money` | events from the active framework when `Config.Audit.capture_framework = true` |
+| `txadmin_ban`, `txadmin_kick`, `txadmin_warn`, `txadmin_heal` | txAdmin events controlled by the same setting |
 | whatever another resource sends | `Record` export (see below) |
 
-**Honest capture:** 100% of what goes through Staff Suite is recorded. What other scripts or txAdmin do on their own is **not** captured unless they call the `Record` export. Framework event capture and txAdmin log parsing are **(coming soon)**.
+External coverage depends on the events emitted by the resource and its version. Framework events may identify the affected player without identifying the person who made the change. Use the `Record` export to log operations from other resources.
 
 ## Verifying the chain
 
@@ -81,6 +83,7 @@ Automatic comparison against anchors (the core already has `verify_head`) and an
 | `CreateTicket(data)` | Creates a ticket (`reporter`, `category`, `priority`, `description`, `ts`). Returns the id. |
 | `TicketAction(id, action, actor, extra)` | Ticket transition (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) plus its audit entry. Returns `ticket, event` or `nil, error`. For `transfer`, `extra.to` is the recipient's identifier. |
 | `GetState()` | Full state (chain, tickets, permissions, duty). |
+| `SetDuty(actor, onDuty)` | Clock in (`true`) or out (`false`) with its `duty.in`/`duty.out` entry. Returns the event or `nil, error`. |
 
 Example:
 
