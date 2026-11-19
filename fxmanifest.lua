@@ -11,10 +11,12 @@ shared_scripts {
   'config.lua',
   'locales/es.lua',
   'locales/en.lua',
+  'shared/i18n.lua',
 }
 
--- main.lua carga core + adapter vía require (package.path = resource root).
+-- La config privada se carga antes del adapter.
 server_scripts {
+  'server/config.lua',
   'server/main.lua',
 }
 
