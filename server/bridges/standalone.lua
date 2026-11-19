@@ -17,4 +17,5 @@ function B.get_player(src)
   }
 end
 
+if StaffSuiteModules then StaffSuiteModules['server.bridges.standalone'] = B end
 return B

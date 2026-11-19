@@ -1,9 +1,10 @@
 -- Selección del bridge e identidad común para los permisos del core.
-local standalone = require('server.bridges.standalone')
+local loadmod = StaffSuiteModules and StaffSuiteModules.loadmod or require
+local standalone = loadmod('server.bridges.standalone')
 local adapters = {
-  esx = require('server.bridges.esx'),
-  qbcore = require('server.bridges.qbcore'),
-  qbox = require('server.bridges.qbox'),
+  esx = loadmod('server.bridges.esx'),
+  qbcore = loadmod('server.bridges.qbcore'),
+  qbox = loadmod('server.bridges.qbox'),
 }
 local detection_order = { 'qbox', 'qbcore', 'esx' }
 local rank_level = { helper = 1, moderator = 2, admin = 3, senior_admin = 4, owner = 5 }
@@ -87,4 +88,5 @@ function M.resolve(src, config)
   }
 end
 
+if StaffSuiteModules then StaffSuiteModules['server.bridges.init'] = M end
 return M

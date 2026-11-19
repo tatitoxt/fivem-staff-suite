@@ -4,3 +4,4 @@ core/
 .env
 node_modules/
 ui/dist/
+/dist/

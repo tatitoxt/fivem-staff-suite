@@ -30,13 +30,19 @@ No reemplaza a txAdmin: noclip, god y spawn siguen ahí.
 | **Core** | $29–39 pago único | Suite completo: reportes avanzados, moderación en ticket, duty/analytics, auditoría unificada con export off-box, permisos por rango, multi-framework. |
 | **Integrity Pro** | $8–12/mes por server | **(próximamente)** Inventario de permisos cross-system, permisos con vencimiento, flags de anomalías, case files, apelaciones, dashboard del dueño. |
 
-Venta por Tebex con escrow de Cfx **(próximamente)**. `config.lua`, `server/config.lua`, `locales/` y `ui/` quedan abiertos.
+Venta por Tebex con escrow de Cfx **(próximamente)**.
 
 ## Requisitos
 
 - FXServer reciente (Lua 5.4).
 - Opcional: oxmysql + MySQL/MariaDB.
 - Opcional: ESX Legacy, QBCore o Qbox (se detectan solos con `Config.Framework = 'auto'`). Sin framework, permisos por ACE.
+
+## Paquete para Cfx Asset Escrow
+
+Desde el repositorio, ejecutá `./scripts/build-release.sh` en Linux con Bash, Node.js 24 y npm, Lua 5.4 y `zip`. El script compila la NUI y genera `dist/staff_suite-<version>.zip` con una carpeta raíz `staff_suite/`. La versión sale de `fxmanifest.lua`. GitHub Actions también publica ese ZIP como artifact. Para instalar el recurso, extraé `staff_suite/` en `resources/` y agregá `ensure staff_suite` a `server.cfg`.
+
+`escrow_ignore` mantiene editables `config.lua`, `server/config.lua` y `locales/*.lua`. Los bridges quedan protegidos porque la selección de framework y los mapeos de permisos y jobs se ajustan en la configuración abierta. El build de la NUI se incluye en el ZIP y Cfx Asset Escrow no cifra la NUI.
 
 ## Documentación
 
@@ -86,13 +92,19 @@ It does not replace txAdmin: noclip, god and spawning stay there.
 | **Core** | $29–39 one-time | Full suite: advanced reports, in-ticket moderation, duty/analytics, unified audit log with off-box export, rank permissions, multi-framework. |
 | **Integrity Pro** | $8–12/month per server | **(coming soon)** Cross-system permission inventory, expiring permissions, anomaly flags, case files, appeals, owner dashboard. |
 
-Sold on Tebex with Cfx escrow **(coming soon)**. `config.lua`, `server/config.lua`, `locales/` and `ui/` stay open.
+Sold on Tebex with Cfx escrow **(coming soon)**.
 
 ### Requirements
 
 - Recent FXServer (Lua 5.4).
 - Optional: oxmysql + MySQL/MariaDB.
 - Optional: ESX Legacy, QBCore or Qbox (auto-detected with `Config.Framework = 'auto'`). Without a framework, permissions come from ACE.
+
+### Cfx Asset Escrow package
+
+Run `./scripts/build-release.sh` from the repository on Linux with Bash, Node.js 24 and npm, Lua 5.4, and `zip`. The script builds the NUI and creates `dist/staff_suite-<version>.zip` with a top-level `staff_suite/` folder. The version comes from `fxmanifest.lua`. GitHub Actions also publishes the ZIP as an artifact. To install the resource, extract `staff_suite/` into `resources/` and add `ensure staff_suite` to `server.cfg`.
+
+`escrow_ignore` keeps `config.lua`, `server/config.lua`, and `locales/*.lua` editable. The bridges stay protected because framework selection and permission and job mappings are managed in the open configuration. The ZIP includes the compiled NUI, which Cfx Asset Escrow does not encrypt.
 
 ### Documentation
 

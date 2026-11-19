@@ -58,4 +58,5 @@ function M.hex(data)
   return string.format("%08x%08x%08x%08x%08x%08x%08x%08x", H[1],H[2],H[3],H[4],H[5],H[6],H[7],H[8])
 end
 
+if StaffSuiteModules then StaffSuiteModules['core.sha256'] = M end
 return M

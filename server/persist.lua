@@ -52,4 +52,5 @@ function M.init_schema(cb)
   ]], {}, function() if cb then cb(true) end end)
 end
 
+if StaffSuiteModules then StaffSuiteModules['server.persist'] = M end
 return M

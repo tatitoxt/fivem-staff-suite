@@ -18,12 +18,11 @@ simular una manipulación de la entrada #27 y verificar que la cadena se rompe.
 
 ## Build de release
 
-`ui/dist/` no se versiona (`.gitignore`). Antes de empaquetar el resource para Tebex/escrow:
+`ui/dist/` no se versiona. Para preparar el ZIP de Tebex y Cfx Asset Escrow, ejecutá desde la raíz del repositorio:
 
 ```bash
-cd ui && npm ci && npm run build
+./scripts/build-release.sh
 ```
 
-El build genera `ui/dist/index.html` y `ui/dist/assets/*` con nombres estables (sin hash), que es lo que
-lista `fxmanifest.lua` (`ui_page` + `files`). El zip de release debe incluir `ui/dist/` y puede excluir
-`ui/src`, `ui/node_modules` y el resto de `ui/`.
+El script ejecuta `npm ci` y `npm run build` dentro de `ui/`. El build genera `ui/dist/index.html` y
+`ui/dist/assets/*` con los nombres estables que lista `fxmanifest.lua`. El ZIP incluye `ui/dist/`.

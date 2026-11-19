@@ -20,4 +20,5 @@ function M.anchor(entry, cfg)
   end
 end
 
+if StaffSuiteModules then StaffSuiteModules['server.export'] = M end
 return M
