@@ -16,6 +16,7 @@ export function DevHarness() {
     <div className={s.harness}>
       <span>Harness dev</span>
       {!state.visible && <button onClick={() => window.postMessage({ type: 'open' }, '*')}>Abrir panel</button>}
+      <button onClick={() => backend.promptRate()}>Simular valoración del jugador</button>
       {tampered ? (
         <button onClick={() => { backend.restore(); setTampered(false); }}>Restaurar entrada #27</button>
       ) : (

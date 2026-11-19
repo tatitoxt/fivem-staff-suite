@@ -1,17 +1,28 @@
 -- Traduce el snapshot del core a filas y escribe lotes en una sola transacción.
 local M = {}
 
+local function t(key, vars) return StaffSuiteTranslate(key, vars) end
+
+-- Migraciones de sql/ que se aplican solas al iniciar y quedan registradas en staff_schema.
+M.MIGRATIONS = {
+  { version = 1, file = 'sql/001_staff_suite.sql' },
+  { version = 2, file = 'sql/002_tickets_f2.sql' },
+}
+
 local specs = {
   { name = 'audit', keys = { 'seq' },
     columns = { 'seq', 'ts', 'actor', 'action', 'target', 'reason', 'payload', 'prev_hash', 'hash' },
     numbers = { 'seq', 'ts' } },
   { name = 'tickets', keys = { 'id' },
     columns = { 'id', 'reporter', 'category', 'priority', 'description', 'state', 'claimer',
-      'created_ts', 'updated_ts', 'resolution', 'rating' },
-    numbers = { 'id', 'created_ts', 'updated_ts', 'rating' } },
+      'created_ts', 'updated_ts', 'resolution', 'rating', 'first_response_ts', 'resolved_by' },
+    numbers = { 'id', 'created_ts', 'updated_ts', 'rating', 'first_response_ts' } },
   { name = 'messages', keys = { 'ticket_id', 'position' },
     columns = { 'ticket_id', 'position', 'author', 'body', 'internal', 'ts' },
     numbers = { 'ticket_id', 'position', 'internal', 'ts' } },
+  { name = 'evidence', keys = { 'ticket_id', 'n' },
+    columns = { 'ticket_id', 'n', 'ts', 'actor', 'sha256', 'size', 'audit_seq' },
+    numbers = { 'ticket_id', 'n', 'ts', 'size', 'audit_seq' } },
   { name = 'duty', keys = { 'actor' }, columns = { 'actor', 'on_duty', 'since_ts', 'total_seconds', 'sessions' },
     numbers = { 'on_duty', 'since_ts', 'total_seconds', 'sessions' } },
   { name = 'stats', keys = { 'actor' },
@@ -75,6 +86,12 @@ local function restore(tables, meta)
     local messages = store.tickets[row.ticket_id].messages
     messages[#messages + 1] = { author = row.author, body = row.body, internal = row.internal == 1, ts = row.ts }
   end
+  for _, row in ipairs(tables.evidence) do
+    local ticket = store.tickets[row.ticket_id]
+    ticket.evidence = ticket.evidence or {}
+    ticket.evidence[row.n] = { n = row.n, ts = row.ts, by = row.actor, sha256 = row.sha256,
+      size = row.size, audit_seq = row.audit_seq }
+  end
   for _, row in ipairs(tables.duty) do
     state.duty.staff[row.actor] = { on_duty = row.on_duty == 1, since = row.since_ts,
       total_seconds = row.total_seconds, sessions = row.sessions,
@@ -91,6 +108,86 @@ local function restore(tables, meta)
       created_at = row.created_at, expires_at = row.expires_at }
   end
   return state
+end
+
+local function statements(raw)
+  local out = {}
+  for stmt in raw:gsub('%-%-[^\n]*', ''):gmatch('[^;]+') do
+    stmt = stmt:match('^%s*(.-)%s*$')
+    if stmt ~= '' then out[#out + 1] = stmt end
+  end
+  return out
+end
+
+M.specs = specs
+
+-- Sin permiso para crear staff_schema: alcanza con que el esquema ya esté completo
+-- (migraciones aplicadas a mano). Devuelve la primera columna faltante.
+local function checkColumns(cb)
+  local function check(i)
+    local spec = specs[i]
+    if not spec then cb(true); return end
+    local name = 'staff_' .. spec.name
+    call('query', 'SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS '
+      .. 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', { name }, function(rows)
+      if type(rows) ~= 'table' then cb(false, name); return end
+      local present = {}
+      for _, row in ipairs(rows) do present[row.name or row.COLUMN_NAME] = true end
+      for _, column in ipairs(spec.columns) do
+        if not present[column] then cb(false, name .. '.' .. column); return end
+      end
+      check(i + 1)
+    end)
+  end
+  check(1)
+end
+
+-- Idempotente: CREATE TABLE IF NOT EXISTS y ADD COLUMN solo si la columna no existe.
+function M.migrate(cb)
+  local schema = 'CREATE TABLE IF NOT EXISTS staff_schema (version INT PRIMARY KEY, name VARCHAR(191) NOT NULL, '
+    .. 'applied_at BIGINT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin'
+  local function schemaOnly()
+    checkColumns(function(ok, missing) cb(ok, 'staff_schema', missing) end)
+  end
+  call('query', schema, {}, function(created)
+    if created == nil then schemaOnly(); return end
+    call('query', 'SELECT version FROM staff_schema', {}, function(rows)
+      if type(rows) ~= 'table' then schemaOnly(); return end
+      local applied = {}
+      for _, row in ipairs(rows) do applied[tonumber(row.version)] = true end
+      local function step(i)
+        local migration = M.MIGRATIONS[i]
+        if not migration then cb(true); return end
+        if applied[migration.version] then step(i + 1); return end
+        local raw = LoadResourceFile(GetCurrentResourceName(), migration.file)
+        if type(raw) ~= 'string' then cb(false, migration.file); return end
+        local list = statements(raw)
+        local function run(j)
+          local stmt = list[j]
+          local function proceed(result)
+            if result == nil then cb(false, migration.file) else run(j + 1) end
+          end
+          if not stmt then
+            call('query', 'INSERT INTO staff_schema (version, name, applied_at) VALUES (?, ?, ?) '
+              .. 'ON DUPLICATE KEY UPDATE name = VALUES(name)', { migration.version, migration.file, os.time() },
+              function(result)
+                if result == nil then cb(false, migration.file) else step(i + 1) end
+              end)
+            return
+          end
+          local tbl, col = stmt:match('^ALTER%s+TABLE%s+`?([%w_]+)`?%s+ADD%s+COLUMN%s+`?([%w_]+)`?')
+          if not tbl then call('query', stmt, {}, proceed); return end
+          call('query', 'SELECT COUNT(*) AS n FROM information_schema.COLUMNS '
+            .. 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?', { tbl, col }, function(found)
+            if type(found) ~= 'table' then cb(false, migration.file); return end
+            if (tonumber(found[1] and found[1].n) or 0) > 0 then run(j + 1) else call('query', stmt, {}, proceed) end
+          end)
+        end
+        run(1)
+      end
+      step(1)
+    end)
+  end)
 end
 
 function M.available()
@@ -138,16 +235,31 @@ function M.load(cb)
       readTable(i + 1)
     end)
   end
-  readTable(1)
+  M.migrate(function(ok, failed, missing)
+    if not ok then
+      if missing then
+        print(t('persistence_schema_missing', { column = missing }))
+      else
+        print(t('persistence_migration_failed', { file = failed }))
+      end
+      cb(false)
+      return
+    end
+    readTable(1)
+  end)
 end
 
 local function rowsFor(state)
-  local rows = { audit = state.chain.entries, tickets = state.tickets.tickets, messages = {},
+  local rows = { audit = state.chain.entries, tickets = state.tickets.tickets, messages = {}, evidence = {},
     duty = {}, stats = {}, bans = {} }
   for _, ticket in pairs(rows.tickets) do
     for i, msg in ipairs(ticket.messages) do
       rows.messages[#rows.messages + 1] = { ticket_id = ticket.id, position = i,
         author = msg.author, body = msg.body, internal = msg.internal and 1 or 0, ts = msg.ts }
+    end
+    for _, item in ipairs(ticket.evidence or {}) do
+      rows.evidence[#rows.evidence + 1] = { ticket_id = ticket.id, n = item.n, ts = item.ts, actor = item.by,
+        sha256 = item.sha256, size = item.size, audit_seq = item.audit_seq }
     end
   end
   for actor, staff in pairs(state.duty.staff) do

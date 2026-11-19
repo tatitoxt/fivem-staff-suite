@@ -140,6 +140,12 @@ function T.test_config_categories_and_priorities()
   for _, c in ipairs(cfg.Categories or {}) do require_key(L, "cat_" .. c, "config.lua Categories") end
   for _, p in ipairs(cfg.Priorities or {}) do require_key(L, "pri_" .. p, "config.lua Priorities") end
   for _, rank in pairs(cfg.RankMap or {}) do require_key(L, "rank_" .. rank, "config.lua RankMap") end
+  for _, c in ipairs(cfg.CannedResponses or {}) do
+    if type(c) == "string" then
+      require_key(L, "canned_" .. c, "config.lua CannedResponses")
+      require_key(L, "canned_" .. c .. "_title", "config.lua CannedResponses")
+    end
+  end
   assert(L[cfg.Locale], "Config.Locale '" .. tostring(cfg.Locale) .. "' no tiene locale")
 end
 
