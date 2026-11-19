@@ -1,125 +1,115 @@
 # X (@https_tatito) — hilo de devlog + 5 posts sueltos
 
 > Build-in-public ES/EN, 1–2 por semana (`DISTRIBUTION.md` §3). Cada post: un dato real del avance, con captura o clip.
-> Antes de publicar: el estado de cada feature tiene que coincidir con la matriz de `launch/README.md`. Las cifras (tests, líneas, resmon) se actualizan con el número real de ese día.
-> ES y EN como posts separados (no mezclar idiomas en el mismo post).
+> Antes de publicar: el estado de cada feature tiene que coincidir con la matriz de `launch/README.md`. Las cifras se actualizan con el número real de ese día. Donde dice **[RESMON PENDIENTE]**, no publicar hasta medirlo.
+> ES y EN como posts separados (no mezclar idiomas). X no está permitido como link en el foro, pero sí se puede linkear el foro desde X.
 
 ## Hilo de devlog — ES (7 posts)
 
 **1/**
-Estoy armando un script para servers de FiveM que hace una cosa que casi nadie hace: auditar al staff.
+Terminé Staff Integrity Suite, un script para servers de FiveM que audita a tu staff.
 
-Reportes, moderación y turnos, pero todo queda en un registro que no se puede editar sin que se note.
+Reportes, moderación y turnos, y todo queda en un registro que no se puede editar sin que se note.
 
-Hilo con cómo funciona 🧵
-*(adjunto: clip de `/audit` → BROKEN, ~10 s)*
+Cómo funciona 🧵
+*(adjunto: clip de "Verificar cadena" → rojo, ~10 s)*
 
 **2/**
-El problema: en la mayoría de los servers el log de lo que hace el staff es texto plano. Cualquiera con acceso al server puede borrar un ban abusivo o cambiarle la razón, y nadie se entera.
+El problema: en la mayoría de los servers, el log del staff es texto plano. Cualquiera con acceso puede borrar un ban abusivo o cambiarle la razón, y nadie se entera.
 
 **3/**
 La solución es vieja y aburrida (eso es bueno): una cadena de hashes.
 
-Cada entrada (quién, qué, a quién, cuándo, por qué) guarda el SHA-256 de la anterior. Si cambiás una letra en la #7, la #7 deja de coincidir y la verificación te marca esa entrada.
+Cada entrada (quién, qué, a quién, cuándo, por qué) guarda el SHA-256 de la anterior. Si cambiás una letra en la #7, la verificación te marca la #7.
 
 **4/**
-¿Y si alguien reescribe la cadena entera desde cero?
+¿Y si alguien reescribe la cadena entera?
 
-Por eso cada 20 entradas el hash actual se manda a un webhook de Discord y a un archivo aparte. Para engañar al ancla tendría que tener acceso a tu server Y a tu Discord.
+Cada 20 entradas el hash actual va a un webhook de Discord y a un archivo aparte. Para engañar al ancla necesitás acceso al server y también a tu Discord.
 
 **5/**
-Lo que hay hoy:
-- /report con reclamo y transferencia (no se puede reclamar dos veces)
-- moderación desde el ticket con razón obligatoria
-- /duty con turnos registrados
-- panel in-game (F6): cola de tickets con notas internas, visor de auditoría con "Verificar cadena", dashboard de servicio
-- rangos desde ESX, QBCore, Qbox o ACE: nadie es staff hasta que lo configures
-- standalone, sin base de datos obligatoria
-- 41 tests en verde, con CI en cada PR
+Qué tiene Core:
+- tickets con reclamo, transferencia, respuestas predefinidas, evidencia con screenshot-basic y calificación 1–5 del jugador
+- ban (temporal o permanente, por todas las cuentas), warn, spectate, revive y más, desde el ticket
+- nadie puede sancionar a un rango superior
+- turnos y estadísticas por staff
+- ESX, QBCore, Qbox o standalone; también registra eventos de txAdmin
+- JSON u oxmysql con migraciones automáticas
+*(adjunto: captura del ticket con el diálogo de ban)*
 
 **6/**
-Lo que NO hace, para que quede claro:
-- no es un anticheat
-- no reemplaza a txAdmin (se usa junto a él)
-- no intercepta todo lo que hacen otros scripts: registra lo que pasa por el sistema y lo que le mandes
+Lo probé en un FXServer real: Core pasa 30 de 30 checks y Lite 29 de 29.
 
-Próximamente: chat con el jugador, analytics por staff (resueltos, tiempo de respuesta, rating).
+En el server, escribir una entrada cuesta 0.09 ms y leer el estado 0.30 ms por llamada. resmon de cliente: [RESMON PENDIENTE].
 
 **7/**
-Va a haber una versión Lite gratis y una Core paga.
+Hay una versión Lite gratis (MIT) con reportes y la cadena verificable, y Core en Tebex.
 
-Si tenés server (sobre todo en español), me sirve muchísimo saber: ¿qué le pedirías a algo así? Respondé o mandame DM.
-
-*(cuando exista: link al GitHub del Lite)*
+Español e inglés desde el día uno. Link en el perfil.
 
 ## Devlog thread — EN (7 posts)
 
 **1/**
-I'm building a FiveM resource that does something almost nobody does: audit the staff.
+I finished Staff Integrity Suite, a FiveM script that audits your staff.
 
-Reports, moderation and duty tracking, but everything goes into a record that can't be edited without it showing.
+Reports, moderation and duty, and everything goes into a record that can't be edited without it showing.
 
 How it works 🧵
-*(attach: `/audit` → BROKEN clip, ~10 s)*
+*(attach: "Verify chain" → red clip, ~10 s)*
 
 **2/**
-The problem: on most servers, the staff action log is plain text. Anyone with server access can delete an abusive ban or change its reason, and nobody notices.
+The problem: on most servers, the staff log is plain text. Anyone with access can delete an abusive ban or change its reason, and nobody finds out.
 
 **3/**
 The fix is old and boring (that's good): a hash chain.
 
-Each entry (who, what, to whom, when, why) stores the SHA-256 of the previous one. Change one letter in #7 and #7 stops matching: verification points at that exact entry.
+Each entry (who, what, to whom, when, why) stores the SHA-256 of the previous one. Change one letter in #7 and verification flags #7.
 
 **4/**
-What if someone rewrites the whole chain from scratch?
+What if someone rewrites the whole chain?
 
-That's why every 20 entries the current hash goes to a Discord webhook and a separate file. To fool the anchor you'd need access to the server AND the Discord.
+Every 20 entries the current hash goes to a Discord webhook and a separate file. To fool the anchor you need access to the server and to your Discord.
 
 **5/**
-What works today:
-- /report with claim and transfer (no double claims)
-- moderation from the ticket with a required reason
-- /duty with logged shifts
-- in-game panel (F6): ticket queue with internal notes, audit viewer with "Verify chain", duty dashboard
-- ranks from ESX, QBCore, Qbox or ACE: nobody is staff until you configure it
-- standalone, no database required
-- 41 tests passing, with CI on every PR
+What Core has:
+- tickets with claim, transfer, canned replies, screenshot-basic evidence and a 1–5 player rating
+- bans (temporary or permanent, across all accounts), warnings, spectate, revive and more, from the ticket
+- nobody can sanction a higher rank
+- duty and per-staff stats
+- ESX, QBCore, Qbox or standalone; it also logs txAdmin events
+- JSON or oxmysql with automatic migrations
+*(attach: ticket screenshot with the ban dialog)*
 
 **6/**
-What it does NOT do:
-- it's not an anticheat
-- it doesn't replace txAdmin (it runs alongside it)
-- it can't intercept everything other scripts do: it logs what goes through it and what you send it
+I tested it on a real FXServer: Core passes 30 of 30 checks and Lite 29 of 29.
 
-Coming soon: chat with the player, per-staff analytics (resolved, response time, rating).
+On the server, writing an entry costs 0.09 ms and reading the state 0.30 ms per call. Client resmon: [RESMON PENDIENTE].
 
 **7/**
-There'll be a free Lite and a paid Core.
+There's a free Lite version (MIT) with reports and the verifiable chain, and Core on Tebex.
 
-If you run a server: what would you want from something like this? Reply or DM me.
-
-*(once it exists: link to the Lite GitHub)*
+Spanish and English from day one. Link in bio.
 
 ---
 
 ## 5 posts sueltos (ES / EN)
 
-**1 · Timing GTA VI** (publicar la semana del lanzamiento)
-- ES: GTA 6 salió en consolas. El RP de PC sigue en FiveM, y los dueños de server siguen con el mismo problema: no saben qué hace su staff cuando no miran. Estoy armando algo para eso.
-- EN: GTA 6 is out on console. PC RP is still on FiveM, and server owners still have the same problem: they don't know what staff does when they're not looking. I'm building something for that.
+**1 · Evidencia**
+- ES: Pedís una captura desde el ticket y su SHA-256 va a la cadena de auditoría. Si después alguien cambia el archivo, el panel te avisa al abrirla. *(clip: pedir evidencia → abrirla → verificada)*
+- EN: Request a screenshot from the ticket and its SHA-256 goes into the audit chain. If someone swaps the file later, the panel tells you when you open it. *(clip: request evidence → open it → verified)*
 
-**2 · Bug real cazado por un test** (dato verdadero: commit `77727ea`)
-- ES: Un test me cazó un bug que habría sido feo: si alguien borraba las últimas entradas del log, el "head" guardado en memoria seguía diciendo que todo estaba bien. Ahora la verificación recalcula el head desde las entradas reales. Por esto se escriben tests.
-- EN: A test caught a nasty bug: if someone deleted the last log entries, the cached head still said everything was fine. Verification now recomputes the head from the actual entries. This is why you write tests.
+**2 · Bans por cuenta**
+- ES: Un ban guarda todos los identificadores del jugador: license, Steam, Discord, Xbox y tokens. Si vuelve con una cuenta nueva que comparte uno, el ban la alcanza y queda registrado. Sin IP.
+- EN: A ban stores every identifier the player has: license, Steam, Discord, Xbox and tokens. If they come back on a new account that shares one, the ban follows and it's logged. No IP.
 
-**3 · Encuesta**
-- ES: Dueños de server FiveM: ¿dónde queda hoy el registro de lo que hace tu staff? (encuesta: txAdmin / Discord con webhooks / un script de logs / no queda en ningún lado)
-- EN: FiveM server owners: where does your staff action log live today? (poll: txAdmin / Discord webhooks / a logs script / nowhere)
+**3 · Jerarquía**
+- ES: Un mod no puede kickear, advertir ni congelar a un admin. Parece obvio, pero lo controla el server, no el botón del panel. *(captura del rechazo)*
+- EN: A mod can't kick, warn or freeze an admin. Sounds obvious, but the server enforces it, not a panel button. *(screenshot of the rejection)*
 
-**4 · Decisión de precio**
-- ES: Decidí no cobrar por staff. En RP el staff es voluntario y rota todo el tiempo: cobrar por asiento castiga al server que tiene un equipo grande. Va a ser por server: Lite gratis, Core pago único.
-- EN: I decided not to charge per staff member. RP staff are volunteers and rotate constantly: per-seat pricing punishes servers with big teams. It'll be per server: free Lite, one-time Core.
+**4 · Lite gratis**
+- ES: Lite es gratis y MIT: /report, cola de tickets, panel y la cadena SHA-256 con "Verificar cadena". Si después pasás a Core, tus tickets y tu cadena quedan.
+- EN: Lite is free and MIT: /report, ticket queue, panel and the SHA-256 chain with "Verify chain". If you move to Core later, your tickets and chain stay.
 
-**5 · Demo de 10 s**
-- ES: Cambié una sola letra en un log de 20 entradas. Esto es lo que pasa. *(clip #1 de `clips.md`)*
-- EN: I changed one letter in a 20-entry log. Here's what happens. *(clip #1 from `clips.md`)*
+**5 · Pricing**
+- ES: Decidí no cobrar por staff. En RP el staff es voluntario y rota todo el tiempo: cobrar por asiento castiga al server que tiene un equipo grande. Core es un pago único por server.
+- EN: I decided not to charge per staff member. RP staff are volunteers and rotate constantly: per-seat pricing punishes servers with big teams. Core is a one-time payment per server.

@@ -1,31 +1,85 @@
 # forum.cfx.re → FiveM Releases — post (EN)
 
 > Posting notes (from the [Releases Rules and FAQ](https://forum.cfx.re/t/releases-rules-and-faq/240725)):
-> - Two topics, published 48 h apart: **(A) Lite** with the `free` tag, then **(B) Core** with the `paid` + `escrow` tags. Or a single Core topic with the `paid` + `escrow` tags and a link to the free Lite.
+> - Two topics, 48 h apart: **(A) Lite** with the `free` tag (GitHub download), then **(B) Core** with the `paid` + `escrow` tags (Tebex). Each topic links to the other.
 > - The first image **uploaded to the forum** (not an external link) becomes the preview → `cover-1280x720.png`.
-> - Mandatory table at the end for paid/escrow releases. Performance numbers (resmon) are required → fill `{{RESMON_*}}` after #19.
+> - Performance numbers are required: don't post until every `[RESMON PENDIENTE]` has the real client resmon.
 > - Allowed links: Tebex, GitHub, YouTube, Discord, docs. No X/TikTok links.
 > - Don't paste it as is: rewrite it in your own voice (the rules ask not to paste LLM output).
-> - Don't say "open source" in the paid topic. Don't ask for reviews.
+> - Don't say "open source" in the Core topic. Don't ask for reviews.
 > - Before posting: re-check every feature against the claims matrix in `launch/README.md`.
 
 ---
 
-## Topic title
-- Lite: `[FREE] Staff Integrity Suite Lite | Reports + tamper-evident staff audit log (SHA-256) | Standalone / ESX / QBCore / Qbox | EN/ES`
-- Core: `[PAID] Staff Integrity Suite | Reports, in-ticket moderation & verifiable staff audit | Standalone / ESX / QBCore / Qbox | EN/ES`
-- The bridges are tested with mocks. Confirm them on a real server with each framework (#19) before posting.
+## Topic titles
+- Lite: `[FREE] Staff Integrity Suite Lite | Reports + tamper-evident audit log (SHA-256) | Standalone | EN/ES`
+- Core: `[PAID] Staff Integrity Suite Core | Reports, in-ticket moderation & verifiable staff audit | Standalone / ESX / QBCore / Qbox | EN/ES`
 
-## Body (Core topic; for Lite, drop the "Core adds" section and use the Lite table)
+---
+
+## (A) Lite topic body
 
 ```markdown
 ![cover|690x388](upload://...)
 
-Staff Integrity Suite is a report and staff-workflow resource with one specific focus: **a record of what your staff does that can't be quietly edited.**
+Staff Integrity Suite Lite is a free report system with one twist: **every action taken from the panel goes into a SHA-256 hash chain, so nobody can quietly edit the history.**
 
-Every report, claim, moderation action and duty shift is written to a SHA-256 hash chain. Each entry contains the hash of the previous one. Run `/audit` and the server recomputes the whole chain: if someone edited, deleted or reordered an entry, it tells you exactly which one.
+Players report with `/report`. Your staff opens the panel with F6, claims the ticket, resolves it and closes it. Each step is written as an entry that contains the hash of the previous one. Click "Verify chain" (or run `/audit` in the console) and you'll know if someone edited, deleted or reordered anything, and which entry it was.
 
-It works next to txAdmin, not instead of it. Noclip, god mode and spawning stay in txAdmin.
+## Preview
+{{YOUTUBE_EN}}
+
+## Features
+* `/report <category> <description>`, up to 3 open reports per player.
+* Ticket queue in the panel (F6 or `/reports`): claim (no double claims), resolve with a note, close, reopen.
+* Audit viewer with filters and a "Verify chain" button. The broken entry turns red.
+* Standalone: one ACE permission, JSON storage, no database.
+* Rate limits and text limits so nobody floods your queue.
+* Spanish and English.
+* MIT license: the Lua is yours to read and change.
+
+## Performance
+* Client resmon: [RESMON PENDIENTE]
+* Tested on a real FXServer: 29/29 E2E checks.
+* No per-tick loops on the server.
+
+## Installation
+1. Download from {{GITHUB_URL}} and drop the folder into `resources/` as `staff_suite`.
+2. Add `add_ace group.admin staff_suite.lite allow` and `ensure staff_suite` to `server.cfg`.
+
+## Want more?
+Core adds moderation from the ticket (ban, warn, spectate, revive and more), duty and per-staff stats, player ratings, screenshot evidence, framework and txAdmin event logging, oxmysql and a hash anchor in Discord. It keeps your Lite tickets and chain. → {{CORE_TOPIC_URL}}
+
+## Links
+* **Download:** {{GITHUB_URL}}
+* **Docs:** {{DOCS_URL}}
+* **Support (EN/ES):** {{DISCORD_URL}}
+
+[details="En español"]
+(paste section (A) of forum-post-es.md here)
+[/details]
+
+|                             |                                          |
+|-----------------------------|------------------------------------------|
+| Code is accessible          | Yes (MIT)                                |
+| Subscription-based          | No                                       |
+| Lines (approximately)       | ~700 Lua + UI                            |
+| Requirements & dependencies | Up-to-date FXServer                      |
+| Support                     | Yes                                      |
+```
+
+---
+
+## (B) Core topic body
+
+```markdown
+![cover|690x388](upload://...)
+
+Staff Integrity Suite Core handles your staff's workflow (reports, moderation, duty) and keeps **a record of what your staff does that can't be quietly edited.**
+
+Every report, claim, ban, warning, shift and verification is written to a SHA-256 hash chain. Each entry contains the hash of the previous one. Verify it from the panel or with `/audit`: if someone edited, deleted or reordered an entry, you'll see exactly which one. Every 20 entries the current hash also goes to a Discord webhook and a separate file, so even a full rewrite shows up.
+
+It runs next to txAdmin, not instead of it. Noclip, god mode and spawning stay in txAdmin.
 
 ## Preview
 {{YOUTUBE_EN}}
@@ -33,78 +87,73 @@ If the video doesn't load, [click here]({{YOUTUBE_EN}}).
 
 ## Features
 
-**Audit log (the reason this exists)**
-* **Hash-chained entries:** who, what, to whom, when and why, each one linked to the previous one with SHA-256.
-* **Tamper detection:** edited, deleted or reordered entries are detected, and the broken entry is reported.
-* **Off-server anchor:** every N entries (default 20) the current hash goes to a Discord webhook and an append-only log file. If someone rewrites the whole chain, it won't match the anchor.
-* **On-demand verification:** `/audit` from the server console or in-game, or the panel's "Verify chain" button. The verification itself is logged.
-* **Audit viewer:** timeline with filters by staff member, action and date. The altered entry is highlighted in red and everything after it is flagged "not guaranteed".
-* **API:** `exports.staff_suite:Record(action, actor, target, reason, payload)` lets your other scripts write to the same chain.
+**Audit log**
+* Who, what, to whom, when and why, each entry chained to the previous one.
+* Viewer with filters by staff member, action and date. The altered entry turns red and everything after it is flagged.
+* Off-server anchor: Discord webhook + append-only file.
+* Logs ESX (job, group, items, money), QBCore/Qbox (job, money, groups) and txAdmin (ban, kick, warn, heal) events.
+* `exports.staff_suite:Record(...)` so your own scripts can write to the same chain.
 
-**Reports**
-* `/report <category> <description>`, with configurable categories.
-* Claim, unclaim, transfer, resolve, close and reopen. Double claims are blocked.
-* Every ticket step goes into the audit chain.
-* In-game panel (F6 or `/staffsuite`): queue with state and priority filters, plus ticket details.
+**Tickets**
+* Claim, unclaim, transfer to another online staff member, priorities, staff messages and internal notes.
+* Canned replies you define in `config.lua`.
+* The player rates the help from 1 to 5 when the ticket is resolved.
+* Evidence with screenshot-basic: the hash of the capture goes into the chain and the panel checks it again when you open it.
 
-**Core adds**
-* **Moderation from the ticket:** goto, bring, freeze, heal, kick. Kicks require a reason. Every action goes into the chain.
-* **Rank permissions:** 5 ranks, 20 capabilities, per-person grants and revokes.
-* **Ranks from your framework:** detects Qbox, QBCore or ESX (or force it with `Config.Framework`) and maps groups, permissions and jobs to ranks (`Config.RankMap`, `Config.JobRankMap`). Standalone uses ACE (`staff_suite.<rank>`). Nobody gets staff permissions until you configure them.
-* **Admin command logging (best-effort):** `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`.
-* **Full ticket view in the panel:** staff messages and internal notes, priorities, transfer to a staff member from a list, resolve with a note.
-* **Duty and dashboard:** `/duty` or the panel button, shift length logged. Dashboard with open/resolved tickets, who's on duty and hours per staff member. Alert if the chain breaks.
-* **Storage:** JSON with no database, or oxmysql.
+**Moderation from the ticket**
+* Goto, bring, freeze, heal, kick, warn, ban, spectate, revive, each behind its own permission.
+* Temporary or permanent bans across license, license2, FiveM, Steam, Discord, Xbox and hardware tokens. If the player comes back on a new account that shares one of them, the ban follows. No IP bans.
+* Bans and warnings require a reason. Kicks too, unless you turn it off.
+* Nobody can bring, freeze, kick, warn or ban a higher rank. This is checked on the server.
+* Revive uses your framework's medical system, or a standalone fallback.
 
-**Coming soon** (no dates; announced here when tested)
-* Chat with the player and player ratings
-* ban / warn / spectate / revive actions
-* Per-staff analytics: resolved tickets, response time and rating
+**Duty and stats**
+* `/duty` or the panel button. Hours and sessions per staff member.
+* Dashboard and leaderboard: resolved tickets, first-response time, average rating.
+
+**Setup**
+* Standalone (ACE), ESX, QBCore or Qbox, detected automatically. Nobody is staff by default: 5 ranks, 20 permissions, per-person overrides.
+* JSON, or oxmysql with automatic migrations on start.
+* Per-player rate limits and text limits.
+* Spanish and English.
 
 ## What it does NOT do
-* It's not an anticheat and it doesn't stop abuse. It makes abuse visible and hard to erase.
-* It can't intercept everything other resources do on their own. It logs what goes through it, the listed commands, and whatever you send through `Record`.
+* It's not an anticheat and it doesn't stop every abuse. It makes abuse visible and hard to erase.
+* It only sees what goes through it, the supported framework/txAdmin events and whatever you send through `Record`.
+* Players don't see the ticket chat: messages are between staff.
 * It's not an admin menu. Keep txAdmin.
 
 ## Performance
-* Idle: {{RESMON_IDLE}} ms · Active (panel open): {{RESMON_ACTIVO}} ms (resmon, server with {{N}} players)
-* No per-tick loops on the server. State is saved every 60 s and on resource stop.
+* Client resmon: [RESMON PENDIENTE]
+* Server, per call (measured in the E2E on a real FXServer): `Record` 0.09 ms, `GetState` 0.30 ms. No per-tick loops on the server.
+* E2E on a real FXServer: 30/30 checks.
 
 ## Installation
-1. Download from {{TEBEX_URL}} (Core) / {{GITHUB_URL}} (Lite).
+1. Buy on {{TEBEX_URL}}. The resource shows up in your cfx.re account (Granted Assets).
 2. Drop `staff_suite` into `resources/` and add `ensure staff_suite` to `server.cfg`.
-3. In `config.lua`: language, commands, framework (`auto` by default) and rank mapping. Standalone: `add_ace group.admin staff_suite.admin allow` in `server.cfg`.
-4. Optional Discord anchor: `set staff_suite_webhook "URL"` in `server.cfg`. It stays server-side (don't use `setr`).
+3. In `config.lua`: language, framework (`auto`) and rank mapping. Standalone: `add_ace group.admin staff_suite.admin allow`.
+4. Optional Discord anchor: `set staff_suite_webhook "URL"` in `server.cfg` (server-only, don't use `setr`).
+5. Optional: `ensure oxmysql` before the resource and the tables are created on start. `ensure screenshot-basic` for evidence.
+Coming from Lite? Replace the files and keep the name `staff_suite`: your tickets and chain stay.
 Full docs: {{DOCS_URL}}
 
 ## Links
-* **Lite (free):** {{GITHUB_URL}}
 * **Core:** {{TEBEX_URL}}
+* **Lite (free):** {{LITE_TOPIC_URL}}
 * **Docs:** {{DOCS_URL}}
 * **Support (EN/ES):** {{DISCORD_URL}}
 
 [details="En español"]
-(paste the body of forum-post-es.md here)
+(paste section (B) of forum-post-es.md here)
 [/details]
 
 |                             |                                          |
 |-----------------------------|------------------------------------------|
-| Code is accessible          | Partial (config, locales and UI open; core escrowed) |
+| Code is accessible          | Partial (config, locales and SQL open; the rest escrowed) |
 | Subscription-based          | No                                       |
-| Lines (approximately)       | ~{{LINEAS}}                              |
-| Requirements & dependencies | Up-to-date FXServer, OneSync (moderation actions); oxmysql optional; ESX/QBCore/Qbox optional |
+| Lines (approximately)       | ~2,400 Lua + UI                          |
+| Requirements & dependencies | Up-to-date FXServer with OneSync; optional: oxmysql, ESX/QBCore/Qbox, screenshot-basic |
 | Support                     | Yes                                      |
 ```
 
-## Table for the Lite topic (if it's published via GitHub with no escrow, the table isn't mandatory but helps)
-```markdown
-|                             |                                          |
-|-----------------------------|------------------------------------------|
-| Code is accessible          | Yes                                      |
-| Subscription-based          | No                                       |
-| Lines (approximately)       | ~{{LINEAS}}                              |
-| Requirements & dependencies | Up-to-date FXServer; oxmysql optional    |
-| Support                     | Yes                                      |
-```
-
-> `{{LINEAS}}`: on 19/11/2026 the resource has ~1,000 Lua lines without comments, blank lines or tests. Recount when packaging.
+> Line counts: non-comment Lua without tests or locales, measured on 19/11/2026. Recount when packaging.

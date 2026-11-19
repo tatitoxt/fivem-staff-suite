@@ -84,7 +84,7 @@ Hi {{name}}, following up once on Staff Integrity Suite. The free Core key for y
 
 ### Cuando aceptan (ES/EN)
 ```
-ES: ¡Genial! Te paso: 1) la key del Core (te llega a tu cuenta cfx.re), 2) las docs: {{DOCS_URL}}, 3) para el código necesito tu Wallet Reference de Tebex (wallet.tebex.io → Withdraw → Your Details). Nombre del código: {{CODIGO}}. Lo único que pido: que avises que es un código patrocinado y que digas lo que te parezca, bueno o malo.
+ES: ¡Genial! Te paso: 1) la key del Core (te llega a tu cuenta cfx.re), 2) las docs: {{DOCS_URL}}, 3) para el código necesito tu Wallet Reference de Tebex (wallet.tebex.io → Withdraw → Your Details). Nombre del código: {{CODIGO}}. Solo te pido que avises que es un código patrocinado y que digas lo que te parezca, bueno o malo.
 
 EN: Great! Here's: 1) the Core key (it goes to your cfx.re account), 2) docs: {{DOCS_URL}}, 3) for the code I need your Tebex Wallet Reference (wallet.tebex.io → Withdraw → Your Details). Code name: {{CODIGO}}. Only ask: mark it as sponsored and say whatever you honestly think, good or bad.
 ```

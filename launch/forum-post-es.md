@@ -1,106 +1,119 @@
-# Post de lanzamiento (ES)
+# Post del foro — versión en español
 
-> **Dónde va:** forum.cfx.re no tiene categoría en español (verificado en la lista de categorías el 19/11/2026); el topic de Releases va en inglés (`forum-post-en.md`). Este texto se usa:
-> 1. dentro del bloque `[details="En español"]` del post EN,
-> 2. en los canales de releases de Discords ES/LATAM (aportá valor primero, sin spam: `DISTRIBUTION.md` §10),
-> 3. en el README del repo público del Lite.
->
-> Mismas reglas que el post EN: re-verificá las features con la matriz de `launch/README.md`, escribilo con tu voz, y no pidas reviews.
+> El foro de Releases no tiene categoría en español: este texto va en el bloque `[details="En español"]` de cada post en inglés, en los Discords ES/LATAM y en el README del GitHub de Lite.
+> Mismas reglas que `forum-post-en.md`: no publicar hasta reemplazar `[RESMON PENDIENTE]`, pasarlo por tu voz y revisar la matriz de `launch/README.md`.
 
 ---
 
-## Título
-`[GRATIS] Staff Integrity Suite Lite — Reportes + auditoría del staff a prueba de manipulación (SHA-256) | Standalone / ESX / QBCore / Qbox | ES/EN`
-
-(Versión paga: `Staff Integrity Suite — Reportes, moderación en el ticket y auditoría verificable del staff | Standalone / ESX / QBCore / Qbox | ES/EN`)
-
-## Cuerpo
+## (A) Lite
 
 ```markdown
-![portada](upload://...)
+Staff Integrity Suite Lite es un sistema de reportes gratis con una vuelta: **cada acción del panel queda en una cadena SHA-256, así que nadie puede editar el historial sin que se note.**
 
-Staff Integrity Suite es un sistema de reportes y de flujo de staff con un foco puntual: **un registro de lo que hace tu staff que no se puede editar sin que se note.**
-
-Cada reporte, reclamo, acción de moderación y turno queda en una cadena SHA-256. Cada entrada incluye el hash de la anterior. Con `/audit` el server recalcula la cadena entera: si alguien editó, borró o reordenó una entrada, te dice cuál.
-
-Se usa junto a txAdmin, no lo reemplaza. Noclip, god y spawn los sigue haciendo txAdmin.
+Los jugadores reportan con `/report`. Tu staff abre el panel con F6, reclama el ticket, lo resuelve y lo cierra. Cada paso queda como una entrada que incluye el hash de la anterior. Tocás "Verificar cadena" (o `/audit` en la consola) y sabés si alguien editó, borró o reordenó algo, y en qué entrada.
 
 ## Preview
 {{YOUTUBE_ES}}
-Si no carga el video, [hacé clic acá]({{YOUTUBE_ES}}).
 
-## Features
+## Qué hace
+* `/report <categoría> <descripción>`, hasta 3 reportes abiertos por jugador.
+* Cola de tickets en el panel (F6 o `/reports`): reclamar (sin doble reclamo), resolver con texto, cerrar, reabrir.
+* Visor de auditoría con filtros y botón "Verificar cadena". La entrada rota se marca en rojo.
+* Standalone: un permiso ACE, guarda en JSON, sin base de datos.
+* Límites de acciones y de texto para que nadie te llene la cola.
+* Español e inglés.
+* Licencia MIT: el Lua es tuyo para leerlo y cambiarlo.
 
-**Auditoría (el motivo de todo esto)**
-* **Entradas encadenadas:** quién, qué, a quién, cuándo y por qué, cada una ligada a la anterior con SHA-256.
-* **Detección de manipulación:** detecta entradas editadas, borradas o reordenadas, y te dice cuál se rompió.
-* **Ancla fuera del server:** cada N entradas (20 por defecto) el hash actual va a un webhook de Discord y a un archivo de log. Si alguien reescribe toda la cadena, no coincide con el ancla.
-* **Verificación cuando quieras:** `/audit` desde la consola o in-game, o el botón "Verificar cadena" del panel. La verificación también queda registrada.
-* **Visor de auditoría:** timeline con filtros por staff, acción y fecha. La entrada alterada se marca en rojo y las siguientes como "sin garantía".
-* **API:** con `exports.staff_suite:Record(action, actor, target, reason, payload)` tus otros scripts escriben en la misma cadena.
+## Rendimiento
+* resmon de cliente: [RESMON PENDIENTE]
+* Probado en un FXServer real: 29 de 29 checks E2E.
+* Sin loops por tick en el server.
 
-**Reportes**
-* `/report <categoría> <descripción>`, con categorías configurables.
-* Reclamar, liberar, transferir, resolver, cerrar y reabrir. No se puede reclamar dos veces el mismo ticket.
-* Cada paso del ticket queda en la cadena.
-* Panel in-game (F6 o `/staffsuite`): cola con filtros por estado y prioridad, y detalle del ticket.
+## Instalación
+1. Bajalo de {{GITHUB_URL}} y poné la carpeta en `resources/` como `staff_suite`.
+2. Sumá `add_ace group.admin staff_suite.lite allow` y `ensure staff_suite` a `server.cfg`.
 
-**Lo que suma Core (pago)**
-* **Moderación desde el ticket:** goto, bring, freeze, heal y kick. El kick pide razón obligatoria. Todo queda en la cadena.
-* **Permisos por rango:** 5 rangos, 20 permisos, altas y bajas por persona.
-* **Rangos desde tu framework:** detecta Qbox, QBCore o ESX (o lo forzás con `Config.Framework`) y mapea grupos, permisos y jobs a los rangos (`Config.RankMap`, `Config.JobRankMap`). En standalone, por ACE (`staff_suite.<rango>`). Nadie tiene permisos de staff hasta que los configures.
-* **Registro de comandos de admin (best-effort):** `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`.
-* **Ticket completo en el panel:** mensajes del staff y notas internas, prioridades, transferir a un staff de la lista, resolver con texto.
-* **Turnos y dashboard:** `/duty` o el botón del panel, con la duración registrada. Dashboard con tickets abiertos/resueltos, quién está en servicio y horas por staff. Alerta si la cadena se rompe.
-* **Persistencia:** JSON sin base de datos, u oxmysql.
+## ¿Querés más?
+Core suma moderación desde el ticket (ban, warn, spectate, revive y más), turnos y estadísticas por staff, calificación del jugador, evidencia con capturas, registro de eventos de framework y txAdmin, oxmysql y el ancla del hash en Discord. Conserva tus tickets y tu cadena de Lite. → {{CORE_TOPIC_URL}}
 
-**Próximamente** (sin fechas; lo anuncio cuando esté probado)
-* Chat con el jugador y calificación del jugador
-* ban / warn / spectate / revive
-* Analytics por staff: tickets resueltos, tiempo de respuesta y rating
+## Links
+* **Descarga:** {{GITHUB_URL}}
+* **Docs:** {{DOCS_URL}}
+* **Soporte (ES/EN):** {{DISCORD_URL}}
+```
+
+---
+
+## (B) Core
+
+```markdown
+Staff Integrity Suite Core se ocupa del trabajo de tu staff (reportes, moderación, turnos) y guarda **un registro de lo que hace tu staff que no se puede editar sin que se note.**
+
+Cada reporte, reclamo, ban, warn, turno y verificación queda en una cadena SHA-256. Cada entrada incluye el hash de la anterior. La verificás desde el panel o con `/audit`: si alguien editó, borró o reordenó una entrada, ves cuál. Cada 20 entradas el hash actual también va a un webhook de Discord y a un archivo aparte, así que ni reescribir todo pasa desapercibido.
+
+Se usa junto a txAdmin, no lo reemplaza. Noclip, god y spawn siguen en txAdmin.
+
+## Preview
+{{YOUTUBE_ES}}
+Si el video no carga, [click acá]({{YOUTUBE_ES}}).
+
+## Qué hace
+
+**Auditoría**
+* Quién, qué, a quién, cuándo y por qué, cada entrada encadenada a la anterior.
+* Visor con filtros por staff, acción y fecha. La entrada alterada se marca en rojo y las siguientes quedan señaladas.
+* Ancla fuera del server: webhook de Discord + archivo que solo crece.
+* Registra eventos de ESX (job, grupo, items, dinero), QBCore/Qbox (job, dinero, grupos) y txAdmin (ban, kick, warn, heal).
+* `exports.staff_suite:Record(...)` para que tus scripts escriban en la misma cadena.
+
+**Tickets**
+* Reclamar, liberar, transferir a otro staff conectado, prioridades, mensajes del staff y notas internas.
+* Respuestas predefinidas que armás en `config.lua`.
+* El jugador califica la atención de 1 a 5 cuando se resuelve el ticket.
+* Evidencia con screenshot-basic: el hash de la captura va a la cadena y el panel lo vuelve a chequear cuando la abrís.
+
+**Moderación desde el ticket**
+* Goto, bring, freeze, heal, kick, warn, ban, spectate y revive, cada una con su permiso.
+* Ban temporal o permanente por license, license2, FiveM, Steam, Discord, Xbox y tokens de hardware. Si el jugador vuelve con una cuenta nueva que comparte alguno, el ban la alcanza. Sin bans por IP.
+* Ban y warn piden razón. Kick también, salvo que lo desactives.
+* Nadie puede traer, congelar, expulsar, advertir ni banear a un rango superior. Lo controla el server.
+* Revive usa el sistema médico de tu framework o uno standalone.
+
+**Turnos y estadísticas**
+* `/duty` o el botón del panel. Horas y sesiones por staff.
+* Dashboard y ranking: resueltos, tiempo de primera respuesta y calificación promedio.
+
+**Instalación**
+* Standalone (ACE), ESX, QBCore o Qbox, detectados solos. Nadie es staff por defecto: 5 rangos, 20 permisos y excepciones por persona.
+* JSON, u oxmysql con migraciones automáticas al iniciar.
+* Límites de acciones por jugador y de texto.
+* Español e inglés.
 
 ## Lo que NO hace
-* No es un anticheat y no frena el abuso: hace que quede a la vista y que borrarlo se note.
-* No intercepta todo lo que otros resources hacen por su cuenta. Registra lo que pasa por el sistema, los comandos listados y lo que mandes por `Record`.
+* No es un anticheat ni frena todos los abusos. Los hace visibles y difíciles de borrar.
+* Solo ve lo que pasa por él, los eventos compatibles de framework/txAdmin y lo que mandes por `Record`.
+* El jugador no ve el chat del ticket: los mensajes son entre el staff.
 * No es un menú de admin. Seguí usando txAdmin.
 
 ## Rendimiento
-* Idle: {{RESMON_IDLE}} ms · Activo (panel abierto): {{RESMON_ACTIVO}} ms (resmon, server con {{N}} jugadores)
-* Sin loops por tick en el server. Guarda cada 60 s y al apagar el resource.
+* resmon de cliente: [RESMON PENDIENTE]
+* Server, por llamada (medido en el E2E en un FXServer real): `Record` 0.09 ms, `GetState` 0.30 ms. Sin loops por tick en el server.
+* E2E en FXServer real: 30 de 30 checks.
 
 ## Instalación
-1. Descargalo de {{GITHUB_URL}} (Lite) o {{TEBEX_URL}} (Core).
-2. Copiá `staff_suite` a `resources/` y agregá `ensure staff_suite` en `server.cfg`.
-3. En `config.lua`: idioma, comandos, framework (`auto` por defecto) y mapeo de rangos. En standalone: `add_ace group.admin staff_suite.admin allow` en `server.cfg`.
-4. Ancla en Discord (opcional): `set staff_suite_webhook "URL"` en `server.cfg`. Queda solo en el server (no uses `setr`).
+1. Compralo en {{TEBEX_URL}}. Te aparece en tu cuenta de cfx.re (Granted Assets).
+2. Poné `staff_suite` en `resources/` y sumá `ensure staff_suite` a `server.cfg`.
+3. En `config.lua`: idioma, framework (`auto`) y mapeo de rangos. Standalone: `add_ace group.admin staff_suite.admin allow`.
+4. Ancla en Discord (opcional): `set staff_suite_webhook "URL"` en `server.cfg` (queda solo en el server, no uses `setr`).
+5. Opcional: `ensure oxmysql` antes del recurso y las tablas se crean solas. `ensure screenshot-basic` para la evidencia.
+¿Venís de Lite? Reemplazá los archivos y mantené el nombre `staff_suite`: tus tickets y tu cadena quedan.
 Docs completas: {{DOCS_URL}}
 
 ## Links
-* **Lite (gratis):** {{GITHUB_URL}}
 * **Core:** {{TEBEX_URL}}
+* **Lite (gratis):** {{LITE_TOPIC_URL}}
 * **Docs:** {{DOCS_URL}}
 * **Soporte (ES/EN):** {{DISCORD_URL}}
-
-|                             |                                          |
-|-----------------------------|------------------------------------------|
-| Código accesible            | Parcial (config, locales y UI abiertos; core con escrow) |
-| Por suscripción             | No                                       |
-| Líneas (aprox.)             | ~{{LINEAS}}                              |
-| Requisitos y dependencias   | FXServer actualizado, OneSync (acciones de moderación); oxmysql opcional; ESX/QBCore/Qbox opcional |
-| Soporte                     | Sí                                       |
 ```
 
-## Versión corta para Discord (≤ 1.000 caracteres)
-```
-**Staff Integrity Suite Lite — gratis**
-Reportes + un registro de lo que hace tu staff que no se puede editar sin que se note.
-
-• /report con reclamo, transferencia y cierre
-• Cada acción queda en una cadena SHA-256: si alguien edita o borra un log, /audit te dice cuál
-• Ancla del hash en tu Discord (webhook) por si reescriben todo
-• Standalone o ESX/QBCore/Qbox, sin base de datos obligatoria, ES/EN
-
-Lo armé porque en casi todos los servers el log del staff es un .txt que cualquier admin con acceso puede tocar.
-Video: {{YOUTUBE_ES}} · Descarga: {{GITHUB_URL}}
-Si lo probás, me sirve mucho saber qué le falta.
-```
+> La tabla obligatoria va en inglés al final del post (`forum-post-en.md`); no hace falta repetirla acá.

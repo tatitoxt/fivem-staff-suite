@@ -1,0 +1,19 @@
+Staff Integrity Suite Core
+
+Reportes, moderación desde el ticket, turnos y un registro de lo que hace tu staff que no se puede editar sin que se note.
+
+Cada acción queda en una cadena SHA-256: cada entrada guarda el hash de la anterior. Si alguien edita, borra o reordena un registro, la verificación te dice en qué entrada se rompió. Cada 20 entradas el hash se copia a tu Discord y a un archivo aparte.
+
+Qué incluye:
+- Tickets con reclamo, transferencia, prioridades, notas internas, respuestas predefinidas y calificación 1-5 del jugador.
+- Evidencia con screenshot-basic: la captura queda registrada en la cadena y se verifica al abrirla.
+- Moderación desde el ticket: goto, bring, freeze, heal, kick, warn, ban, spectate y revive. Ban temporal o permanente que cubre todas las cuentas del jugador.
+- Nadie puede sancionar a un rango superior. Ban y warn piden razón.
+- Turnos y estadísticas por staff: resueltos, tiempo de respuesta, calificación y horas.
+- Registro de eventos de ESX, QBCore, Qbox y txAdmin.
+- Standalone, ESX, QBCore o Qbox. JSON sin base de datos u oxmysql con migraciones automáticas.
+- Español e inglés. Config, locales y SQL abiertos; el resto con Cfx Asset Escrow.
+
+No reemplaza a txAdmin ni es un anticheat: hace que lo que hace tu staff quede a la vista.
+
+Probá antes la versión Lite gratis.
