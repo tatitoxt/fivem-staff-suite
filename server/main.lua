@@ -99,6 +99,21 @@ local function findPlayerByIdentifier(identifier)
   end
 end
 
+local function canReceiveTransfer(player)
+  return player.identifier ~= nil and can(player, 'report.view') and can(player, 'report.claim')
+end
+
+local function transferTargets()
+  local targets = {}
+  for _, src in ipairs(GetPlayers()) do
+    local player = getPlayer(src)
+    if canReceiveTransfer(player) then
+      targets[#targets + 1] = { name = player.name, identifier = player.identifier }
+    end
+  end
+  return targets
+end
+
 local function positiveInteger(value)
   local n = tonumber(value)
   if n and n > 0 and n % 1 == 0 then return n end
@@ -216,8 +231,14 @@ RegisterNetEvent('staff_suite:getState', function()
     }
   end
   local shift = dreg.staff[actorId(player, src)]
+  local exportConfig = Config.Export
   TriggerClientEvent('staff_suite:state', src, {
     tickets = can(player, 'report.view') and store.tickets or {},
+    transferTargets = can(player, 'report.resolve') and transferTargets() or {},
+    exportStatus = {
+      webhook = type(exportConfig.webhook) == 'string' and exportConfig.webhook ~= '',
+      file = exportConfig.file == true,
+    },
     audit = canViewAudit and chain.entries or {},
     duty = canViewAnalytics and duty.snapshot(dreg, now) or {},
     dutySelf = { on_duty = can(player, 'staff.duty') and shift ~= nil and shift.on_duty == true },
@@ -244,7 +265,7 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
   local recipientSrc, recipient
   if action == 'transfer' then
     recipientSrc, recipient = findPlayerByIdentifier(extra.to)
-    if not recipient or not can(recipient, 'report.claim') or not can(recipient, 'report.view') then
+    if not recipient or not canReceiveTransfer(recipient) then
       TriggerClientEvent('staff_suite:notify', src, t('ticket_invalid_recipient'))
       return
     end

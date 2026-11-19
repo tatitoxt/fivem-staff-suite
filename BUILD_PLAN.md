@@ -17,10 +17,10 @@
 | 10 | Adapter: persistencia oxmysql + fallback JSON | ⏳ |
 | 11 | Adapter: export off-box (webhook + archivo) | ⏳ |
 | 12 | Adapter: bridges ESX/QBCore/Qbox/standalone | ✅ Tests Lua con mocks |
-| 13 | NUI: design system + layout (light, Manrope/DM Sans) | ⏳ |
-| 14 | NUI: visor auditoría (timeline + filtros + verify) | ⏳ |
-| 15 | NUI: panel tickets (cola, claim, chat, moderación) | ⏳ |
-| 16 | NUI: dashboard staff (duty, leaderboard) | ⏳ |
+| 13 | NUI: design system + layout (light, Manrope/DM Sans) | ✅ React 18+TS+Vite, `ui/` |
+| 14 | NUI: visor auditoría (timeline + filtros + verify) | ✅ smoke test tamper |
+| 15 | NUI: panel tickets (cola, claim, chat, moderación) | ✅ smoke test claim |
+| 16 | NUI: dashboard staff (duty, leaderboard) | ✅ + Duty + Ajustes |
 | 17 | Locales ES/EN completos | ⏳ |
 | 18 | Test resource E2E (eventos simulados → asserts) | ⏳ |
 | 19 | Deploy QA + E2E green + resmon <0.05ms | ⏳ |

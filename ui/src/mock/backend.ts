@@ -1,0 +1,259 @@
+import { fmt } from '../format';
+import type {
+  AuditEntry, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
+} from '../types';
+import { append, verify } from './chain';
+import { ALL_CAPS, ME, STAFF, TAMPER_SEQ, buildAlerts, buildAudit, buildStaff, buildTickets } from './demo';
+import { LOCALES } from './locales';
+
+// Backend simulado: reproduce lo que hacen client/main.lua + server/main.lua
+// (transiciones de core/tickets.lua, auditoría encadenada, duty) y responde
+// con los mismos mensajes NUI. Solo se carga en `npm run dev` y en tests.
+
+const TRANSITIONS: Record<TicketState, Partial<Record<string, TicketState>>> = {
+  open: { claim: 'claimed', close: 'closed' },
+  claimed: { unclaim: 'open', transfer: 'claimed', resolve: 'resolved', close: 'closed' },
+  in_progress: { resolve: 'resolved', unclaim: 'claimed', close: 'closed' },
+  resolved: { close: 'closed', reopen: 'reopened' },
+  closed: { reopen: 'reopened' },
+  reopened: { claim: 'claimed', close: 'closed' },
+};
+
+const REASON_REQUIRED = new Set(['kick', 'ban', 'warn']);
+
+export function computeDashboard(tickets: Ticket[], staff: StaffStat[], alerts: DashboardPayload['alerts']): DashboardPayload {
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  return {
+    kpis: {
+      open: tickets.filter((t) => t.state !== 'resolved' && t.state !== 'closed').length,
+      resolved: tickets.filter((t) => t.state === 'resolved' || t.state === 'closed').length,
+      avg_response: avg(staff.map((s) => s.avg_response).filter((x): x is number => x != null)),
+      avg_rating: avg(staff.map((s) => s.avg_rating).filter((x): x is number => x != null)),
+      on_duty: staff.filter((s) => s.on_duty).length,
+    },
+    leaderboard: [...staff].sort((a, b) => b.resolved - a.resolved),
+    alerts,
+  };
+}
+
+export class MockBackend {
+  locale = 'es';
+  now = Date.now() / 1000;
+  entries: AuditEntry[] = buildAudit(this.now);
+  tickets: Ticket[] = buildTickets(this.now);
+  staff: StaffStat[] = buildStaff();
+  alerts = buildAlerts(this.now);
+  latency = 120;
+  private original: AuditEntry | null = null;
+
+  private emit(msg: IncomingMessage) {
+    window.postMessage(msg, '*');
+  }
+
+  private s(key: string, vars?: Record<string, string | number>) {
+    return fmt(LOCALES[this.locale]?.[key] ?? key, vars);
+  }
+
+  private self() {
+    return this.staff.find((s) => s.actor === ME)!;
+  }
+
+  private record(actor: string, action: string, target = '', reason = '', payload?: Record<string, unknown>) {
+    append(this.entries, {
+      ts: Math.round(Date.now() / 1000), actor, action, target, reason,
+      payload: payload ? JSON.stringify(payload) : '',
+    });
+  }
+
+  emitInit() {
+    this.emit({
+      type: 'init',
+      payload: {
+        locale: this.locale,
+        strings: LOCALES[this.locale],
+        version: '0.1.0',
+        player: { name: ME, rank: 'owner', capabilities: ALL_CAPS },
+        config: {
+          panel_key: 'F6', locales: ['es', 'en'],
+          categories: ['bug', 'player', 'staff', 'question', 'other'],
+          priorities: ['low', 'normal', 'high', 'urgent'],
+          require_reason: true, persistence: 'json',
+          export: { webhook: true, file: true, anchor_every: 20 },
+          transfer_targets: ['Nahuel_R', 'Sofi.Mod', 'Kevo', 'Lu.Helper', 'Martin_B']
+            .map((name) => ({ name, identifier: name })),
+        },
+      },
+    });
+  }
+
+  emitAudit(withVerify: boolean) {
+    this.emit({
+      type: 'audit',
+      payload: {
+        entries: this.entries.map((e) => ({ ...e })),
+        head: this.entries[this.entries.length - 1]?.hash ?? '',
+        ...(withVerify ? { verify: verify(this.entries) } : {}),
+      },
+    });
+  }
+
+  emitTickets() {
+    this.emit({ type: 'tickets', payload: { tickets: this.tickets.map((t) => ({ ...t, messages: [...t.messages] })) } });
+  }
+
+  emitDuty() {
+    this.emit({ type: 'duty', payload: { self: { on_duty: this.self().on_duty }, staff: this.staff.map((s) => ({ ...s })) } });
+    this.emit({ type: 'dashboard', payload: computeDashboard(this.tickets, this.staff, this.alerts) });
+  }
+
+  toast(kind: 'ok' | 'error' | 'info', text: string) {
+    this.emit({ type: 'toast', payload: { kind, text } });
+  }
+
+  start() {
+    this.emitInit();
+    this.emitAudit(true);
+    this.emitTickets();
+    this.emitDuty();
+  }
+
+  /** Harness: edita una entrada sin recalcular su hash (simula manipulación en la DB). */
+  tamper(seq = TAMPER_SEQ) {
+    const e = this.entries[seq - 1];
+    if (!e || this.original) return;
+    this.original = { ...e };
+    this.entries[seq - 1] = { ...e, payload: JSON.stringify({ item: 'water', count: 1 }) };
+    this.emitAudit(false);
+  }
+
+  restore() {
+    if (!this.original) return;
+    this.entries[this.original.seq - 1] = this.original;
+    this.original = null;
+    this.emitAudit(false);
+  }
+
+  get tampered() {
+    return this.original !== null;
+  }
+
+  private transition(id: number, action: string, extra: { to?: string; resolution?: string } = {}) {
+    const t = this.tickets.find((x) => x.id === id);
+    if (!t) return this.toast('error', this.s('invalid_transition'));
+    if (action === 'claim' && t.claimer && t.claimer !== ME) return this.toast('error', this.s('already_claimed'));
+    const next = TRANSITIONS[t.state][action];
+    if (!next) return this.toast('error', this.s('invalid_transition'));
+    const from = t.state;
+    t.state = next;
+    if (action === 'claim') t.claimer = ME;
+    if (action === 'transfer') t.claimer = extra.to ?? t.claimer;
+    if (action === 'resolve') {
+      t.resolution = extra.resolution ?? '';
+      const who = this.staff.find((s) => s.actor === t.claimer);
+      if (who) who.resolved += 1;
+    }
+    if (action === 'reopen') { t.claimer = null; t.resolution = null; }
+    t.updated_ts = Math.round(Date.now() / 1000);
+    this.record(ME, `ticket_${action}`, `ticket:${id}`, extra.resolution ?? (extra.to ? `→ ${extra.to}` : ''), { from, to: next });
+    this.emitTickets();
+    this.emitAudit(false);
+    this.emitDuty();
+  }
+
+  handle<A extends OutgoingAction>(action: A, payload: OutgoingPayloads[A]): Promise<unknown> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        this.dispatch(action, payload);
+        resolve({ ok: true });
+      }, action === 'audit_verify' ? this.latency * 4 : this.latency);
+    });
+  }
+
+  private dispatch(action: OutgoingAction, p: unknown) {
+    switch (action) {
+      case 'close_ui':
+        this.emit({ type: 'close' });
+        return;
+      case 'set_locale': {
+        const { locale } = p as OutgoingPayloads['set_locale'];
+        if (LOCALES[locale]) this.locale = locale;
+        this.emitInit();
+        return;
+      }
+      case 'refresh':
+        this.start();
+        return;
+      case 'audit_filter':
+        return;
+      case 'audit_verify': {
+        const res = verify(this.entries);
+        this.record(ME, 'audit_verify', '', res.ok ? 'ok' : `broken:${res.broken_at}`);
+        this.emitAudit(true);
+        return;
+      }
+      case 'ticket_claim':
+      case 'ticket_close':
+      case 'ticket_reopen':
+        this.transition((p as { id: number }).id, action.slice(7));
+        return;
+      case 'ticket_transfer': {
+        const { id, to } = p as OutgoingPayloads['ticket_transfer'];
+        if (!STAFF.includes(to)) return this.toast('error', this.s('invalid_transition'));
+        this.transition(id, 'transfer', { to });
+        return;
+      }
+      case 'ticket_resolve': {
+        const { id, resolution } = p as OutgoingPayloads['ticket_resolve'];
+        this.transition(id, 'resolve', { resolution });
+        return;
+      }
+      case 'ticket_message': {
+        const { id, body, internal } = p as OutgoingPayloads['ticket_message'];
+        const t = this.tickets.find((x) => x.id === id);
+        if (!t || !body.trim()) return;
+        const ts = Math.round(Date.now() / 1000);
+        t.messages.push({ author: ME, body: body.trim(), ts, internal });
+        t.updated_ts = ts;
+        this.record(ME, 'ticket_message', `ticket:${id}`, '', { internal });
+        this.emitTickets();
+        this.emitAudit(false);
+        return;
+      }
+      case 'ticket_create': {
+        const { category, priority, body } = p as OutgoingPayloads['ticket_create'];
+        const ts = Math.round(Date.now() / 1000);
+        const id = Math.max(0, ...this.tickets.map((t) => t.id)) + 1;
+        this.tickets.push({
+          id, reporter: ME, category, priority, state: 'open', claimer: null, created_ts: ts, updated_ts: ts,
+          description: body, messages: [], resolution: null, rating: null,
+        });
+        this.record(ME, 'ticket_create', ME, '', { ticket: id, category });
+        this.emitTickets();
+        this.emitAudit(false);
+        this.emitDuty();
+        this.toast('ok', this.s('report_created', { id }));
+        return;
+      }
+      case 'mod_action': {
+        const { action: mod, target, reason } = p as OutgoingPayloads['mod_action'];
+        if (REASON_REQUIRED.has(mod) && !reason.trim()) return this.toast('error', this.s('reason_required'));
+        this.record(ME, `mod_${mod}`, target, reason.trim(), { action: mod });
+        this.emitAudit(false);
+        this.toast('ok', this.s('ui_toast_mod_done', { action: this.s(`mod_${mod}`) }));
+        return;
+      }
+      case 'duty_toggle': {
+        const me = this.self();
+        me.on_duty = !me.on_duty;
+        if (me.on_duty) me.sessions += 1;
+        this.record(ME, me.on_duty ? 'duty.in' : 'duty.out', ME);
+        this.toast('info', me.on_duty ? this.s('duty_in') : this.s('duty_out', { time: '0.0h' }));
+        this.emitDuty();
+        this.emitAudit(false);
+        return;
+      }
+    }
+  }
+}
+
+export const backend = new MockBackend();

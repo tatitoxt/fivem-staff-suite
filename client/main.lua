@@ -1,41 +1,223 @@
--- client/main.lua — Puente NUI + keybind + handlers. La UI real (React) va en ui/dist.
+-- client/main.lua — Puente NUI (React, ui/dist) <-> server. Contrato: NUI_SPEC.md.
+-- Traduce los eventos del adapter (staff_suite:state/auditResult/notify) a los
+-- mensajes tipados de la NUI (init/audit/tickets/dashboard/duty/toast).
+-- luacheck: globals GetResourceMetadata GetPlayerName PlayerId SetTimeout GetCloudTimeAsInt ExecuteCommand
 local t = StaffSuiteTranslate
+local panelOpen = false
+local uiLocale = Config.Locale or 'es'
+local rank = 'helper'
+local ticketsCache = {}
+local dutyCache = {}
+local alertsCache = {}
+local playerInfo = nil
+local transferTargets = nil
+local exportStatus = nil
 
-local function openPanel()
+local function strings(lang)
+  return (Locale and (Locale[lang] or Locale.es)) or {}
+end
+
+local function nui(kind, payload)
+  SendNUIMessage({ type = kind, payload = payload })
+end
+
+local function sendInit()
+  local locales = {}
+  for code in pairs(Locale or {}) do locales[#locales + 1] = code end
+  table.sort(locales)
+  nui('init', {
+    locale = uiLocale,
+    strings = strings(uiLocale),
+    version = GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '',
+    player = playerInfo or { name = GetPlayerName(PlayerId()), rank = rank },
+    config = {
+      panel_key = Config.PanelKey or 'F6',
+      locales = locales,
+      categories = Config.Categories,
+      priorities = Config.Priorities,
+      require_reason = Config.Moderation and Config.Moderation.require_reason ~= false,
+      persistence = Config.Persistence,
+      export = (exportStatus and {
+        webhook = exportStatus.webhook == true,
+        file = exportStatus.file == true,
+        anchor_every = exportStatus.anchor_every,
+      }) or (Config.Export and {
+        webhook = (Config.Export.webhook or '') ~= '',
+        file = Config.Export.file == true,
+        anchor_every = Config.Export.anchor_every,
+      }) or nil,
+      transfer_targets = transferTargets,
+    },
+  })
+end
+
+local function ticketList(map)
+  local list = {}
+  for _, tk in pairs(map or {}) do
+    if type(tk) == 'table' and tk.id then list[#list + 1] = tk end
+  end
+  table.sort(list, function(a, b) return a.id < b.id end)
+  return list
+end
+
+local function auditList(entries)
+  local out = {}
+  for i, e in ipairs(entries or {}) do
+    local payload = e.payload
+    if type(payload) == 'table' then payload = json.encode(payload) end
+    out[i] = {
+      seq = e.seq or i, ts = e.ts or 0, actor = e.actor or '', action = e.action or '',
+      target = e.target or '', reason = e.reason or '', payload = payload or '',
+      prev_hash = e.prev_hash or '', hash = e.hash or '',
+    }
+  end
+  return out
+end
+
+local function sendDashboard()
+  local open, resolved, onDuty = 0, 0, 0
+  for _, tk in ipairs(ticketsCache) do
+    if tk.state == 'resolved' or tk.state == 'closed' then resolved = resolved + 1 else open = open + 1 end
+  end
+  local rSum, rN, gSum, gN = 0, 0, 0, 0
+  for _, s in ipairs(dutyCache) do
+    if s.on_duty then onDuty = onDuty + 1 end
+    if s.avg_response then rSum, rN = rSum + s.avg_response, rN + 1 end
+    if s.avg_rating then gSum, gN = gSum + s.avg_rating, gN + 1 end
+  end
+  nui('dashboard', {
+    kpis = {
+      open = open, resolved = resolved, on_duty = onDuty,
+      avg_response = rN > 0 and rSum / rN or nil,
+      avg_rating = gN > 0 and gSum / gN or nil,
+    },
+    leaderboard = dutyCache,
+    alerts = alertsCache,
+  })
+end
+
+local function verifyResult(ok, at)
+  return { ok = ok == true, broken_at = (ok ~= true) and at or nil }
+end
+
+local function openPanel(view)
+  panelOpen = true
   SetNuiFocus(true, true)
+  sendInit()
   TriggerServerEvent('staff_suite:getState')
-  SendNUIMessage({ type = 'open' })
+  nui('open', { view = view })
 end
 
 local function closePanel()
+  panelOpen = false
   SetNuiFocus(false, false)
-  SendNUIMessage({ type = 'close' })
+  nui('close')
 end
 
 RegisterCommand('staffsuite', function() openPanel() end, false)
 RegisterKeyMapping('staffsuite', t('keybind_open'), 'keyboard', Config.PanelKey or 'F6')
 
-RegisterNUICallback('close', function(_, cb) closePanel(); cb({}) end)
-RegisterNUICallback('ticketAction', function(data, cb)
-  TriggerServerEvent('staff_suite:ticketAction', data.id, data.action, data.extra); cb({})
-end)
-RegisterNUICallback('modAction', function(data, cb)
-  TriggerServerEvent('staff_suite:modAction', data.action, data.target, data.reason); cb({})
-end)
-RegisterNUICallback('verify', function(_, cb) TriggerServerEvent('staff_suite:verify'); cb({}) end)
-RegisterNUICallback('refresh', function(_, cb) TriggerServerEvent('staff_suite:getState'); cb({}) end)
+-- ===== NUI -> Lua (acciones de NUI_SPEC.md) =====
+local function on(action, fn)
+  RegisterNUICallback(action, function(data, cb)
+    fn(data or {})
+    cb({ ok = true })
+  end)
+end
 
+local function refreshSoon()
+  SetTimeout(250, function() TriggerServerEvent('staff_suite:getState') end)
+end
+
+local function ticketAction(action)
+  return function(d)
+    d.ts = GetCloudTimeAsInt()
+    TriggerServerEvent('staff_suite:ticketAction', d.id, action, d)
+    refreshSoon()
+  end
+end
+
+on('close_ui', function() closePanel() end)
+on('refresh', function() TriggerServerEvent('staff_suite:getState') end)
+on('set_locale', function(d)
+  if Locale and Locale[d.locale] then uiLocale = d.locale; sendInit() end
+end)
+on('audit_verify', function() TriggerServerEvent('staff_suite:verify') end)
+on('audit_filter', function() end) -- el filtrado es local en la NUI
+on('ticket_claim', ticketAction('claim'))
+on('ticket_transfer', ticketAction('transfer'))
+on('ticket_resolve', ticketAction('resolve'))
+on('ticket_close', ticketAction('close'))
+on('ticket_reopen', ticketAction('reopen'))
+on('ticket_message', function(d)
+  TriggerServerEvent('staff_suite:ticketMessage', d.id, d.body, d.internal == true)
+end)
+on('ticket_create', function(d)
+  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''))
+  refreshSoon()
+end)
+on('mod_action', function(d)
+  TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason)
+end)
+on('duty_toggle', function()
+  ExecuteCommand(Config.Commands.duty)
+  refreshSoon()
+end)
+
+-- ===== server -> NUI =====
 RegisterNetEvent('staff_suite:state', function(state)
-  SendNUIMessage({ type = 'state', payload = state })
+  state = state or {}
+  local initDirty = false
+  if state.transferTargets then transferTargets = state.transferTargets; initDirty = true end
+  if state.exportStatus then exportStatus = state.exportStatus; initDirty = true end
+  if state.player then
+    playerInfo = state.player
+    rank = state.player.rank or rank
+    initDirty = true
+  elseif state.rank and state.rank ~= rank then
+    rank = state.rank
+    initDirty = true
+  end
+  if initDirty then sendInit() end
+  if state.alerts then alertsCache = state.alerts end
+  if state.tickets then
+    ticketsCache = ticketList(state.tickets)
+    nui('tickets', { tickets = ticketsCache })
+  end
+  if state.audit then
+    local v = state.verify
+    nui('audit', {
+      entries = auditList(state.audit),
+      verify = v and verifyResult(v[1], v[2]) or nil,
+    })
+  end
+  if state.duty or state.dutySelf then
+    if state.duty then dutyCache = state.duty end
+    local selfOn = state.dutySelf and state.dutySelf.on_duty == true
+    if not state.dutySelf then
+      local me = playerInfo and playerInfo.identifier or GetPlayerName(PlayerId())
+      for _, s in ipairs(dutyCache) do
+        if s.actor == me then selfOn = s.on_duty == true end
+      end
+    end
+    nui('duty', { self = { on_duty = selfOn }, staff = dutyCache })
+  end
+  sendDashboard()
 end)
+
 RegisterNetEvent('staff_suite:auditResult', function(res)
-  SendNUIMessage({ type = 'auditResult', payload = res })
+  res = res or {}
+  nui('audit', { verify = verifyResult(res.ok, res.at) })
 end)
+
 RegisterNetEvent('staff_suite:notify', function(msg)
-  SendNUIMessage({ type = 'notify', payload = msg })
-  -- fallback chat por si la NUI no está abierta
-  TriggerEvent('chat:addMessage', { args = { t('notify_title'), msg } })
+  if panelOpen then
+    nui('toast', { kind = 'info', text = tostring(msg) })
+  else
+    TriggerEvent('chat:addMessage', { args = { t('notify_title'), msg } })
+  end
 end)
+
 RegisterNetEvent('staff_suite:tp', function(coords)
   local ped = PlayerPedId()
   SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, false)
