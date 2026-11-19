@@ -9,10 +9,10 @@ No. It sits on top: txAdmin is still used for noclip, god, spawning, bans, etc. 
 Anyone with access to the database or the JSON file can modify them, but verification detects it (the chain breaks at the first tampered entry). To also detect a full rewrite or deletions at the end, enable off-box export. See [Audit](audit.md).
 
 **Does it capture everything that happens on the server?**
-No, and we do not claim it does. It captures 100% of what goes through Staff Suite, the commands in `Config.Audit.capture_commands` and whatever other resources send through the `Record` export. Framework event capture and txAdmin log parsing are **(coming soon)**.
+It captures Staff Suite actions, supported events from ESX, QBCore, Qbox and txAdmin, and what other resources send through the `Record` export.
 
 **Do I need a database?**
-No. Without oxmysql it uses a JSON file. With oxmysql + MySQL/MariaDB it stores data in the `staff_state` table.
+It uses a JSON file by default. To use oxmysql with MySQL or MariaDB, apply the [installation migration](installation.md).
 
 **Does it work with ESX, QBCore or Qbox?**
 Yes. `Config.Framework = 'auto'` detects Qbox, QBCore or ESX and reads groups/permissions according to `Config.RankMap` and `Config.JobRankMap`. Without a framework it uses `staff_suite.<rank>` ACEs. See [Ranks and permissions](permissions.md).
@@ -30,7 +30,7 @@ In `server.cfg`: `set staff_suite_webhook "URL"`, before `ensure staff_suite`. U
 There are no per-tick loops: the server has a single thread that saves every 60 seconds and the client has no loops. Measuring with `resmon` is still pending.
 
 **Which parts can I edit if I buy the escrowed version?**
-`config.lua`, `server/config.lua`, `locales/` and the panel (`ui/`) stay open. The rest (core and adapter) is encrypted by Cfx escrow **(coming soon)**.
+`config.lua`, `server/config.lua`, `locales/`, `sql/` and the panel (`ui/`) stay open. The rest (core and adapter) is encrypted by Cfx escrow **(coming soon)**.
 
 **What is the difference between Lite, Core and Integrity Pro?**
 See the editions table in the [README](../../README.md#editions).
@@ -49,18 +49,15 @@ See the editions table in the [README](../../README.md#editions).
 | Pressing `F6` shows nothing, or the cursor gets stuck | The built panel in `ui/dist/` is missing. | Build it with `cd ui && npm ci && npm run build` or use a release package that includes it. See [Panel](panel.md#building-the-panel). |
 | `/audit` in game shows nothing | The result is sent to the panel, not the chat. | Use `audit` in the server console or the panel. |
 | A key name (e.g. `report_created`) shows instead of the text | The key is missing from the locales. | Add it to `locales/es.lua` **and** `locales/en.lua` and run `lua5.4 tests/run_all.lua`. |
-| A command from another resource (`ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`) stopped working | It clashes with command capture. | `Config.Audit.capture_commands = false`. |
-| Captured commands are not logged | They are restricted commands: they need the `command.<name>` ACE. | Grant it to your staff group in `server.cfg`, e.g. `add_ace group.admin command.kick allow`. |
 | Nothing arrives at the webhook | Empty convar, `set` after `ensure`, invalid URL, or the next anchor has not been reached. | Check `set staff_suite_webhook` comes before `ensure staff_suite`. Anchors go out every `anchor_every` entries. |
 | Verification reports the chain broken at N | Someone edited, deleted or reordered entries (also happens if you edited the JSON/DB by hand). | See "If the chain shows as broken" in [Audit](audit.md). |
 | `kick` replies "A reason is required." | `Config.Moderation.require_reason = true`. | Give a reason, or disable it (not recommended). |
-| "This moderation action is unavailable." | `ban`, `warn`, `spectate` and `revive` are disabled in 0.1.0 **(coming soon)**. | Do it from txAdmin or your framework. |
 | "The selected player is not connected." | The target disconnected or the id does not exist. | Pick an online player. |
 | A ticket transfer fails | The recipient is offline or lacks `report.claim` + `report.view`. | Transfer to an online staff member with that rank. |
 
 ## Known limitations in 0.1.0
 
-- `ban`, `warn`, `spectate`, `revive` and unfreeze are not available **(coming soon)**.
+- Unfreeze is unavailable **(coming soon)**.
 - Rating a ticket has no command or event yet **(coming soon)**.
-- `Config.Audit.capture_framework` and `/reports` do nothing yet **(coming soon)**.
+- `/reports` does nothing yet **(coming soon)**.
 - `audit_export.log` stays on the same machine: copy it elsewhere for it to count as independent proof.

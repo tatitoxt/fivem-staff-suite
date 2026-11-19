@@ -45,9 +45,9 @@ The server sends the list of transfer recipients: online staff who can claim rep
 
 The ticket's moderation rail acts on the player who filed the report. Each button needs `mod.<action>`. With `Config.Moderation.require_reason = true`, kick requires a reason.
 
-- Working: goto, bring, freeze, heal and kick.
-- Warn and ban show as disabled, because the server does not send those capabilities while the actions do not exist **(coming soon)**.
-- Spectate and revive are not in the panel **(coming soon)**.
+- Ban and warn always require a reason. Bans can be temporary or permanent, and warned players get an in-game notification.
+- Spectate requires the target to be in the same instance. Press Backspace to exit.
+- Revive uses the framework's medical integration when available, with a standalone implementation for other setups.
 
 ## Language
 

@@ -19,13 +19,15 @@ Si alguien edita un campo, borra una entrada del medio o cambia el orden, los ha
 |---|---|
 | `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reportes (`/report`, panel y export `TicketAction`) |
 | `ticket_message` | mensajes del ticket (el `payload` dice si es nota interna, no el texto) |
-| `mod_<acción>` | moderación desde el panel (`goto`, `bring`, `freeze`, `heal`, `kick`) |
+| `mod_<acción>` | moderación desde el panel (`goto`, `bring`, `freeze`, `heal`, `kick`, `ban`, `warn`, `spectate`, `revive`) |
+| `mod_ban_failed` | intento de ban que quedó sin efecto por un error de persistencia |
 | `duty.in`, `duty.out` | `/duty` y el export `SetDuty` |
 | `audit_verify` | verificación desde el panel (con resultado en `reason`) |
-| `cmd_<comando>` | comandos capturados si `Config.Audit.capture_commands = true` |
+| `framework_job`, `framework_group`, `framework_item_added`, `framework_money` | eventos del framework activo con `Config.Audit.capture_framework = true` |
+| `txadmin_ban`, `txadmin_kick`, `txadmin_warn`, `txadmin_heal` | eventos de txAdmin con la misma opción |
 | lo que mande otro resource | export `Record` (ver abajo) |
 
-**Honestidad de captura:** se registra el 100% de lo que pasa por Staff Suite. Lo que hagan otros scripts o txAdmin por su cuenta **no** se captura salvo que llamen al export `Record`. La captura de eventos de framework y de logs de txAdmin está **(próximamente)**.
+La cobertura externa depende de los eventos que emite cada recurso y su versión. Los eventos de framework pueden identificar al jugador afectado sin informar quién hizo el cambio. Para registrar operaciones de otros recursos, usá el export `Record`.
 
 ## Verificar la cadena
 

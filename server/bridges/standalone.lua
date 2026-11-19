@@ -17,5 +17,10 @@ function B.get_player(src)
   }
 end
 
+function B.revive(src)
+  TriggerClientEvent('staff_suite:revive', src)
+  return true
+end
+
 if StaffSuiteModules then StaffSuiteModules['server.bridges.standalone'] = B end
 return B

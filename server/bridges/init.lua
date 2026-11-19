@@ -88,5 +88,27 @@ function M.resolve(src, config)
   }
 end
 
+function M.revive(src, config)
+  local adapter = adapters[M.select(config)]
+  if adapter and GetResourceState(adapter.resource) == 'started' then
+    local ok, handled = pcall(adapter.revive, src)
+    if not ok then return false end
+    if handled ~= nil then return handled end
+  end
+  return standalone.revive(src)
+end
+
+function M.ban_identifiers(src)
+  local identifiers = {}
+  for _, id in ipairs(GetPlayerIdentifiers(src)) do
+    if id:match('^license:') then
+      table.insert(identifiers, 1, id)
+    elseif id:match('^license2:') or id:match('^fivem:') or id:match('^steam:') then
+      identifiers[#identifiers + 1] = id
+    end
+  end
+  return identifiers
+end
+
 if StaffSuiteModules then StaffSuiteModules['server.bridges.init'] = M end
 return M

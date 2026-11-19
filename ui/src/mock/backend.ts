@@ -235,9 +235,12 @@ export class MockBackend {
         return;
       }
       case 'mod_action': {
-        const { action: mod, target, reason } = p as OutgoingPayloads['mod_action'];
+        const { action: mod, target, reason, duration } = p as OutgoingPayloads['mod_action'];
         if (REASON_REQUIRED.has(mod) && !reason.trim()) return this.toast('error', this.s('reason_required'));
-        this.record(ME, `mod_${mod}`, target, reason.trim(), { action: mod });
+        this.record(ME, `mod_${mod}`, target, reason.trim(), {
+          action: mod,
+          ...(mod === 'ban' && { expires_at: duration === 0 ? 0 : Math.round(Date.now() / 1000) + (duration ?? 86400) }),
+        });
         this.emitAudit(false);
         this.toast('ok', this.s('ui_toast_mod_done', { action: this.s(`mod_${mod}`) }));
         return;

@@ -63,20 +63,20 @@ Si un jugador coincide con varios grupos, permisos o jobs, gana el rango más al
 | `Config.Persistence` | `'json'` | `'json'` (archivo) u `'oxmysql'` (MySQL/MariaDB). Con `'oxmysql'` y oxmysql apagado, cae a JSON. |
 | `Config.JsonFile` | `'staff_suite_data.json'` | Archivo dentro de la carpeta del resource. |
 
-Los datos se guardan después de cada entrada de auditoría, cada 60 segundos y al parar el resource. Con oxmysql se guarda todo el estado en una fila de la tabla `staff_state`.
+Los cambios se guardan en lotes y el guardado pendiente se respalda al parar el recurso. Con oxmysql, cada lote usa una transacción y mantiene un respaldo JSON. Ban y warn esperan confirmación de guardado para expulsar o notificar al jugador.
 
 ### `Config.Audit`
 
 | Clave | Default | Descripción |
 |---|---|---|
-| `capture_commands` | `true` | Registra comandos restringidos `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob` y anota cada uso en la auditoría como `cmd_<comando>`. Si choca con comandos con el mismo nombre de otro resource, ponelo en `false`. |
-| `capture_framework` | `true` | Captura de eventos del framework (grants, bans) **(próximamente)**: todavía no tiene efecto. |
+| `capture_framework` | `true` | Habilita la captura de eventos del framework activo y de txAdmin. |
 
 ### `Config.Moderation`
 
 | Clave | Default | Descripción |
 |---|---|---|
-| `require_reason` | `true` | Exige razón para `kick`. |
+| `require_reason` | `true` | Exige razón para `kick`. Ban y warn siempre requieren razón. |
+| `ban_duration` | `86400` | Duración por defecto en segundos. Usá `0` para un ban permanente. |
 
 ## `server/config.lua`
 

@@ -28,8 +28,10 @@ server_scripts {
   'server/bridges/qbcore.lua',
   'server/bridges/qbox.lua',
   'server/bridges/init.lua',
+  'server/persist_sql.lua',
   'server/persist.lua',
   'server/export.lua',
+  'server/capture.lua',
   'server/main.lua',
 }
 
@@ -46,4 +48,5 @@ escrow_ignore {
   'config.lua',
   'server/config.lua',
   'locales/*.lua',
+  'sql/*.sql',
 }
