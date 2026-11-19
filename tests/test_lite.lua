@@ -148,4 +148,23 @@ function T.test_client_opens_basic_panel_and_registers_basic_actions()
   assert(not events['staff_suite:ratePrompt'] and not events['staff_suite:evidence'])
 end
 
+function T.test_lite_limits_text_open_tickets_and_rate()
+  local call, commands, _, disk, audit = server()
+  local function count()
+    local n = 0
+    for _ in pairs(disk.snapshot and disk.snapshot.tickets.tickets or {}) do n = n + 1 end
+    return n
+  end
+  call(1, 'ticketCreate', 'bug', nil, string.rep('a', 1001))
+  call(1, 'ticketCreate', 'bug', nil, { 'no' })
+  assert(count() == 0)
+  for i = 1, 5 do call(1, 'ticketCreate', 'bug', nil, 'reporte ' .. i .. '\0') end
+  assert(count() == 3 and disk.snapshot.tickets.tickets[1].description == 'reporte 1')
+  commands.report(1, { 'bug', 'por comando' })
+  assert(count() == 3)
+  for _ = 1, 6 do call(2, 'verify') end
+  assert(#disk.snapshot.chain.entries == 3 + 3, 'verify limitado a 3 por burst')
+  assert(audit.verify(disk.snapshot.chain))
+end
+
 return T

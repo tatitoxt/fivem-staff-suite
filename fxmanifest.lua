@@ -23,6 +23,7 @@ server_scripts {
   'core/tickets.lua',
   'core/permissions.lua',
   'core/duty.lua',
+  'core/ratelimit.lua',
   'server/bridges/standalone.lua',
   'server/bridges/esx.lua',
   'server/bridges/qbcore.lua',

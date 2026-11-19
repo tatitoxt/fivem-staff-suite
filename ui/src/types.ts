@@ -122,6 +122,7 @@ export interface UiConfig {
   transfer_targets?: TransferTarget[];
   canned?: CannedResponse[];
   evidence?: boolean;
+  limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number };
 }
 
 export interface InitPayload {

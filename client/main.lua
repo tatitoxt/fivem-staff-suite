@@ -49,6 +49,7 @@ local function sendInit()
       panel_key = Config.PanelKey or 'F6',
       locales = locales,
       categories = Config.Categories,
+      limits = Config.Limits,
       core_url = Config.CoreUrl,
       priorities = Config.Priorities,
       require_reason = Config.Moderation and Config.Moderation.require_reason ~= false,
