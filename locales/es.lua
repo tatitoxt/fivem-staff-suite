@@ -70,6 +70,7 @@ Locale['es'] = {
   persistence_starting = 'Staff Suite está cargando sus datos. Volvé a intentar en unos segundos.',
   persistence_fallback = '[StaffSuite] oxmysql no está disponible. Se usará el respaldo JSON hasta reiniciar el recurso.',
   persistence_migration_failed = '[StaffSuite] No se pudo aplicar la migración %{file} en la base de datos. Revisá que el usuario de MySQL tenga permisos CREATE y ALTER, o aplicala a mano. Mientras tanto se usa el respaldo JSON.',
+  persistence_schema_missing = '[StaffSuite] Falta %{column} en la base de datos y Staff Suite no pudo aplicar las migraciones (sin permiso CREATE/ALTER). Aplicá los archivos de sql/ a mano. Mientras tanto se usa el respaldo JSON.',
   persistence_save_failed = '[StaffSuite] No se pudieron guardar los datos.',
   ban_invalid_duration = 'La duración del ban debe estar entre 1 segundo y 1 año, o ser 0 para un ban permanente.',
   ban_pending = 'Ya se está guardando un ban para ese jugador.',

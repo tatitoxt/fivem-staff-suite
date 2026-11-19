@@ -119,14 +119,40 @@ local function statements(raw)
   return out
 end
 
+M.specs = specs
+
+-- Sin permiso para crear staff_schema: alcanza con que el esquema ya esté completo
+-- (migraciones aplicadas a mano). Devuelve la primera columna faltante.
+local function checkColumns(cb)
+  local function check(i)
+    local spec = specs[i]
+    if not spec then cb(true); return end
+    local name = 'staff_' .. spec.name
+    call('query', 'SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS '
+      .. 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', { name }, function(rows)
+      if type(rows) ~= 'table' then cb(false, name); return end
+      local present = {}
+      for _, row in ipairs(rows) do present[row.name or row.COLUMN_NAME] = true end
+      for _, column in ipairs(spec.columns) do
+        if not present[column] then cb(false, name .. '.' .. column); return end
+      end
+      check(i + 1)
+    end)
+  end
+  check(1)
+end
+
 -- Idempotente: CREATE TABLE IF NOT EXISTS y ADD COLUMN solo si la columna no existe.
 function M.migrate(cb)
   local schema = 'CREATE TABLE IF NOT EXISTS staff_schema (version INT PRIMARY KEY, name VARCHAR(191) NOT NULL, '
     .. 'applied_at BIGINT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin'
+  local function schemaOnly()
+    checkColumns(function(ok, missing) cb(ok, 'staff_schema', missing) end)
+  end
   call('query', schema, {}, function(created)
-    if created == nil then cb(false, 'staff_schema'); return end
+    if created == nil then schemaOnly(); return end
     call('query', 'SELECT version FROM staff_schema', {}, function(rows)
-      if type(rows) ~= 'table' then cb(false, 'staff_schema'); return end
+      if type(rows) ~= 'table' then schemaOnly(); return end
       local applied = {}
       for _, row in ipairs(rows) do applied[tonumber(row.version)] = true end
       local function step(i)
@@ -209,9 +235,13 @@ function M.load(cb)
       readTable(i + 1)
     end)
   end
-  M.migrate(function(ok, failed)
+  M.migrate(function(ok, failed, missing)
     if not ok then
-      print(t('persistence_migration_failed', { file = failed }))
+      if missing then
+        print(t('persistence_schema_missing', { column = missing }))
+      else
+        print(t('persistence_migration_failed', { file = failed }))
+      end
       cb(false)
       return
     end

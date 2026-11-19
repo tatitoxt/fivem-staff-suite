@@ -32,6 +32,14 @@ local function sqlMock()
       cb({ affectedRows = 0 }); return
     end
     if query:find('information_schema', 1, true) then
+      if params[2] == nil then
+        local rows = {}
+        for key in pairs(self.columns) do
+          local tbl, col = key:match('^([^.]+)%.(.+)$')
+          if tbl == params[1] then rows[#rows + 1] = { name = col } end
+        end
+        cb(rows); return
+      end
       cb({ { n = self.columns[params[1] .. '.' .. params[2]] and 1 or 0 } }); return
     end
     if query:match('^INSERT INTO staff_schema') then
@@ -275,6 +283,29 @@ function T.test_failed_migration_falls_back_to_json_with_clear_error()
   db.failOn = nil
   local _, _, recovered = boot(fresh(), memory, db)
   assert(recovered == 'oxmysql' and db.schema[2] and db.alters == 2)
+end
+
+function T.test_manual_schema_without_create_privilege()
+  rawset(_G, 'StaffSuiteModules', nil)
+  local specs = require('server.persist_sql').specs
+  local function manualDb()
+    local db = sqlMock()
+    db.failOn = 'CREATE TABLE IF NOT EXISTS staff_schema'
+    for _, spec in ipairs(specs) do
+      for _, column in ipairs(spec.columns) do db.columns['staff_' .. spec.name .. '.' .. column] = true end
+    end
+    return db
+  end
+  local complete = manualDb()
+  local _, _, backend = boot(fresh(), {}, complete)
+  assert(backend == 'oxmysql' and complete.alters == 0, 'esquema completo aplicado a mano: usa la base')
+
+  local partial, memory = manualDb(), {}
+  partial.columns['staff_tickets.resolved_by'] = nil
+  local _, _, fallback = boot(fresh(), memory, partial)
+  assert(fallback == 'json')
+  local printed = table.concat(memory.printed or {}, '\n')
+  assert(printed:find('persistence_schema_missing', 1, true), 'indica la columna faltante')
 end
 
 return T
