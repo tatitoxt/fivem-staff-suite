@@ -79,4 +79,5 @@ function M.rank_caps(rank)
   return RANK_CAPS[rank] or {}
 end
 
+if StaffSuiteModules then StaffSuiteModules['core.permissions'] = M end
 return M

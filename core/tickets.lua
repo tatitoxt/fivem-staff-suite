@@ -91,4 +91,5 @@ function M.rate(store, id, reporter, score, ts)
   return t, { action = "ticket_rate", ticket = id, actor = reporter, score = score }
 end
 
+if StaffSuiteModules then StaffSuiteModules['core.tickets'] = M end
 return M

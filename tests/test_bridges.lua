@@ -158,16 +158,20 @@ function T.test_detection_and_unavailable_framework()
   assert(bridge.resolve(17, env.Config).rank == nil)
 end
 
-function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
-  local shared, client, server, files
-  local manifest = setmetatable({
-    shared_scripts = function(scripts) shared = scripts end,
-    client_scripts = function(scripts) client = scripts end,
-    server_scripts = function(scripts) server = scripts end,
-    files = function(paths) files = paths end,
+local function readManifest()
+  local manifest = {}
+  local directives = setmetatable({
+    shared_scripts = function(scripts) manifest.shared = scripts end,
+    client_scripts = function(scripts) manifest.client = scripts end,
+    server_scripts = function(scripts) manifest.server = scripts end,
+    files = function(paths) manifest.files = paths end,
   }, { __index = function() return function() end end })
-  assert(loadfile('fxmanifest.lua', 't', manifest))()
+  assert(loadfile('fxmanifest.lua', 't', directives))()
+  return manifest
+end
 
+function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
+  local manifest = readManifest()
   local env = sandbox()
   local convar_reads = 0
   local webhook = 'https://example.invalid/webhook'
@@ -176,19 +180,20 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
     convar_reads = convar_reads + 1
     return webhook
   end
-  for _, paths in ipairs({ shared, client, files }) do
+  for _, paths in ipairs({ manifest.shared, manifest.client, manifest.files }) do
     for _, path in ipairs(paths) do assert(path ~= 'server/config.lua') end
   end
-  for _, path in ipairs(shared) do assert(loadfile(path, 't', env))() end
+  for _, path in ipairs(manifest.shared) do assert(loadfile(path, 't', env))() end
   assert(env.Config.Export == nil and env.Config.StandaloneRanks == nil and convar_reads == 0)
-  assert(server[1] == 'server/config.lua' and server[2] == 'server/main.lua')
-  assert(loadfile(server[1], 't', env))()
+  assert(manifest.server[1] == 'server/config.lua')
+  assert(loadfile(manifest.server[1], 't', env))()
   assert(env.Config.Export.webhook == webhook and convar_reads == 1)
 end
 
 local function serverSandbox()
   local env, states, ace = sandbox()
   local events, commands, api, sent, recipients, payloads = {}, {}, {}, {}, {}, {}
+  local threads, reads = {}, {}
   states.qbx_core = 'started'
   env.exports.qbx_core = {
     GetPlayer = function()
@@ -204,7 +209,7 @@ local function serverSandbox()
     recipients[src][event] = data
   end
   env.AddEventHandler = function() end
-  env.CreateThread = function() end
+  env.CreateThread = function(handler) threads[#threads + 1] = handler end
   env.GetPlayerIdentifiers = function(src) return { 'license:account' .. src } end
   local online = { ['17'] = true, ['18'] = true, ['19'] = true }
   env.GetPlayers = function()
@@ -217,29 +222,41 @@ local function serverSandbox()
     env = env, ace = ace, api = api, sent = sent, recipients = recipients,
     event = function(name, ...) return events['staff_suite:' .. name](...) end,
     commands = commands, online = online, payloads = payloads,
+    threads = threads, reads = reads,
   }
   env.DropPlayer = function(src) server.kicked = src end
   env.GetCurrentResourceName = function() return 'staff_suite' end
   env.LoadResourceFile = function(_, path)
-    local file = assert(io.open(path, 'rb'))
-    local data = file:read('a')
-    file:close()
-    return data
+    assert(not path:lower():match('%.lua$'), 'LoadResourceFile intentó leer código Lua: ' .. path)
+    reads[#reads + 1] = path
   end
   env.SaveResourceFile = function() end
   env.json = { encode = function(value)
     payloads[#payloads + 1] = value
     return tostring(#payloads)
   end }
-  env.load = function(data, chunk, mode) return load(data, chunk, mode, env) end
-  assert(loadfile('locales/es.lua', 't', env))()
-  assert(loadfile('locales/en.lua', 't', env))()
-  assert(loadfile('shared/i18n.lua', 't', env))()
-  assert(loadfile('server/config.lua', 't', env))()
-  assert(loadfile('server/main.lua', 't', env))()
+  env.require = function(name) error('require no está disponible en FiveM: ' .. name) end
+  env.print = function() end
+  local manifest = readManifest()
+  for _, scripts in ipairs({ manifest.shared, manifest.server }) do
+    for _, path in ipairs(scripts) do assert(loadfile(path, 't', env))() end
+  end
 
   env.source = 17
   return server
+end
+
+function T.test_server_boots_from_manifest_without_reading_lua()
+  local s = serverSandbox()
+  assert(#s.reads == 0)
+  s.threads[1]()
+  s.env.Config.Export.anchor_every = 1
+  s.commands.report(17, { 'bug', 'prueba de arranque' })
+  assert(s.api.Verify())
+  assert(#s.reads == 2 and s.reads[1] == s.env.Config.JsonFile and s.reads[2] == 'audit_export.log')
+
+  local ok, err = pcall(s.env.StaffSuiteModules.loadmod, 'core.no_registrado')
+  assert(not ok and err:find('core.no_registrado', 1, true) and #s.reads == 2)
 end
 
 function T.test_server_enforces_mapped_capabilities_and_overrides()

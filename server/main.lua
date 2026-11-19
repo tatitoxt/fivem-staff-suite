@@ -2,22 +2,7 @@
 -- Lite: persistencia JSON standalone. Core: oxmysql. Captura + auditoría + tickets.
 local t = StaffSuiteTranslate
 
--- FiveM no expone package/require estándar (sandbox). Shim de módulos con
--- LoadResourceFile + load + cache. Resuelve también los require internos del core.
--- Entorno Lua por-resource: override de require es seguro (solo afecta staff_suite).
-local _cache = {}
-local function loadmod(name)
-  if _cache[name] ~= nil then return _cache[name] end
-  local path = name:gsub('%.', '/') .. '.lua'
-  local src = LoadResourceFile(GetCurrentResourceName(), path)
-  if not src then error(t('console_module_missing', { module = name })) end
-  local fn = assert(load(src, '@staff_suite/' .. path, 't'))
-  local mod = fn()
-  _cache[name] = mod or true
-  return mod
-end
-require = loadmod
-
+local loadmod = StaffSuiteModules.loadmod
 local audit  = loadmod('core.audit_chain')
 local tickets = loadmod('core.tickets')
 local perms  = loadmod('core.permissions')

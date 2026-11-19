@@ -14,4 +14,5 @@ function B.get_player(src)
   }
 end
 
+if StaffSuiteModules then StaffSuiteModules['server.bridges.qbox'] = B end
 return B

@@ -3,7 +3,8 @@
 -- Cada entrada encadena el hash de la anterior (SHA-256). Si alguien edita o
 -- borra una entrada, verify() detecta la ruptura. El adapter persiste a DB y
 -- exporta el head off-box (webhook/archivo) para verificación independiente.
-local sha256 = require("core.sha256")
+local loadmod = StaffSuiteModules and StaffSuiteModules.loadmod or require
+local sha256 = loadmod("core.sha256")
 
 local M = {}
 local GENESIS = string.rep("0", 64)
@@ -69,4 +70,5 @@ function M.verify_head(chain, anchored_head)
 end
 
 M.GENESIS = GENESIS
+if StaffSuiteModules then StaffSuiteModules['core.audit_chain'] = M end
 return M

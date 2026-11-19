@@ -14,9 +14,22 @@ shared_scripts {
   'shared/i18n.lua',
 }
 
--- La config privada se carga antes del adapter.
+-- La config privada y las dependencias se cargan antes del adapter.
 server_scripts {
   'server/config.lua',
+  'shared/loader.lua',
+  'core/sha256.lua',
+  'core/audit_chain.lua',
+  'core/tickets.lua',
+  'core/permissions.lua',
+  'core/duty.lua',
+  'server/bridges/standalone.lua',
+  'server/bridges/esx.lua',
+  'server/bridges/qbcore.lua',
+  'server/bridges/qbox.lua',
+  'server/bridges/init.lua',
+  'server/persist.lua',
+  'server/export.lua',
   'server/main.lua',
 }
 
@@ -27,4 +40,10 @@ client_scripts {
 files {
   'ui/dist/index.html',
   'ui/dist/assets/*',
+}
+
+escrow_ignore {
+  'config.lua',
+  'server/config.lua',
+  'locales/*.lua',
 }

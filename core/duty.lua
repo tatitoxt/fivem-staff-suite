@@ -56,4 +56,5 @@ function M.snapshot(reg, now)
   return out
 end
 
+if StaffSuiteModules then StaffSuiteModules['core.duty'] = M end
 return M

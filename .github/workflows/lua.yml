@@ -25,3 +25,30 @@ jobs:
         run: lua5.4 tests/run_all.lua
       - name: Revisar el código Lua
         run: luacheck .
+
+  release:
+    name: Paquete de release Cfx
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Instalar Lua y zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 zip
+      - name: Compilar y empaquetar el recurso
+        run: ./scripts/build-release.sh
+      - name: Subir el ZIP
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: dist/staff_suite-*.zip
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
