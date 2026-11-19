@@ -1,0 +1,6 @@
+core/
+!core/
+*.log
+.env
+node_modules/
+ui/dist/
