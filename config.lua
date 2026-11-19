@@ -40,17 +40,11 @@ Config.JobRankMap = {
 
 -- En standalone, otorgá staff_suite.<rango> por ACE en server.cfg.
 -- Ejemplo: add_ace group.admin staff_suite.admin allow
+-- Los rangos por identifier se configuran en server/config.lua.
 
 -- Persistencia: 'json' (Lite, standalone, sin DB) | 'oxmysql' (Core, MySQL).
 Config.Persistence = 'json'
 Config.JsonFile = 'staff_suite_data.json'
-
--- Export off-box de la cadena de auditoría.
-Config.Export = {
-  webhook = '',                      -- Discord webhook URL (credencial, server-side)
-  file = true,                       -- archivo append-only local
-  anchor_every = 20,                 -- anclar head cada N entradas
-}
 
 -- Captura de auditoría.
 Config.Audit = {
@@ -60,5 +54,5 @@ Config.Audit = {
 
 -- Moderación dentro del ticket (acciones permitidas por capability).
 Config.Moderation = {
-  require_reason = true,             -- razón obligatoria en kick/ban/warn
+  require_reason = true,             -- razón obligatoria para expulsar
 }

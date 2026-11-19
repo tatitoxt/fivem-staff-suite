@@ -67,7 +67,9 @@ function M.resolve(src, config)
   local framework = M.select(config)
   local native = standalone.get_player(src)
   if framework == 'standalone' then
-    native.rank = highest_rank(standalone_ranks, native.has_group)
+    local identifier = native.license or native.identifier
+    local rank = config.StandaloneRanks and config.StandaloneRanks[identifier]
+    native.rank = highest_rank(standalone_ranks, native.has_group, rank_level[rank] and rank)
   else
     -- Si el export aún no está listo, conservar la identidad nativa sin permisos del framework.
     local ok, player = pcall(framework_player, src, framework, config)

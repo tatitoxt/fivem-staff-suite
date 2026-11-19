@@ -6,7 +6,7 @@ exclude_files = { '**/node_modules/**' }
 local runtime = {
   'AddEventHandler', 'CreateThread', 'GetCurrentResourceName', 'GetResourceState',
   'LoadResourceFile', 'RegisterCommand', 'RegisterNetEvent', 'TriggerEvent', 'Wait',
-  'exports', 'json', 'Config', 'Locale',
+  'exports', 'json', 'Config', 'Locale', 'StaffSuiteTranslate',
 }
 
 local function runtime_with(globals)
@@ -15,7 +15,7 @@ local function runtime_with(globals)
 end
 
 files['server/**/*.lua'].read_globals = runtime_with({
-  'DropPlayer', 'FreezeEntityPosition', 'GetEntityCoords', 'GetPlayerIdentifiers',
+  'DropPlayer', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
   'GetPlayerName', 'GetPlayerPed', 'IsPlayerAceAllowed', 'PerformHttpRequest',
   'SaveResourceFile', 'SetEntityHealth', 'TriggerClientEvent', 'source',
 })
@@ -34,15 +34,17 @@ files['**/fxmanifest.lua'].read_globals = {
 
 -- Globals que estos archivos inicializan mediante el entorno del resource.
 files['config.lua'].globals = { 'Config' }
+files['server/config.lua'].globals = { 'Config.Export', 'Config.StandaloneRanks' }
 files['locales/*.lua'].globals = { 'Locale' }
 files['shared/constants.lua'].globals = { 'SS' }
+files['shared/i18n.lua'].read_globals = { 'Config', 'Locale' }
+files['shared/i18n.lua'].globals = { 'StaffSuiteTranslate' }
 files['server/capture.lua'].globals = { 'SS' }
 files['server/persistence.lua'].globals = { 'SS' }
 files['server/main.lua'].globals = { 'require' }
 files['shared/loader.lua'].globals = { 'require' }
 
 -- Advertencias preexistentes, acotadas al archivo y al símbolo.
-files['client/main.lua'].ignore = { '231/panelOpen' }
 files['core/tickets.lua'].ignore = { '212/ts' }
 files['tests/e2e_resource/server.lua'].ignore = { '211/at' }
 files['tests/test_audit_chain.lua'].ignore = { '211/at' }

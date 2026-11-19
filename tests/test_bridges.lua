@@ -6,6 +6,7 @@ local function sandbox()
   local states, ace = {}, {}
   local env = setmetatable({
     exports = {},
+    GetConvar = function(_, default) return default end,
     GetResourceState = function(resource) return states[resource] or 'missing' end,
     GetPlayerIdentifiers = function() return { 'steam:17', 'license:account17' } end,
     GetPlayerName = function() return 'Nombre FiveM' end,
@@ -31,6 +32,8 @@ function T.test_standalone_ace_and_native_identity()
   assert(bridge.resolve(17, env.Config).rank == 'senior_admin')
   ace['staff_suite.senior_admin'] = nil
   assert(bridge.resolve(17, env.Config).rank == 'helper')
+  env.Config.StandaloneRanks = { ['license:account17'] = 'admin' }
+  assert(bridge.resolve(17, env.Config).rank == 'admin')
 
   env.GetPlayerIdentifiers = function() return { 'steam:17', 'license2:secondary17' } end
   assert(bridge.resolve(17, env.Config).identifier == 'license2:secondary17')
@@ -155,6 +158,34 @@ function T.test_detection_and_unavailable_framework()
   assert(bridge.resolve(17, env.Config).rank == nil)
 end
 
+function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
+  local shared, client, server, files
+  local manifest = setmetatable({
+    shared_scripts = function(scripts) shared = scripts end,
+    client_scripts = function(scripts) client = scripts end,
+    server_scripts = function(scripts) server = scripts end,
+    files = function(paths) files = paths end,
+  }, { __index = function() return function() end end })
+  assert(loadfile('fxmanifest.lua', 't', manifest))()
+
+  local env = sandbox()
+  local convar_reads = 0
+  local webhook = 'https://example.invalid/webhook'
+  env.GetConvar = function(name)
+    assert(name == 'staff_suite_webhook')
+    convar_reads = convar_reads + 1
+    return webhook
+  end
+  for _, paths in ipairs({ shared, client, files }) do
+    for _, path in ipairs(paths) do assert(path ~= 'server/config.lua') end
+  end
+  for _, path in ipairs(shared) do assert(loadfile(path, 't', env))() end
+  assert(env.Config.Export == nil and env.Config.StandaloneRanks == nil and convar_reads == 0)
+  assert(server[1] == 'server/config.lua' and server[2] == 'server/main.lua')
+  assert(loadfile(server[1], 't', env))()
+  assert(env.Config.Export.webhook == webhook and convar_reads == 1)
+end
+
 function T.test_server_enforces_mapped_capabilities_and_overrides()
   local env, states, ace = sandbox()
   local events, commands, api, sent = {}, {}, {}, {}
@@ -184,6 +215,9 @@ function T.test_server_enforces_mapped_capabilities_and_overrides()
   env.json = { encode = function() return '{}' end }
   env.load = function(data, chunk, mode) return load(data, chunk, mode, env) end
   assert(loadfile('locales/es.lua', 't', env))()
+  assert(loadfile('locales/en.lua', 't', env))()
+  assert(loadfile('shared/i18n.lua', 't', env))()
+  assert(loadfile('server/config.lua', 't', env))()
   assert(loadfile('server/main.lua', 't', env))()
 
   env.source = 17
@@ -194,6 +228,9 @@ function T.test_server_enforces_mapped_capabilities_and_overrides()
   assert(state.player.rank == 'player' and state.player.name == 'Alex RP')
   assert(next(state.tickets) == nil and next(state.audit) == nil and next(state.duty) == nil)
   assert(#state.player.capabilities == 0)
+  events['staff_suite:verify']()
+  commands.duty(17)
+  assert(sent['staff_suite:auditResult'] == nil and next(api.GetState().duty.staff) == nil)
   events['staff_suite:ticketAction'](1, 'claim')
   assert(api.GetState().tickets.tickets[1].state == 'open')
 
@@ -215,6 +252,15 @@ function T.test_server_enforces_mapped_capabilities_and_overrides()
   perms.grant(api.GetState().perms, 'license:account17', 'audit.view')
   events['staff_suite:getState']()
   assert(sent['staff_suite:state'].audit[1].actor == 'license:account17')
+  for _, cap in ipairs(sent['staff_suite:state'].player.capabilities) do
+    assert(cap ~= 'mod.ban' and cap ~= 'mod.warn' and cap ~= 'mod.spectate' and cap ~= 'mod.revive')
+  end
+  local entry_count = #api.GetChain()
+  for _, action in ipairs({ 'ban', 'warn', 'spectate', 'revive' }) do
+    events['staff_suite:modAction'](action, 18, 'regla del servidor')
+    assert(sent['staff_suite:notify'] == env.Locale.es.mod_unavailable)
+  end
+  assert(#api.GetChain() == entry_count)
   events['staff_suite:ticketAction'](1, 'resolve')
   assert(api.GetState().tickets.tickets[1].state == 'resolved')
   events['staff_suite:modAction']('kick', 18, 'regla del servidor')

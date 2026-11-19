@@ -1,5 +1,6 @@
 -- server/main.lua — Adapter FiveM. Conecta el core agnóstico al server.
 -- Lite: persistencia JSON standalone. Core: oxmysql. Captura + auditoría + tickets.
+local t = StaffSuiteTranslate
 
 -- FiveM no expone package/require estándar (sandbox). Shim de módulos con
 -- LoadResourceFile + load + cache. Resuelve también los require internos del core.
@@ -9,7 +10,7 @@ local function loadmod(name)
   if _cache[name] ~= nil then return _cache[name] end
   local path = name:gsub('%.', '/') .. '.lua'
   local src = LoadResourceFile(GetCurrentResourceName(), path)
-  if not src then error('[StaffSuite] módulo no encontrado: ' .. name) end
+  if not src then error(t('console_module_missing', { module = name })) end
   local fn = assert(load(src, '@staff_suite/' .. path, 't'))
   local mod = fn()
   _cache[name] = mod or true
@@ -24,13 +25,6 @@ local bridges = loadmod('server.bridges.init')
 local duty   = loadmod('core.duty')
 local persist = loadmod('server.persist')
 local export = loadmod('server.export')
-
-local L = Locale[Config.Locale] or Locale['en']
-local function t(key, vars)
-  local s = L[key] or key
-  if vars then for k, v in pairs(vars) do s = s:gsub('%%{' .. k .. '}', tostring(v)) end end
-  return s
-end
 
 -- ===== Estado =====
 local chain = audit.new()
@@ -102,19 +96,26 @@ local modActions = {
   bring   = function(src, tgt) local p = GetPlayerPed(src); local c = GetEntityCoords(p); TriggerClientEvent('staff_suite:tp', tgt, c) end,
   freeze  = function(_, tgt) FreezeEntityPosition(GetPlayerPed(tgt), true) end,
   heal    = function(_, tgt) SetEntityHealth(GetPlayerPed(tgt), 200) end,
-  kick    = function(_, tgt, reason) DropPlayer(tgt, reason or 'Kicked') end,
+  kick    = function(_, tgt, reason) DropPlayer(tgt, reason or t('kick_default_reason')) end,
 }
 
 local function doMod(src, action, tgt, reason)
+  if type(action) ~= 'string' then return false, t('mod_unavailable') end
   local player = getPlayer(src)
-  local cap = 'mod.' .. action
-  if not can(player, cap) then return false, t('no_permission') end
-  if Config.Moderation.require_reason and (action == 'kick' or action == 'ban' or action == 'warn') and (not reason or reason == '') then
+  if not can(player, 'mod.' .. action) then return false, t('no_permission') end
+
+  local fn = modActions[action]
+  if not fn then return false, t('mod_unavailable') end
+  tgt = tonumber(tgt)
+  if not tgt or tgt <= 0 or tgt % 1 ~= 0 or not GetPlayerName(tgt) then
+    return false, t('mod_invalid_target')
+  end
+  reason = type(reason) == 'string' and reason:match('%S') and reason or nil
+  if Config.Moderation.require_reason and action == 'kick' and not reason then
     return false, t('reason_required')
   end
   local target = getIdentifier(tgt)
-  local fn = modActions[action]
-  if fn then fn(src, tgt, reason) end
+  fn(src, tgt, reason)
   record('mod_' .. action, actorId(player, src), target, reason, { action = action })
   return true
 end
@@ -147,7 +148,7 @@ end, false)
 RegisterCommand(Config.Commands.audit, function(src)
   if src == 0 then
     local ok, at = audit.verify(chain)
-    print(ok and ('[StaffSuite] audit OK: ' .. #chain.entries .. ' entries') or ('[StaffSuite] audit BROKEN at ' .. tostring(at)))
+    print(ok and t('console_audit_ok', { n = #chain.entries }) or t('console_audit_broken', { seq = at }))
     return
   end
   if not can(getPlayer(src), 'audit.view') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
@@ -161,7 +162,8 @@ RegisterNetEvent('staff_suite:getState', function()
   local player = getPlayer(src)
   local capabilities = {}
   for _, cap in ipairs(perms.CAPS) do
-    if can(player, cap) then capabilities[#capabilities + 1] = cap end
+    local available = cap:sub(1, 4) ~= 'mod.' or modActions[cap:sub(5)]
+    if available and can(player, cap) then capabilities[#capabilities + 1] = cap end
   end
   local rank = player.rank or 'player'
   local canViewAudit = can(player, 'audit.view')
@@ -185,8 +187,18 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
   local player = getPlayer(src)
   local cap = ticketActionCaps[action]
   if not cap or not can(player, cap) then return end
-  local ticket, ev = tickets.transition(store, id, action, actorId(player, src), extra)
-  if not ticket then TriggerClientEvent('staff_suite:notify', src, t(ev or 'invalid_transition')); return end
+  id = tonumber(id)
+  if not id or id <= 0 or id % 1 ~= 0 then return end
+  extra = type(extra) == 'table' and extra or {}
+  local ticket, ev = tickets.transition(store, id, action, actorId(player, src), {
+    ts = os.time(),
+    reason = type(extra.reason) == 'string' and extra.reason or nil,
+    resolution = type(extra.resolution) == 'string' and extra.resolution or nil,
+  })
+  if not ticket then
+    TriggerClientEvent('staff_suite:notify', src, t(ev:match('^[^:]+') or 'invalid_transition'))
+    return
+  end
   record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to })
   if can(player, 'report.view') then
     TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets })
@@ -237,8 +249,7 @@ CreateThread(function()
   else
     restore(persist.load_json(Config.JsonFile))
   end
-  print(('[StaffSuite] iniciado · %d entradas de auditoría · persistencia=%s · framework=%s')
-    :format(#chain.entries, Config.Persistence, bridges.select(Config)))
+  print(t('console_started', { n = #chain.entries, persistence = Config.Persistence, framework = bridges.select(Config) }))
 end)
 
 -- Guardado periódico + al apagar
