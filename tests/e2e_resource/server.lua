@@ -5,6 +5,7 @@
 --   [SSTEST] RESULT status=PASS|FAIL passed=N failed=N skipped=N
 -- Convars: staff_suite_e2e_autoquit (true), staff_suite_e2e_anchor_every (20),
 --          staff_suite_e2e_profile_file (vacío = sin profiler), staff_suite_webhook (vacío = SKIP).
+--          staff_suite_e2e_edition (core o lite).
 local TARGET = 'staff_suite'
 local pass, fail, skip = 0, 0, 0
 local webhookPosts = {}
@@ -181,6 +182,73 @@ local function measure(ss)
   check('verify tras carga de rendimiento', ok == true)
 end
 
+local function testLite(ss)
+  local stateEvent = 'staff_suite:state'
+  local actionEvent = 'staff_suite:ticketAction'
+  local verifyEvent = 'staff_suite:verify'
+  local resultEvent = 'staff_suite:auditResult'
+  local function probe(route, ...)
+    return ss:LiteE2EProbe(route, ...)
+  end
+  local function state(role)
+    return probe('staff_suite:getState', role)[role][stateEvent]
+  end
+
+  for _, name in ipairs({ 'CreateTicket', 'TicketAction', 'Record', 'Verify', 'GetChain', 'GetState', 'SetDuty' }) do
+    local ok, err = pcall(function() return ss[name](ss) end)
+    check('Lite sin export Core ' .. name, not ok and tostring(err):find('No such export', 1, true), err)
+  end
+  for _, route in ipairs({ 'duty', 'staff_suite:modAction', 'staff_suite:ticketMessage',
+    'staff_suite:ticketRate', 'staff_suite:ticketEvidence', 'staff_suite:evidenceGet' }) do
+    check('Lite sin handler Core ' .. route, not probe(route))
+  end
+
+  local report = probe('report', 'reporter', 'bug', 'reporte', 'Lite')
+  local ticket = report.staff[stateEvent].tickets[1]
+  check('Lite report crea ticket abierto y avisa al staff', ticket and ticket.state == 'open'
+    and ticket.description == 'reporte Lite' and ticket.reporter == 'license:e2e_reporter'
+    and report.reporter[stateEvent] == nil)
+  check('Lite reports abre cola', probe('reports', 'staff').staff['staff_suite:openPanel'] == 'tickets')
+  check('Lite audit abre visor', probe('audit', 'staff').staff['staff_suite:openPanel'] == 'audit')
+  local public = state('reporter')
+  check('Lite oculta tickets, auditoría y permisos a jugadores', not next(public.tickets)
+    and not next(public.audit) and not next(public.player.capabilities))
+  probe(actionEvent, 'reporter', 1, 'claim')
+  check('Lite claim sin ACE se ignora', state('staff').tickets[1].state == 'open')
+  check('Lite verify sin ACE se ignora', probe(verifyEvent, 'reporter').reporter[resultEvent] == nil)
+  probe(actionEvent, 'staff', 1, 'claim')
+  local claimed = state('staff').tickets[1]
+  check('Lite claim asigna el ticket', claimed.state == 'claimed' and claimed.claimer == 'license:e2e_staff')
+  probe(actionEvent, 'staff', 1, 'transfer', { to = 'license:e2e_reporter' })
+  check('Lite ignora transferencias', state('staff').tickets[1].claimer == 'license:e2e_staff')
+  probe(actionEvent, 'staff', 1, 'resolve', { resolution = 'Revisado' })
+  check('Lite resolve registra la resolución', state('staff').tickets[1].resolution == 'Revisado')
+  probe(actionEvent, 'staff', 1, 'close')
+  check('Lite close cierra el ticket', state('staff').tickets[1].state == 'closed')
+  probe(actionEvent, 'staff', 1, 'reopen')
+  local verify = probe(verifyEvent, 'staff').staff[resultEvent]
+  check('Lite verify valida la cadena', verify and verify.ok == true and verify.at == nil)
+  local latest = state('staff')
+  check('Lite reopen devuelve el ticket a la cola', latest.tickets[1].state == 'reopened')
+  local expected = { 'ticket_create', 'ticket_claim', 'ticket_resolve', 'ticket_close', 'ticket_reopen', 'audit_verify' }
+  local previous = string.rep('0', 64)
+  local linked = #latest.audit == #expected
+  for i, row in ipairs(latest.audit) do
+    linked = linked and row.action == expected[i] and row.seq == i and row.prev_hash == previous
+      and type(row.hash) == 'string' and #row.hash == 64 and row.hash:match('^%x+$') ~= nil
+    previous = row.hash
+  end
+  check('Lite audita el ciclo básico con SHA-256', linked)
+  local data = json.decode(LoadResourceFile(TARGET, 'staff_suite_data.json') or 'null')
+  local stored = data and data.tickets and data.tickets.tickets
+  local savedTicket = stored and (stored[1] or stored['1'])
+  check('Lite guarda tickets en JSON', savedTicket and savedTicket.state == 'reopened'
+    and data.tickets.next_id == 2)
+  check('Lite guarda la cadena en JSON', data and data.chain and #data.chain.entries == #expected
+    and data.chain.head == previous and data.chain.entries[#expected].action == 'audit_verify')
+  check('Lite no exporta anclajes a archivo', not LoadResourceFile(TARGET, 'audit_export.log'))
+end
+
 local function profile()
   local file = GetConvar('staff_suite_e2e_profile_file', '')
   if file == '' then return end
@@ -197,7 +265,10 @@ local function run()
     return
   end
   local ss = exports[TARGET]
-  for _, step in ipairs({ testTickets, testDuty, testExport, testVerify, measure }) do
+  local edition = GetConvar('staff_suite_e2e_edition', 'core')
+  local steps = edition == 'lite' and { testLite } or { testTickets, testDuty, testExport, testVerify, measure }
+  metric('edition', edition)
+  for _, step in ipairs(steps) do
     local ok, err = pcall(step, ss)
     if not ok then check('sin errores de Lua', false, err) end
   end
