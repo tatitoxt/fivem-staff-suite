@@ -19,7 +19,7 @@ Versión **0.1.0**. Lo marcado **(próximamente)** está planeado pero todavía 
 - **Persistencia:** archivo JSON sin dependencias, u oxmysql (MySQL/MariaDB).
 - **ES/EN** con locales abiertos.
 - **Captura externa.** Eventos de ESX, QBCore, Qbox y txAdmin según los hooks que expone cada recurso.
-- **Próximamente.** Calificación de tickets.
+- **Tickets F2.** Respuestas predefinidas, calificación del jugador y captura de evidencia con `screenshot-basic`.
 
 No reemplaza a txAdmin: noclip, god y spawn siguen ahí.
 
@@ -84,7 +84,7 @@ Version **0.1.0**. Anything marked **(coming soon)** is planned but not implemen
 - **Persistence:** dependency-free JSON file, or oxmysql (MySQL/MariaDB).
 - **ES/EN** with open locales.
 - **External event capture.** Staff Suite listens to supported ESX, QBCore, Qbox and txAdmin events.
-- **Coming soon.** Ticket ratings.
+- **F2 tickets.** Canned replies, player ratings and evidence capture with `screenshot-basic`.
 
 It does not replace txAdmin: noclip, god and spawning stay there.
 

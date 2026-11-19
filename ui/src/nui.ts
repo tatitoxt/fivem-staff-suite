@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-const INCOMING = new Set(['init', 'audit', 'tickets', 'dashboard', 'duty', 'toast', 'open', 'close']);
+const INCOMING = new Set(['init', 'audit', 'tickets', 'dashboard', 'duty', 'toast', 'rate', 'evidence', 'open', 'close']);
 
 export function isNui(): boolean {
   return typeof window !== 'undefined' && typeof window.GetParentResourceName === 'function';

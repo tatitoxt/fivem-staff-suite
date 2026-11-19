@@ -137,6 +137,8 @@ function T.test_client_opens_basic_panel_and_registers_basic_actions()
   assert(callbacks.ticket_create and callbacks.ticket_claim and callbacks.audit_verify)
   assert(not callbacks.ticket_message and not callbacks.ticket_transfer and not callbacks.duty_toggle)
   assert(not callbacks.mod_action and not events['staff_suite:spectate'] and not events['staff_suite:tp'])
+  assert(not callbacks.ticket_rate and not callbacks.ticket_evidence and not callbacks.evidence_get)
+  assert(not events['staff_suite:ratePrompt'] and not events['staff_suite:evidence'])
 end
 
 return T

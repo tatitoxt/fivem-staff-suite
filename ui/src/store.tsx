@@ -3,7 +3,7 @@ import { fmt } from './format';
 import { send, subscribe, useMock } from './nui';
 import type {
   AuditEntry, DashboardPayload, DutyPayload, IncomingMessage, OutgoingAction, OutgoingPayloads,
-  PlayerInfo, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
+  EvidencePayload, PlayerInfo, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
 } from './types';
 
 export interface Toast { id: number; kind: ToastKind; text: string }
@@ -29,6 +29,8 @@ export interface AppState {
   duty: DutyPayload | null;
   toasts: Toast[];
   auditActor: string;
+  ratePrompt: number | null;
+  evidence: EvidencePayload | null;
 }
 
 type Action =
@@ -37,7 +39,9 @@ type Action =
   | { type: 'checking' }
   | { type: 'setAuditActor'; actor: string }
   | { type: 'dismissToast'; id: number }
-  | { type: 'toast'; kind: ToastKind; text: string };
+  | { type: 'toast'; kind: ToastKind; text: string }
+  | { type: 'rateDone' }
+  | { type: 'evidenceClose' };
 
 let toastSeq = 0;
 
@@ -56,7 +60,7 @@ export function initialState(visible: boolean): AppState {
     dashboard: null,
     duty: null,
     toasts: [],
-    auditActor: '',
+    auditActor: '', ratePrompt: null, evidence: null,
   };
 }
 
@@ -86,6 +90,10 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, toasts: state.toasts.filter((t) => t.id !== action.id) };
     case 'toast':
       return pushToast(state, action.kind, action.text);
+    case 'rateDone':
+      return { ...state, ratePrompt: null };
+    case 'evidenceClose':
+      return { ...state, evidence: null };
     case 'msg':
       return applyMessage(state, action.msg);
   }
@@ -127,6 +135,10 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
       return { ...state, duty: { ...msg.payload, staff: arr(msg.payload.staff) } };
     case 'toast':
       return pushToast(state, msg.payload.kind, msg.payload.text);
+    case 'rate':
+      return { ...state, ratePrompt: msg.payload.id };
+    case 'evidence':
+      return { ...state, evidence: msg.payload };
     case 'open':
       return { ...state, visible: true, view: msg.payload?.view ?? state.view };
     case 'close':

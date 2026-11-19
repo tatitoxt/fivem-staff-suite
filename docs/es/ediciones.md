@@ -2,7 +2,7 @@
 
 | Función | Free Lite | Core |
 |---|---|---|
-| Reportes y tickets | `/report`, cola, reclamar, resolver, cerrar y reabrir | Flujo básico, prioridades, chat, notas internas, transferencias y funciones avanzadas de F2 conforme se incorporen |
+| Reportes y tickets | `/report`, cola, reclamar, resolver, cerrar y reabrir | Flujo básico, prioridades, chat, notas internas, transferencias, respuestas predefinidas, calificación y evidencia |
 | Auditoría | Cadena SHA-256 de acciones del panel, visor y verificación | Todo Lite, captura externa, anclajes y exportación de auditoría |
 | Moderación, turnos y estadísticas | — | Acciones desde el ticket, duty y analytics |
 | Integraciones y acceso | Standalone, un permiso ACE para staff | Standalone, ESX, QBCore y Qbox con rangos y capabilities. API de exports para otros recursos |

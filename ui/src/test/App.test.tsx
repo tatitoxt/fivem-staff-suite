@@ -94,6 +94,41 @@ describe('NUI smoke', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Transferir' })).toBeDisabled());
   });
 
+  it('inserta una respuesta predefinida en el mensaje', async () => {
+    const { container } = render(<App />);
+    await nav(/Reportes/);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Abiertos' }));
+    fireEvent.click(screen.getByLabelText('Cola de tickets').querySelector('button')!);
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Respuestas predefinidas' }), { target: { value: 'greeting' } });
+    expect(container.querySelector('textarea')!.value).toContain('ya estoy viendo tu reporte');
+  });
+
+  it('solicita una captura y la verifica contra el hash auditado', async () => {
+    render(<App />);
+    await nav(/Reportes/);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Abiertos' }));
+    fireEvent.click(screen.getByLabelText('Cola de tickets').querySelector('button')!);
+    fireEvent.click(await screen.findByRole('button', { name: /Solicitar captura/ }));
+    expect(await screen.findByText('Captura #1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Coincide con el hash auditado')).toBeInTheDocument();
+    expect(within(dialog).getByRole('img')).toHaveAttribute('src', expect.stringMatching(/^data:image/));
+  });
+
+  it('el reporter valora el ticket resuelto', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    const { backend } = await loadMock();
+    const id = backend.promptRate();
+    expect(id).not.toBeNull();
+    const dialog = await screen.findByRole('dialog', { name: `Tu reporte #${id} fue resuelto` });
+    fireEvent.click(within(dialog).getByRole('radio', { name: '4 de 5' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Enviar valoración' }));
+    expect(await screen.findByText('¡Gracias por tu valoración!')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
   it('cambia el idioma a inglés', async () => {
     render(<App />);
     await nav(/Ajustes/);

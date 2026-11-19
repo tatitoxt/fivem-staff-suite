@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { LOCALES } from '../mock/locales';
@@ -17,6 +17,21 @@ it('keeps audit and basic tickets visible while hiding Core screens and controls
   expect(screen.queryByRole('heading', { name: 'Moderación' })).not.toBeInTheDocument();
   expect(screen.queryByText(LOCALES.es.ui_chat_title)).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Prioridad')).not.toBeInTheDocument();
+
+  act(() => {
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'init',
+        payload: {
+          locale: 'es', strings: LOCALES.es, version: '0.1.0', config: { evidence: true },
+          player: { name: 'Staff', rank: 'lite_staff', capabilities: ['report.view', 'report.claim'] },
+        },
+      },
+    }));
+    window.dispatchEvent(new MessageEvent('message', { data: { type: 'rate', payload: { id: 1 } } }));
+  });
+  expect(screen.queryByRole('heading', { name: LOCALES.es.ui_evidence })).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: LOCALES.es.ui_ticket_new }));
   const create = await screen.findByRole('dialog');
