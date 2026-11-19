@@ -27,9 +27,9 @@
 | 20 | Sesión in-game Fausto (beta) + feedback | ⏳ (requiere Fausto) |
 | 21 | Docs ES/EN (install, config, permisos, FAQ) | ⏳ |
 | 22 | Escrow packaging (portal.cfx.re) | ⏳ (requiere Fausto) |
-| 23 | Launch materials: Tebex listing copy + imágenes | ⏳ |
-| 24 | Launch materials: post foro ES/EN + video script | ⏳ |
-| 25 | Launch materials: clips hooks + creator outreach | ⏳ |
+| 23 | Launch materials: Tebex listing copy + imágenes | ✅ copy ES/EN + spec de imágenes (`launch/`) · capturas reales tras #13–16/#19 |
+| 24 | Launch materials: post foro ES/EN + video script | ✅ `launch/forum-post-*.md`, `launch/video-script.md` · completar resmon (#19) |
+| 25 | Launch materials: clips hooks + creator outreach | ✅ `launch/clips.md`, `launch/creator-outreach.md`, `launch/x-devlog.md` |
 | 26 | Publicar (Tebex/foro/GitHub/X) | ⏳ (requiere Fausto, copy-paste) |
 
 ## Orden de ejecución
