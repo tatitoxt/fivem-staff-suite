@@ -10,6 +10,7 @@ local bridges = loadmod('server.bridges.init')
 local duty   = loadmod('core.duty')
 local persist = loadmod('server.persist')
 local export = loadmod('server.export')
+local sha256 = loadmod('core.sha256')
 
 -- ===== Estado =====
 local chain = audit.new()
@@ -108,6 +109,26 @@ local function sendTickets(src, player)
   if can(player, 'report.view') then
     TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets })
   end
+end
+
+-- ===== Tickets: analytics, rating y evidencia =====
+local function afterTransition(ticket, ev)
+  if not ticket or not ev or ev.action ~= 'ticket_resolve' then return end
+  local now = os.time()
+  local created = ticket.created_ts or now
+  duty.record_resolved(dreg, ev.actor, math.max(0, (ticket.first_response_ts or now) - created))
+  local reporterSrc = findPlayerByIdentifier(ticket.reporter)
+  if reporterSrc and not ticket.rating then
+    TriggerClientEvent('staff_suite:ratePrompt', reporterSrc, { id = ticket.id })
+  end
+end
+
+local function evidenceAvailable()
+  return GetResourceState('screenshot-basic') == 'started'
+end
+
+local function evidenceFile(id, n)
+  return ('staff_suite_evidence_%d_%d.txt'):format(id, n)
 end
 
 -- ===== Moderación (wrappers server-authoritative) =====
@@ -223,12 +244,14 @@ RegisterNetEvent('staff_suite:getState', function()
     exportStatus = {
       webhook = type(exportConfig.webhook) == 'string' and exportConfig.webhook ~= '',
       file = exportConfig.file == true,
+      anchor_every = exportConfig.anchor_every,
     },
     audit = canViewAudit and chain.entries or {},
     duty = canViewAnalytics and duty.snapshot(dreg, now) or {},
     dutySelf = { on_duty = can(player, 'staff.duty') and shift ~= nil and shift.on_duty == true },
     verify = verify,
     alerts = alerts,
+    evidenceEnabled = evidenceAvailable(),
     player = { name = player.name, rank = rank, identifier = player.identifier or '', capabilities = capabilities },
     rank = rank, locale = Config.Locale,
   })
@@ -266,6 +289,7 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
     return
   end
   record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
+  afterTransition(ticket, ev)
   sendTickets(src, player)
   if recipientSrc and recipientSrc ~= tonumber(src) then sendTickets(recipientSrc, recipient) end
 end)
@@ -288,6 +312,70 @@ RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal)
   sendTickets(src, player)
   local claimerSrc, claimer = findPlayerByIdentifier(ticket.claimer)
   if claimerSrc and claimerSrc ~= tonumber(src) then sendTickets(claimerSrc, claimer) end
+end)
+
+RegisterNetEvent('staff_suite:ticketRate', function(id, score)
+  local src = source
+  id, score = positiveInteger(id), positiveInteger(score)
+  if not id or not score then return end
+  local player = getPlayer(src)
+  local ticket, ev = tickets.rate(store, id, actorId(player, src), score, os.time())
+  if not ticket then
+    TriggerClientEvent('staff_suite:notify', src, t(ev))
+    return
+  end
+  local staff = ticket.resolved_by or ticket.claimer
+  if staff then duty.record_rating(dreg, staff, score) end
+  record(ev.action, ev.actor, 'ticket:' .. id, '', { score = score, staff = staff })
+  TriggerClientEvent('staff_suite:notify', src, t('rating_thanks'))
+end)
+
+RegisterNetEvent('staff_suite:ticketEvidence', function(id)
+  local src = source
+  local player = getPlayer(src)
+  id = positiveInteger(id)
+  local ticket = id and store.tickets[id]
+  if not ticket or not can(player, 'report.claim') then return end
+  if not evidenceAvailable() then
+    TriggerClientEvent('staff_suite:notify', src, t('evidence_unavailable'))
+    return
+  end
+  local targetSrc = findPlayerByIdentifier(ticket.reporter)
+  if not targetSrc then
+    TriggerClientEvent('staff_suite:notify', src, t('evidence_offline'))
+    return
+  end
+  local by = actorId(player, src)
+  exports['screenshot-basic']:requestClientScreenshot(targetSrc, { encoding = 'jpg', quality = 0.6 }, function(err, data)
+    if err or type(data) ~= 'string' or data == '' then
+      TriggerClientEvent('staff_suite:notify', src, t('evidence_failed'))
+      return
+    end
+    ticket.evidence = ticket.evidence or {}
+    local n = #ticket.evidence + 1
+    SaveResourceFile(GetCurrentResourceName(), evidenceFile(id, n), data, -1)
+    local item = { n = n, ts = os.time(), by = by, sha256 = sha256.hex(data), size = #data }
+    ticket.evidence[n] = item
+    record('ticket_evidence', by, 'ticket:' .. id, '', { n = n, sha256 = item.sha256, size = item.size })
+    TriggerClientEvent('staff_suite:notify', src, t('evidence_saved', { n = n }))
+    sendTickets(src, player)
+  end)
+end)
+
+RegisterNetEvent('staff_suite:evidenceGet', function(id, n)
+  local src = source
+  id, n = positiveInteger(id), positiveInteger(n)
+  local ticket = id and store.tickets[id]
+  local item = ticket and n and ticket.evidence and ticket.evidence[n]
+  if not item or not can(getPlayer(src), 'report.view') then return end
+  local data = LoadResourceFile(GetCurrentResourceName(), evidenceFile(id, n))
+  if not data then
+    TriggerClientEvent('staff_suite:notify', src, t('evidence_failed'))
+    return
+  end
+  TriggerLatentClientEvent('staff_suite:evidence', src, 250000, {
+    id = id, n = n, data = data, ok = sha256.hex(data) == item.sha256,
+  })
 end)
 
 RegisterNetEvent('staff_suite:modAction', function(action, tgt, reason)
@@ -324,6 +412,7 @@ exports('TicketAction', function(id, action, actor, extra)
   local ticket, ev = tickets.transition(store, id, action, actor, extra)
   if ticket and ev then
     record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
+    afterTransition(ticket, ev)
   end
   return ticket, ev
 end)

@@ -63,8 +63,8 @@ function M.transition(store, id, action, actor, extra)
   if action == "claim" then t.claimer = actor end
   if action == "transfer" then t.claimer = assignee end
   if action == "unclaim" then t.claimer = nil end
-  if action == "resolve" then t.resolution = (extra and extra.resolution) or "" end
-  if action == "reopen" then t.claimer = nil; t.resolution = nil end
+  if action == "resolve" then t.resolution = (extra and extra.resolution) or ""; t.resolved_by = actor end
+  if action == "reopen" then t.claimer = nil; t.resolution = nil; t.resolved_by = nil end
   t.updated_ts = (extra and extra.ts) or t.updated_ts
   return t, {
     action = "ticket_" .. action, ticket = id, actor = actor,
@@ -77,6 +77,7 @@ function M.add_message(store, id, author, body, internal, ts)
   if not t then return nil, "ticket_not_found" end
   local msg = { author = author, body = body, internal = internal or false, ts = ts }
   t.messages[#t.messages + 1] = msg
+  if not msg.internal and author ~= t.reporter and not t.first_response_ts then t.first_response_ts = ts end
   t.updated_ts = ts or t.updated_ts
   return msg, { action = "ticket_message", ticket = id, actor = author, internal = msg.internal }
 end
@@ -87,6 +88,7 @@ function M.rate(store, id, reporter, score, ts)
   if t.reporter ~= reporter then return nil, "not_reporter" end
   if t.state ~= "resolved" and t.state ~= "closed" then return nil, "not_resolved" end
   if score < 1 or score > 5 then return nil, "invalid_score" end
+  if t.rating then return nil, "already_rated" end
   t.rating = score
   return t, { action = "ticket_rate", ticket = id, actor = reporter, score = score }
 end

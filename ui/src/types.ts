@@ -43,6 +43,30 @@ export interface Ticket {
   messages: Msg[];
   resolution: string | null;
   rating: number | null;
+  evidence?: Evidence[];
+  first_response_ts?: number | null;
+  resolved_by?: string | null;
+}
+
+export interface Evidence {
+  n: number;
+  ts: number;
+  by: string;
+  sha256: string;
+  size: number;
+}
+
+export interface EvidencePayload {
+  id: number;
+  n: number;
+  data: string;
+  ok: boolean;
+}
+
+export interface CannedResponse {
+  id: string;
+  title: string;
+  text: string;
 }
 
 export interface StaffStat {
@@ -95,6 +119,8 @@ export interface UiConfig {
   persistence?: string;
   export?: { webhook: boolean; file: boolean; anchor_every?: number };
   transfer_targets?: TransferTarget[];
+  canned?: CannedResponse[];
+  evidence?: boolean;
 }
 
 export interface InitPayload {
@@ -131,6 +157,8 @@ export type IncomingMessage =
   | { type: 'dashboard'; payload: DashboardPayload }
   | { type: 'duty'; payload: DutyPayload }
   | { type: 'toast'; payload: { kind: ToastKind; text: string } }
+  | { type: 'rate'; payload: { id: number } }
+  | { type: 'evidence'; payload: EvidencePayload }
   | { type: 'open'; payload?: { view?: ViewId } }
   | { type: 'close'; payload?: undefined };
 
@@ -149,6 +177,10 @@ export interface OutgoingPayloads {
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number };
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
+  ticket_rate: { id: number; score: number };
+  rate_dismiss: Record<string, never>;
+  ticket_evidence: { id: number };
+  evidence_get: { id: number; n: number };
 }
 
 export type OutgoingAction = keyof OutgoingPayloads;

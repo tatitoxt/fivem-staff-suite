@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { DevHarness } from './components/DevHarness';
+import { RatePrompt } from './components/RatePrompt';
 import { Sidebar, useNav } from './components/Sidebar';
 import { Toasts } from './components/Toasts';
 import { Empty } from './components/ui';
@@ -64,6 +65,7 @@ function Shell() {
           </div>
         </div>
       )}
+      {state.ratePrompt != null && <RatePrompt />}
       {useMock() && <DevHarness />}
     </>
   );

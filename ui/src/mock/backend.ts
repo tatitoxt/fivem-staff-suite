@@ -1,4 +1,5 @@
 import { fmt } from '../format';
+import { sha256Hex } from './sha256';
 import type {
   AuditEntry, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
 } from '../types';
@@ -36,7 +37,16 @@ export function computeDashboard(tickets: Ticket[], staff: StaffStat[], alerts: 
   };
 }
 
+function demoScreenshot(id: number, n: number): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">`
+    + `<rect width="640" height="360" fill="#1f2937"/><rect x="24" y="24" width="592" height="312" rx="16" fill="#374151"/>`
+    + `<text x="320" y="170" fill="#f9fafb" font-family="sans-serif" font-size="28" text-anchor="middle">Ticket #${id} - captura ${n}</text>`
+    + `<text x="320" y="210" fill="#9ca3af" font-family="sans-serif" font-size="18" text-anchor="middle">screenshot-basic (demo)</text></svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
 export class MockBackend {
+  private evidenceData = new Map<string, string>();
   locale = 'es';
   now = Date.now() / 1000;
   entries: AuditEntry[] = buildAudit(this.now);
@@ -79,6 +89,9 @@ export class MockBackend {
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
           export: { webhook: true, file: true, anchor_every: 20 },
+          canned: ['greeting', 'investigating', 'need_info', 'resolved']
+            .map((id) => ({ id, title: this.s(`canned_${id}_title`), text: this.s(`canned_${id}`) })),
+          evidence: true,
           transfer_targets: ['Nahuel_R', 'Sofi.Mod', 'Kevo', 'Lu.Helper', 'Martin_B']
             .map((name) => ({ name, identifier: name })),
         },
@@ -149,6 +162,7 @@ export class MockBackend {
     if (action === 'transfer') t.claimer = extra.to ?? t.claimer;
     if (action === 'resolve') {
       t.resolution = extra.resolution ?? '';
+      t.resolved_by = t.claimer;
       const who = this.staff.find((s) => s.actor === t.claimer);
       if (who) who.resolved += 1;
     }
@@ -158,6 +172,12 @@ export class MockBackend {
     this.emitTickets();
     this.emitAudit(false);
     this.emitDuty();
+  }
+
+  promptRate(): number | null {
+    const t = this.tickets.find((x) => (x.state === 'resolved' || x.state === 'closed') && x.rating == null);
+    if (t) this.emit({ type: 'rate', payload: { id: t.id } });
+    return t?.id ?? null;
   }
 
   handle<A extends OutgoingAction>(action: A, payload: OutgoingPayloads[A]): Promise<unknown> {
@@ -232,6 +252,44 @@ export class MockBackend {
         this.emitAudit(false);
         this.emitDuty();
         this.toast('ok', this.s('report_created', { id }));
+        return;
+      }
+      case 'ticket_rate': {
+        const { id, score } = p as OutgoingPayloads['ticket_rate'];
+        const t = this.tickets.find((x) => x.id === id);
+        if (!t || t.rating != null || score < 1 || score > 5) return;
+        t.rating = score;
+        const who = this.staff.find((s) => s.actor === (t.resolved_by ?? t.claimer));
+        if (who) who.avg_rating = who.avg_rating == null ? score : Math.round(((who.avg_rating * 4 + score) / 5) * 10) / 10;
+        this.record(t.reporter, 'ticket_rate', `ticket:${id}`, '', { score });
+        this.emitTickets();
+        this.emitAudit(false);
+        this.emitDuty();
+        this.toast('ok', this.s('rating_thanks'));
+        return;
+      }
+      case 'rate_dismiss':
+        return;
+      case 'ticket_evidence': {
+        const { id } = p as OutgoingPayloads['ticket_evidence'];
+        const t = this.tickets.find((x) => x.id === id);
+        if (!t) return;
+        const n = (t.evidence?.length ?? 0) + 1;
+        const data = demoScreenshot(id, n);
+        this.evidenceData.set(`${id}:${n}`, data);
+        t.evidence = [...(t.evidence ?? []), { n, ts: Math.round(Date.now() / 1000), by: ME, sha256: sha256Hex(data), size: data.length }];
+        this.record(ME, 'ticket_evidence', `ticket:${id}`, '', { n });
+        this.emitTickets();
+        this.emitAudit(false);
+        this.toast('ok', this.s('evidence_saved', { n }));
+        return;
+      }
+      case 'evidence_get': {
+        const { id, n } = p as OutgoingPayloads['evidence_get'];
+        const data = this.evidenceData.get(`${id}:${n}`);
+        const item = this.tickets.find((x) => x.id === id)?.evidence?.find((e) => e.n === n);
+        if (!data || !item) return this.toast('error', this.s('evidence_failed'));
+        this.emit({ type: 'evidence', payload: { id, n, data, ok: sha256Hex(data) === item.sha256 } });
         return;
       }
       case 'mod_action': {
