@@ -90,6 +90,26 @@ local function can(player, cap)
   return perms.can(pmodel, player.identifier, player.rank, cap)
 end
 
+local function findPlayerByIdentifier(identifier)
+  if type(identifier) ~= 'string' or identifier == '' then return nil end
+  for _, candidate in ipairs(GetPlayers()) do
+    local src = tonumber(candidate)
+    local player = getPlayer(src)
+    if player.identifier == identifier then return src, player end
+  end
+end
+
+local function positiveInteger(value)
+  local n = tonumber(value)
+  if n and n > 0 and n % 1 == 0 then return n end
+end
+
+local function sendTickets(src, player)
+  if can(player, 'report.view') then
+    TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets })
+  end
+end
+
 -- ===== Moderación (wrappers server-authoritative) =====
 local modActions = {
   ['goto'] = function(src, tgt) local p = GetPlayerPed(tgt); local c = GetEntityCoords(p); TriggerClientEvent('staff_suite:tp', src, c) end,
@@ -106,8 +126,8 @@ local function doMod(src, action, tgt, reason)
 
   local fn = modActions[action]
   if not fn then return false, t('mod_unavailable') end
-  tgt = tonumber(tgt)
-  if not tgt or tgt <= 0 or tgt % 1 ~= 0 or not GetPlayerName(tgt) then
+  tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
+  if not tgt or not GetPlayerName(tgt) then
     return false, t('mod_invalid_target')
   end
   reason = type(reason) == 'string' and reason:match('%S') and reason or nil
@@ -121,16 +141,29 @@ local function doMod(src, action, tgt, reason)
 end
 
 -- ===== Comandos =====
-RegisterCommand(Config.Commands.report, function(src, args)
-  if src == 0 then return end
-  local category = args[1] or 'other'
-  local desc = table.concat(args, ' ', 2)
+local function configuredValue(values, requested, default)
+  for _, value in ipairs(values) do
+    if value == requested then return value end
+  end
+  return default
+end
+
+local function createReport(src, category, priority, body)
+  if not positiveInteger(src) or type(body) ~= 'string' then return end
+  category = configuredValue(Config.Categories, category, 'other')
+  priority = configuredValue(Config.Priorities, priority, 'normal')
+  local player = getPlayer(src)
   local ticket, ev = tickets.create(store, {
-    reporter = getIdentifier(src), category = category, priority = 'normal',
-    description = desc, ts = os.time(),
+    reporter = actorId(player, src), category = category, priority = priority,
+    description = body, ts = os.time(),
   })
-  record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = category })
+  record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = category, priority = priority })
   TriggerClientEvent('staff_suite:notify', src, t('report_created', { id = ticket.id }))
+  sendTickets(src, player)
+end
+
+RegisterCommand(Config.Commands.report, function(src, args)
+  createReport(src, args[1], nil, table.concat(args, ' ', 2))
 end, false)
 
 RegisterCommand(Config.Commands.duty, function(src)
@@ -157,6 +190,11 @@ RegisterCommand(Config.Commands.audit, function(src)
 end, false)
 
 -- ===== NUI / eventos de panel =====
+RegisterNetEvent('staff_suite:ticketCreate', function(category, priority, body)
+  if type(body) ~= 'string' or not body:match('%S') then return end
+  createReport(source, category, priority, body)
+end)
+
 RegisterNetEvent('staff_suite:getState', function()
   local src = source
   local player = getPlayer(src)
@@ -167,12 +205,25 @@ RegisterNetEvent('staff_suite:getState', function()
   end
   local rank = player.rank or 'player'
   local canViewAudit = can(player, 'audit.view')
+  local canViewAnalytics = can(player, 'staff.analytics')
+  local now = os.time()
+  local verify = canViewAudit and { audit.verify(chain) } or {}
+  local alerts = {}
+  if canViewAnalytics and verify[1] == false then
+    alerts[1] = {
+      id = 'audit-chain:' .. verify[2], kind = 'audit_chain_broken', severity = 'high',
+      actor = 'system', ts = now, vars = { seq = verify[2] },
+    }
+  end
+  local shift = dreg.staff[actorId(player, src)]
   TriggerClientEvent('staff_suite:state', src, {
     tickets = can(player, 'report.view') and store.tickets or {},
     audit = canViewAudit and chain.entries or {},
-    duty = can(player, 'staff.analytics') and duty.snapshot(dreg, os.time()) or {},
-    verify = canViewAudit and { audit.verify(chain) } or {},
-    player = { name = player.name, rank = rank, capabilities = capabilities },
+    duty = canViewAnalytics and duty.snapshot(dreg, now) or {},
+    dutySelf = { on_duty = can(player, 'staff.duty') and shift ~= nil and shift.on_duty == true },
+    verify = verify,
+    alerts = alerts,
+    player = { name = player.name, rank = rank, identifier = player.identifier or '', capabilities = capabilities },
     rank = rank, locale = Config.Locale,
   })
 end)
@@ -187,22 +238,48 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
   local player = getPlayer(src)
   local cap = ticketActionCaps[action]
   if not cap or not can(player, cap) then return end
-  id = tonumber(id)
-  if not id or id <= 0 or id % 1 ~= 0 then return end
+  id = positiveInteger(id)
+  if not id then return end
   extra = type(extra) == 'table' and extra or {}
+  if action == 'transfer' then
+    local _, recipient = findPlayerByIdentifier(extra.to)
+    if not recipient or not can(recipient, 'report.claim') then
+      TriggerClientEvent('staff_suite:notify', src, t('ticket_invalid_recipient'))
+      return
+    end
+  end
   local ticket, ev = tickets.transition(store, id, action, actorId(player, src), {
     ts = os.time(),
     reason = type(extra.reason) == 'string' and extra.reason or nil,
     resolution = type(extra.resolution) == 'string' and extra.resolution or nil,
+    to = extra.to,
   })
   if not ticket then
     TriggerClientEvent('staff_suite:notify', src, t(ev:match('^[^:]+') or 'invalid_transition'))
     return
   end
-  record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to })
-  if can(player, 'report.view') then
-    TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets })
+  record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
+  sendTickets(src, player)
+end)
+
+RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal)
+  local src = source
+  id = positiveInteger(id)
+  if not id or type(body) ~= 'string' or not body:match('%S') then return end
+  if internal ~= nil and type(internal) ~= 'boolean' then return end
+  local player = getPlayer(src)
+  if not can(player, 'report.message') or not can(player, 'report.view') then
+    TriggerClientEvent('staff_suite:notify', src, t('no_permission'))
+    return
   end
+  local ticket = store.tickets[id]
+  if not ticket or ticket.state == 'closed' then return end
+
+  local _, ev = tickets.add_message(store, id, actorId(player, src), body, internal, os.time())
+  record(ev.action, ev.actor, 'ticket:' .. id, '', { ticket = id, internal = ev.internal, message = #ticket.messages })
+  sendTickets(src, player)
+  local claimerSrc, claimer = findPlayerByIdentifier(ticket.claimer)
+  if claimerSrc and claimerSrc ~= tonumber(src) then sendTickets(claimerSrc, claimer) end
 end)
 
 RegisterNetEvent('staff_suite:modAction', function(action, tgt, reason)
@@ -237,7 +314,9 @@ exports('GetChain', function() return chain.entries end)
 exports('CreateTicket', function(data) local tk, ev = tickets.create(store, data); record(ev.action, ev.actor, ev.target, '', { ticket = tk.id }); return tk.id end)
 exports('TicketAction', function(id, action, actor, extra)
   local ticket, ev = tickets.transition(store, id, action, actor, extra)
-  if ticket and ev then record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to }) end
+  if ticket and ev then
+    record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
+  end
   return ticket, ev
 end)
 exports('GetState', snapshot)

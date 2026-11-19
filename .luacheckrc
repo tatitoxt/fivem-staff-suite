@@ -16,7 +16,7 @@ end
 
 files['server/**/*.lua'].read_globals = runtime_with({
   'DropPlayer', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
-  'GetPlayerName', 'GetPlayerPed', 'IsPlayerAceAllowed', 'PerformHttpRequest',
+  'GetPlayerName', 'GetPlayerPed', 'GetPlayers', 'IsPlayerAceAllowed', 'PerformHttpRequest',
   'SaveResourceFile', 'SetEntityHealth', 'TriggerClientEvent', 'source',
 })
 files['client/**/*.lua'].read_globals = runtime_with({

@@ -52,16 +52,23 @@ function M.transition(store, id, action, actor, extra)
   if not allowed or not allowed[action] then
     return nil, "invalid_transition:" .. t.state .. "->" .. action
   end
+  local assignee
+  if action == "transfer" then
+    assignee = extra and extra.to
+    if assignee == nil then assignee = actor end -- Compatibilidad con los exports existentes.
+    if type(assignee) ~= "string" or not assignee:match("%S") then return nil, "invalid_transition" end
+  end
   local from = t.state
   t.state = allowed[action]
-  if action == "claim" or action == "transfer" then t.claimer = actor end
+  if action == "claim" then t.claimer = actor end
+  if action == "transfer" then t.claimer = assignee end
   if action == "unclaim" then t.claimer = nil end
   if action == "resolve" then t.resolution = (extra and extra.resolution) or "" end
   if action == "reopen" then t.claimer = nil; t.resolution = nil end
   t.updated_ts = (extra and extra.ts) or t.updated_ts
   return t, {
     action = "ticket_" .. action, ticket = id, actor = actor,
-    from = from, to = t.state, reason = (extra and extra.reason) or "",
+    from = from, to = t.state, assigned_to = assignee, reason = (extra and extra.reason) or "",
   }
 end
 

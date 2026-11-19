@@ -53,4 +53,6 @@ Locale['en'] = {
   console_module_missing = '[StaffSuite] module not found: %{module}',
   mod_unavailable = 'This moderation action is unavailable.',
   mod_invalid_target = 'The selected player is not connected.',
+  ticket_invalid_recipient = 'Select an online staff member who can claim reports.',
+  ui_alert_audit_chain_broken = 'Audit chain mismatch starting at entry %{seq}.',
 }

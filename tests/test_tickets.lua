@@ -11,6 +11,7 @@ end
 function T.test_create()
   local s, t = store_with_ticket()
   assert(t.id == 1 and t.state == "open", "create open id 1")
+  assert(t.priority == "high", "preserves the requested priority")
   assert(s.next_id == 2, "next_id increments")
 end
 
@@ -43,8 +44,11 @@ end
 function T.test_transfer()
   local s = store_with_ticket()
   tickets.transition(s, 1, "claim", "license:staff1")
-  local t = tickets.transition(s, 1, "transfer", "license:staff2")
-  assert(t.claimer == "license:staff2", "transfer changes claimer")
+  local t, e = tickets.transition(s, 1, "transfer", "license:staff2", { to = "license:staff3" })
+  assert(t.claimer == "license:staff3", "transfer assigns the recipient")
+  assert(e.actor == "license:staff2" and e.assigned_to == "license:staff3", "audit distinguishes sender and recipient")
+  assert(not tickets.transition(s, 1, "transfer", "license:staff2", { to = " " }))
+  assert(t.claimer == "license:staff3", "invalid recipient leaves the assignment unchanged")
 end
 
 function T.test_reopen()
