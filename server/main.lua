@@ -152,7 +152,7 @@ end
 local function safeVerify()
   local done, ok, at = pcall(audit.verify, chain)
   if done then return ok, at end
-  return false, #chain.entries
+  return false, 1
 end
 
 local function verifyCached()
