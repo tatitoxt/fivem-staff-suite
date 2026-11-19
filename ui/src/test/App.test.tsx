@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { loadMock } from '../nui';
 import { LOCALES } from '../mock/locales';
@@ -133,6 +133,29 @@ describe('NUI smoke', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enviar/ })).toBeDisabled();
     expect(container.querySelector('textarea')!.value).toBe(draft);
+  });
+
+  it('mantiene abierto el diálogo con el borrador si el server rechaza el reporte', async () => {
+    const { backend } = await loadMock();
+    const handle = backend.handle.bind(backend);
+    const reject = ((action: string, payload: unknown) => (
+      action === 'ticket_create'
+        ? Promise.resolve({ ok: false, error: 'Ya tenés 3 reportes abiertos.' })
+        : handle(action as never, payload as never)
+    )) as typeof backend.handle;
+    const spy = vi.spyOn(backend, 'handle').mockImplementation(reject);
+    render(<App />);
+    await nav(/Reportes/);
+    fireEvent.click(await screen.findByRole('button', { name: /Nuevo ticket/ }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Me robaron el auto' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Enviar reporte' }));
+    expect(await within(dialog).findByText('Ya tenés 3 reportes abiertos.')).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox')).toHaveValue('Me robaron el auto');
+
+    spy.mockRestore();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Enviar reporte' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('inserta una respuesta predefinida en el mensaje', async () => {

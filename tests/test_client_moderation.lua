@@ -123,4 +123,26 @@ function T.test_teleport_only_accepts_server_sender()
   assert(client.pos.x == 9 and client.pos.z == 7)
 end
 
+function T.test_ticket_create_waits_for_server_result()
+  local c, env, events, callbacks = sandbox()
+  local timers, replies = {}, {}
+  env.SetTimeout = function(_, fn) timers[#timers + 1] = fn end
+  callbacks.ticket_create({ category = 'bug', priority = 'high', body = 'hola' }, function(r) replies[#replies + 1] = r end)
+  assert(#replies == 0 and c.args[1] == 'staff_suite:ticketCreate' and c.args[4] == 'hola')
+  local req = c.args[5]
+  env.source = 12
+  events['staff_suite:ticketCreateResult']({ req = req, ok = true })
+  assert(#replies == 0, 'solo el server responde')
+  env.source = 65535
+  events['staff_suite:ticketCreateResult']({ req = req, ok = false, error = 'tope' })
+  assert(replies[1].ok == false and replies[1].error == 'tope')
+  events['staff_suite:ticketCreateResult']({ req = req, ok = true })
+  timers[1]()
+  assert(#replies == 1, 'una respuesta por pedido')
+
+  callbacks.ticket_create({ body = 'sin respuesta' }, function(r) replies[#replies + 1] = r end)
+  timers[2]()
+  assert(replies[2].ok == false and replies[2].error == 'report_failed')
+end
+
 return T

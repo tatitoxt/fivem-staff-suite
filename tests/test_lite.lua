@@ -168,4 +168,19 @@ function T.test_lite_limits_text_open_tickets_and_rate()
   assert(audit.verify(disk.snapshot.chain))
 end
 
+function T.test_lite_ticket_create_replies_to_panel()
+  local call, _, sent = server()
+  local function last()
+    for i = #sent, 1, -1 do
+      if sent[i].name == 'staff_suite:ticketCreateResult' then return sent[i].value end
+    end
+  end
+  call(1, 'ticketCreate', 'bug', nil, 'uno', 3)
+  assert(last().req == 3 and last().ok)
+  call(1, 'ticketCreate', 'bug', nil, 'dos', 4)
+  call(1, 'ticketCreate', 'bug', nil, 'tres', 5)
+  call(1, 'ticketCreate', 'bug', nil, 'cuatro', 6)
+  assert(last().req == 6 and not last().ok and last().error:find('3', 1, true))
+end
+
 return T

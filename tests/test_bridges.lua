@@ -945,4 +945,30 @@ function T.test_review_regressions_ban_expired_alias_export_ts_and_huge_whitespa
   assert(os.clock() - clock < 1)
 end
 
+function T.test_ticket_create_replies_ok_or_error_to_panel()
+  local s = serverSandbox()
+  local cfg = s.env.Config
+  local result = 'staff_suite:ticketCreateResult'
+  s.event('ticketCreate', 'bug', 'low', 'primero', 7)
+  assert(s.sent[result].req == 7 and s.sent[result].ok == true and s.sent[result].error == nil)
+  s.event('ticketCreate', 'bug', 'low', string.rep('a', cfg.Limits.ticket_body + 1), 8)
+  assert(s.sent[result].req == 8 and not s.sent[result].ok)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('input_too_long', { max = cfg.Limits.ticket_body }))
+  for i = 2, cfg.Limits.open_tickets_per_player do s.event('ticketCreate', 'bug', 'low', 'r' .. i) end
+  s.event('ticketCreate', 'bug', 'low', 'sobra', 9)
+  assert(s.sent[result].req == 9 and not s.sent[result].ok)
+  assert(s.sent[result].error:find(tostring(cfg.Limits.open_tickets_per_player), 1, true))
+  s.sent[result] = nil
+  s.event('ticketCreate', 'bug', 'low', 'sin req')
+  s.event('ticketCreate', 'bug', 'low', 'req raro', 'x')
+  s.event('ticketCreate', 'bug', 'low', 'req raro', 1.5)
+  assert(s.sent[result] == nil)
+
+  cfg.Limits.open_tickets_per_player = nil
+  s.env.source = 18
+  for i = 1, cfg.RateLimit['staff_suite:ticketCreate'].burst do s.event('ticketCreate', 'bug', 'low', 'b' .. i) end
+  s.event('ticketCreate', 'bug', 'low', 'spam', 10)
+  assert(s.sent[result].req == 10 and not s.sent[result].ok and s.sent[result].error == s.env.Locale.es.rate_limited)
+end
+
 return T

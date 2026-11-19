@@ -22,6 +22,7 @@ Locale['en'] = {
   already_claimed = 'This report was already claimed by another staff.',
   input_too_long = 'The text exceeds the %{max} character limit.',
   rate_limited = 'You are sending actions too fast. Wait a few seconds.',
+  report_failed = 'The report could not be created. Please try again.',
   report_too_many_open = 'You already have %{max} open reports. Wait for staff to handle them.',
   mod_target_protected = 'You cannot moderate a higher-ranked staff member.',
   invalid_transition = 'Action not valid for the current state.',

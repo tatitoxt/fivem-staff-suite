@@ -344,19 +344,21 @@ local function openTickets(reporter)
   return n
 end
 
+-- Devuelve true o false y el motivo, para que el panel conserve el borrador si falla.
 local function createReport(src, category, priority, body)
-  if not positiveInteger(src) then return end
+  if not positiveInteger(src) then return false end
   local err
   body, err = cleanText(body, limit('ticket_body'))
-  if err then TriggerClientEvent('staff_suite:notify', src, err); return end
-  if not body or body == '' then return end
+  if err then TriggerClientEvent('staff_suite:notify', src, err); return false, err end
+  if not body or body == '' then return false end
   category = configuredValue(Config.Categories, category, 'other')
   priority = configuredValue(Config.Priorities, priority, 'normal')
   local player = getPlayer(src)
   local maxOpen = limit('open_tickets_per_player')
   if maxOpen and openTickets(actorId(player, src)) >= maxOpen then
-    TriggerClientEvent('staff_suite:notify', src, t('report_too_many_open', { max = maxOpen }))
-    return
+    err = t('report_too_many_open', { max = maxOpen })
+    TriggerClientEvent('staff_suite:notify', src, err)
+    return false, err
   end
   local ticket, ev = tickets.create(store, {
     reporter = actorId(player, src), category = category, priority = priority,
@@ -365,6 +367,7 @@ local function createReport(src, category, priority, body)
   record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = category, priority = priority })
   TriggerClientEvent('staff_suite:notify', src, t('report_created', { id = ticket.id }))
   sendTickets(src, player)
+  return true
 end
 
 local function command(name, fn, rateKey)
@@ -411,8 +414,20 @@ local function net(name, fn)
   end)
 end
 
-net('staff_suite:ticketCreate', function(category, priority, body)
-  createReport(source, category, priority, body)
+-- `req` es opcional: si viene, el panel recibe ok/error en staff_suite:ticketCreateResult.
+RegisterNetEvent('staff_suite:ticketCreate', function(category, priority, body, req)
+  local src = source
+  local ok, err = false
+  if not allowRate(src, 'staff_suite:ticketCreate') then
+    err = t('rate_limited')
+  elseif not ready then
+    err = t('persistence_starting')
+    TriggerClientEvent('staff_suite:notify', src, err)
+  else
+    ok, err = createReport(src, category, priority, body)
+  end
+  req = positiveInteger(req)
+  if req then TriggerClientEvent('staff_suite:ticketCreateResult', src, { req = req, ok = ok == true, error = err }) end
 end)
 
 net('staff_suite:getState', function()
