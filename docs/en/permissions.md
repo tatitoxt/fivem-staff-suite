@@ -89,7 +89,7 @@ Every action goes through: capability check → online target (by server id or i
 | Action | Status in 0.1.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Working. |
-| `ban`, `warn`, `spectate`, `revive` | Disabled: they reply "This moderation action is unavailable.", are not audited and the panel does not offer them **(coming soon)**. |
+| `ban`, `warn`, `spectate`, `revive` | Disabled: they reply "This moderation action is unavailable.", are not audited; in the panel warn and ban show as disabled and spectate and revive do not appear **(coming soon)**. |
 | Unfreeze | **(coming soon)** |
 
 Staff Suite does **not** replace txAdmin: noclip, god mode, spawning, bans, etc. stay in txAdmin or your framework.

@@ -9,6 +9,7 @@
 | Recent FXServer with Lua 5.4 | Yes | The resource uses `fx_version 'cerulean'` and `lua54 'yes'`. |
 | [oxmysql](https://github.com/overextended/oxmysql) + MySQL/MariaDB | No | Only if you want data in a database. Without oxmysql a JSON file is used. |
 | Framework (ESX / QBCore / Qbox) | No | Auto-detected. Without a framework it runs standalone with ACE. See [Frameworks](#frameworks). |
+| Node.js 18+ | Only from source | To build the panel (`ui/dist/`). Release packages ship it prebuilt. |
 | ox_lib | No | Not used in 0.1.0. |
 
 ## 1. Copy the resource
@@ -27,6 +28,8 @@ resources/
 ```
 
 The name matters: panel callbacks (`https://staff_suite/...`) and exports (`exports.staff_suite`) rely on it.
+
+If you downloaded the source code rather than a release package, `ui/dist/` is not included: build it with Node.js 18+ (`cd ui && npm ci && npm run build`). See [Panel](panel.md#building-the-panel).
 
 ## 2. Choose persistence
 
@@ -112,5 +115,6 @@ With a framework active, a player who has not loaded a character yet has no rank
 
 - [Configuration](configuration.md)
 - [Ranks and permissions](permissions.md)
+- [Panel (NUI)](panel.md)
 - [Audit: export and verification](audit.md)
 - [FAQ and troubleshooting](faq.md)

@@ -9,6 +9,7 @@
 | FXServer reciente con Lua 5.4 | Sí | El resource usa `fx_version 'cerulean'` y `lua54 'yes'`. |
 | [oxmysql](https://github.com/overextended/oxmysql) + MySQL/MariaDB | No | Solo si querés guardar los datos en base de datos. Sin oxmysql se usa un archivo JSON. |
 | Framework (ESX / QBCore / Qbox) | No | Se detecta solo. Sin framework funciona en modo standalone con ACE. Ver [Frameworks](#frameworks). |
+| Node.js 18+ | Solo desde el código fuente | Para compilar el panel (`ui/dist/`). Los paquetes de release ya lo traen compilado. |
 | ox_lib | No | No se usa en 0.1.0. |
 
 ## 1. Copiar el resource
@@ -27,6 +28,8 @@ resources/
 ```
 
 El nombre importa: los callbacks del panel (`https://staff_suite/...`) y los exports (`exports.staff_suite`) usan ese nombre.
+
+Si bajaste el código fuente y no un paquete de release, `ui/dist/` no viene incluido: compilalo con Node.js 18+ (`cd ui && npm ci && npm run build`). Ver [Panel](panel.md#compilar-el-panel).
 
 ## 2. Elegir la persistencia
 
@@ -112,5 +115,6 @@ Los nombres de `/report`, `/duty` y `/audit` se cambian en `Config.Commands`. Ve
 
 - [Configuración](configuracion.md)
 - [Rangos y permisos](permisos.md)
+- [Panel (NUI)](panel.md)
 - [Auditoría: export y verificación](auditoria.md)
 - [FAQ y solución de problemas](faq.md)

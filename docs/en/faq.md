@@ -46,7 +46,7 @@ See the editions table in the [README](../../README.md#editions).
 | `Config.StandaloneRanks` or `staff_suite.*` ACEs do nothing | A framework is active: in that mode only the framework counts. | Map it in `Config.RankMap`/`Config.JobRankMap`, or force `'standalone'`. |
 | `persistence=oxmysql` but data goes to the JSON file | oxmysql was not started when Staff Suite started. | Put `ensure oxmysql` **before** `ensure staff_suite` and check it connects to the database. |
 | `exports.staff_suite` does not exist / the panel does not respond | The folder is not named `staff_suite`. | Rename it to `staff_suite`. |
-| Pressing `F6` shows nothing, or the cursor gets stuck | The built panel in `ui/dist/` is missing. | Use a release package that includes `ui/dist/`. Meanwhile, use the commands. |
+| Pressing `F6` shows nothing, or the cursor gets stuck | The built panel in `ui/dist/` is missing. | Build it with `cd ui && npm ci && npm run build` or use a release package that includes it. See [Panel](panel.md#building-the-panel). |
 | `/audit` in game shows nothing | The result is sent to the panel, not the chat. | Use `audit` in the server console or the panel. |
 | A key name (e.g. `report_created`) shows instead of the text | The key is missing from the locales. | Add it to `locales/es.lua` **and** `locales/en.lua` and run `lua5.4 tests/run_all.lua`. |
 | A command from another resource (`ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`) stopped working | It clashes with command capture. | `Config.Audit.capture_commands = false`. |

@@ -46,7 +46,7 @@ Ver la tabla de ediciones en el [README](../../README.md#ediciones).
 | `Config.StandaloneRanks` o los ACE `staff_suite.*` no hacen nada | Hay un framework activo: en ese modo solo cuenta el framework. | Mapealo en `Config.RankMap`/`Config.JobRankMap`, o forzá `'standalone'`. |
 | `persistencia=oxmysql` pero los datos van al JSON | oxmysql no estaba iniciado cuando arrancó Staff Suite. | Poné `ensure oxmysql` **antes** de `ensure staff_suite` y revisá que conecte a la base. |
 | Los exports `exports.staff_suite` no existen / el panel no responde | La carpeta no se llama `staff_suite`. | Renombrala a `staff_suite`. |
-| Apreto `F6` y no aparece nada, o queda el cursor | Falta el panel compilado en `ui/dist/`. | Usá un paquete de release que incluya `ui/dist/`. Mientras tanto, usá los comandos. |
+| Apreto `F6` y no aparece nada, o queda el cursor | Falta el panel compilado en `ui/dist/`. | Compilalo con `cd ui && npm ci && npm run build` o usá un paquete de release que lo incluya. Ver [Panel](panel.md#compilar-el-panel). |
 | `/audit` en juego no muestra nada | El resultado se manda al panel, no al chat. | Usá `audit` en la consola del server o el panel. |
 | Aparece el nombre de una clave (ej. `report_created`) en vez del texto | Falta la clave en los locales. | Agregala en `locales/es.lua` **y** `locales/en.lua` y corré `lua5.4 tests/run_all.lua`. |
 | Un comando de otro resource (`ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`) dejó de andar | Choca con la captura de comandos. | `Config.Audit.capture_commands = false`. |

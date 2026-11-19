@@ -12,6 +12,7 @@ Versión **0.1.0**. Lo marcado **(próximamente)** está planeado pero todavía 
 - **Chat del ticket:** chat dentro del ticket con notas internas y transferencia a otro staff conectado.
 - **Moderación dentro del ticket:** goto, bring, freeze, heal y kick con capability, auditadas; kick con razón obligatoria. Ban, warn, spectate y revive están deshabilitadas **(próximamente)**.
 - **Duty:** `/duty`, horas y sesiones por staff.
+- **Panel NUI** (`F6`): auditoría, reportes, dashboard, servicio y ajustes; cada uno ve solo lo que su rango permite.
 - **Auditoría verificable:** cada acción queda encadenada con SHA-256; verificación desde consola, panel o export.
 - **Anclaje off-box:** archivo `audit_export.log` + webhook de Discord.
 - **Permisos por rango** (least-privilege, capabilities), con detección automática de Qbox, QBCore y ESX, o ACE `staff_suite.<rango>` en standalone.
@@ -42,6 +43,7 @@ Venta por Tebex con escrow de Cfx **(próximamente)**. `config.lua`, `server/con
 - [Instalación](docs/es/instalacion.md)
 - [Configuración (`config.lua` y `server/config.lua`)](docs/es/configuracion.md)
 - [Rangos y permisos](docs/es/permisos.md)
+- [Panel (NUI)](docs/es/panel.md)
 - [Auditoría: export y verificación](docs/es/auditoria.md)
 - [FAQ y solución de problemas](docs/es/faq.md)
 
@@ -49,6 +51,7 @@ Venta por Tebex con escrow de Cfx **(próximamente)**. `config.lua`, `server/con
 
 ```
 lua5.4 tests/run_all.lua
+cd ui && npm ci && npm test
 ```
 
 ---
@@ -65,6 +68,7 @@ Version **0.1.0**. Anything marked **(coming soon)** is planned but not implemen
 - **Ticket chat:** in-ticket chat with internal notes and transfer to another online staff member.
 - **In-ticket moderation:** goto, bring, freeze, heal and kick with capability check, audited; kick requires a reason. Ban, warn, spectate and revive are disabled **(coming soon)**.
 - **Duty:** `/duty`, hours and sessions per staff member.
+- **NUI panel** (`F6`): audit, reports, dashboard, duty and settings; each person only sees what their rank allows.
 - **Verifiable audit log:** every action is chained with SHA-256; verify from console, panel or export.
 - **Off-box anchoring:** `audit_export.log` file + Discord webhook.
 - **Rank-based permissions** (least privilege, capabilities), with automatic Qbox, QBCore and ESX detection, or `staff_suite.<rank>` ACEs in standalone.
@@ -95,6 +99,7 @@ Sold on Tebex with Cfx escrow **(coming soon)**. `config.lua`, `server/config.lu
 - [Installation](docs/en/installation.md)
 - [Configuration (`config.lua` and `server/config.lua`)](docs/en/configuration.md)
 - [Ranks and permissions](docs/en/permissions.md)
+- [Panel (NUI)](docs/en/panel.md)
 - [Audit: export and verification](docs/en/audit.md)
 - [FAQ and troubleshooting](docs/en/faq.md)
 
@@ -102,4 +107,5 @@ Sold on Tebex with Cfx escrow **(coming soon)**. `config.lua`, `server/config.lu
 
 ```
 lua5.4 tests/run_all.lua
+cd ui && npm ci && npm test
 ```

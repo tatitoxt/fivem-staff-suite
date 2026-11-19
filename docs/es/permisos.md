@@ -89,7 +89,7 @@ Cada acción pasa por: chequeo de capability → jugador objetivo conectado (por
 | Acción | Estado en 0.1.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Funcionan. |
-| `ban`, `warn`, `spectate`, `revive` | Deshabilitadas: responden "Esta acción de moderación no está disponible.", no se auditan y el panel no las ofrece **(próximamente)**. |
+| `ban`, `warn`, `spectate`, `revive` | Deshabilitadas: responden "Esta acción de moderación no está disponible.", no se auditan; en el panel warn y ban aparecen deshabilitados y spectate y revive no aparecen **(próximamente)**. |
 | Descongelar (`unfreeze`) | **(próximamente)** |
 
 Staff Suite **no** reemplaza a txAdmin: noclip, god mode, spawn, ban, etc. siguen en txAdmin o tu framework.
