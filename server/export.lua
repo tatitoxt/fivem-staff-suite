@@ -1,5 +1,6 @@
 -- server/export.lua — Export off-box de la cadena (webhook Discord + archivo).
 local M = {}
+local t = StaffSuiteTranslate
 
 local function res() return GetCurrentResourceName() end
 
@@ -12,8 +13,8 @@ function M.anchor(entry, cfg)
   end
   if cfg.webhook and cfg.webhook ~= '' then
     local payload = json.encode({
-      content = string.format('🔐 Audit anchor · seq %d · `%s`', entry.seq, entry.hash:sub(1, 16)),
-      username = 'Staff Suite Audit',
+      content = t('export_anchor', { seq = entry.seq, hash = entry.hash:sub(1, 16) }),
+      username = t('export_username'),
     })
     PerformHttpRequest(cfg.webhook, function() end, 'POST', payload, { ['Content-Type'] = 'application/json' })
   end

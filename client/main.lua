@@ -1,21 +1,19 @@
 -- client/main.lua — Puente NUI + keybind + handlers. La UI real (React) va en ui/dist.
-local panelOpen = false
+local t = StaffSuiteTranslate
 
 local function openPanel()
-  panelOpen = true
   SetNuiFocus(true, true)
   TriggerServerEvent('staff_suite:getState')
   SendNUIMessage({ type = 'open' })
 end
 
 local function closePanel()
-  panelOpen = false
   SetNuiFocus(false, false)
   SendNUIMessage({ type = 'close' })
 end
 
 RegisterCommand('staffsuite', function() openPanel() end, false)
-RegisterKeyMapping('staffsuite', 'Abrir Staff Suite', 'keyboard', Config.PanelKey or 'F6')
+RegisterKeyMapping('staffsuite', t('keybind_open'), 'keyboard', Config.PanelKey or 'F6')
 
 RegisterNUICallback('close', function(_, cb) closePanel(); cb({}) end)
 RegisterNUICallback('ticketAction', function(data, cb)
@@ -36,7 +34,7 @@ end)
 RegisterNetEvent('staff_suite:notify', function(msg)
   SendNUIMessage({ type = 'notify', payload = msg })
   -- fallback chat por si la NUI no está abierta
-  TriggerEvent('chat:addMessage', { args = { 'Staff Suite', msg } })
+  TriggerEvent('chat:addMessage', { args = { t('notify_title'), msg } })
 end)
 RegisterNetEvent('staff_suite:tp', function(coords)
   local ped = PlayerPedId()

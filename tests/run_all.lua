@@ -1,5 +1,5 @@
--- tests/run_all.lua — runner de tests del core agnóstico.
--- Uso: lua tests/run_all.lua   (desde la raíz del repo)
+-- tests/run_all.lua — runner de tests Lua sin FiveM.
+-- Uso: lua5.4 tests/run_all.lua (desde la raíz del repo)
 package.path = "./?.lua;" .. package.path
 
 local modules = {
@@ -9,6 +9,7 @@ local modules = {
   "tests.test_permissions",
   "tests.test_duty",
   "tests.test_locales",
+  "tests.test_bridges",
 }
 local pass, fail = 0, 0
 local failed = {}

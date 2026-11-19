@@ -56,7 +56,7 @@ Locale['en'] = {
   warn_received = 'You received a staff warning: %{reason}',
   export_username = 'Staff Suite Audit',
   export_anchor = 'Audit anchor · seq %{seq} · `%{hash}`',
-  console_started = '[StaffSuite] started · %{n} audit entries · persistence=%{persistence}',
+  console_started = '[StaffSuite] started · %{n} audit entries · persistence=%{persistence} · framework=%{framework}',
   console_audit_ok = '[StaffSuite] audit OK: %{n} entries',
   console_audit_broken = '[StaffSuite] audit BROKEN at entry %{seq}',
   mod_spectate = 'Spectate',
@@ -64,4 +64,9 @@ Locale['en'] = {
   mod_teleport = 'Teleport',
   rank_helper = 'Helper', rank_moderator = 'Moderator', rank_admin = 'Admin',
   rank_senior_admin = 'Senior admin', rank_owner = 'Owner',
+  console_module_missing = '[StaffSuite] module not found: %{module}',
+  mod_unavailable = 'This moderation action is unavailable.',
+  mod_invalid_target = 'The selected player is not connected.',
+  ticket_invalid_recipient = 'Select an online staff member who can claim reports.',
+  ui_alert_audit_chain_broken = 'Audit chain mismatch starting at entry %{seq}.',
 }

@@ -56,7 +56,7 @@ Locale['es'] = {
   warn_received = 'Recibiste una advertencia del staff: %{reason}',
   export_username = 'Staff Suite Audit',
   export_anchor = 'Ancla de auditoría · seq %{seq} · `%{hash}`',
-  console_started = '[StaffSuite] iniciado · %{n} entradas de auditoría · persistencia=%{persistence}',
+  console_started = '[StaffSuite] iniciado · %{n} entradas de auditoría · persistencia=%{persistence} · framework=%{framework}',
   console_audit_ok = '[StaffSuite] auditoría OK: %{n} entradas',
   console_audit_broken = '[StaffSuite] auditoría ROTA en la entrada %{seq}',
   mod_spectate = 'Observar',
@@ -64,4 +64,9 @@ Locale['es'] = {
   mod_teleport = 'Teletransportar',
   rank_helper = 'Ayudante', rank_moderator = 'Moderador', rank_admin = 'Admin',
   rank_senior_admin = 'Admin senior', rank_owner = 'Dueño',
+  console_module_missing = '[StaffSuite] módulo no encontrado: %{module}',
+  mod_unavailable = 'Esta acción de moderación no está disponible.',
+  mod_invalid_target = 'El jugador seleccionado no está conectado.',
+  ticket_invalid_recipient = 'Seleccioná a un miembro del staff conectado que pueda reclamar reportes.',
+  ui_alert_audit_chain_broken = 'La cadena de auditoría no coincide a partir de la entrada %{seq}.',
 }
