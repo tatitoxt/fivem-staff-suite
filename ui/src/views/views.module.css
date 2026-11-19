@@ -765,3 +765,6 @@
 }
 @media (min-width: 2400px) and (min-height: 1350px) { .rateLayer .dialog { zoom: 1.333; } }
 @media (min-width: 3600px) and (min-height: 2000px) { .rateLayer .dialog { zoom: 2; } }
+
+/* .scroll (min-height: 0) pisaba el mínimo del chat: subir la especificidad */
+.chat .messages { min-height: 96px; }
