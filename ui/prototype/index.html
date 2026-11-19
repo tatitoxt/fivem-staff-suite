@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F5FA; --card:#FFFFFF; --bd:#E5E7EB;
+    --ink:#1F2937; --body:#334155; --sec:#3D4D63; --muted:#475569;
+    --acc:#2563EB; --acc-soft:#DBEAFE; --acc-text:#1D4ED8;
+    --green:#16A34A; --green-text:#15803D; --green-soft:#DCFCE7;
+    --orange:#F58220; --amber-text:#A35408; --amber-soft:#FEF3C7;
+    --red:#E5484D; --red-text:#B91C1C; --red-soft:#FEE2E2;
+    --ease:cubic-bezier(0.2,0,0,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'DM Sans',system-ui,-apple-system,sans-serif;background:transparent;
+       color:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;
+    transition:transform 150ms ease-out,background-color 150ms ease-out,color 150ms ease-out,box-shadow 220ms var(--ease)}
+  button:disabled{cursor:not-allowed;opacity:.5}
+  button:not(:disabled):active{transform:scale(.96)}
+
+  #panel{display:none;position:fixed;top:5vh;left:50%;transform:translateX(-50%);
+    width:min(1040px,94vw);height:88vh;background:var(--bg);border-radius:20px;
+    box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden;flex-direction:column}
+  #panel.open{display:flex}
+
+  header{display:flex;align-items:center;justify-content:space-between;
+    padding:20px 28px;background:var(--card);border-bottom:1px solid var(--bd)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:38px;height:38px;border-radius:12px;background:var(--acc);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;font-family:'Manrope'}
+  header h1{font-family:'Manrope';font-weight:800;font-size:21px;color:var(--ink)}
+  .close{width:38px;height:38px;border-radius:999px;background:var(--bg);color:var(--muted);
+    font-size:18px;display:flex;align-items:center;justify-content:center}
+  @media(hover:hover){.close:hover{background:var(--bd);color:var(--ink)}}
+
+  .tabs{display:flex;gap:8px;padding:16px 28px 0}
+  .tab{padding:9px 18px;border-radius:999px;font-size:15px;font-weight:600;color:var(--muted);background:transparent}
+  .tab.on{background:var(--acc);color:#fff}
+  @media(hover:hover){.tab:not(.on):hover{background:var(--acc-soft);color:var(--acc-text)}}
+
+  .body{flex:1;min-height:0;padding:20px 28px 24px;display:flex;flex-direction:column}
+  .view{display:none;flex:1;min-height:0}
+  .view.on{display:flex;flex-direction:column}
+
+  .reports{flex-direction:row!important;gap:20px}
+  .queue{width:340px;flex-shrink:0;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
+  .detail{flex:1;min-width:0;background:var(--card);border-radius:16px;
+    box-shadow:0 1px 3px rgba(15,23,42,.06);overflow-y:auto;overscroll-behavior:contain;padding:22px}
+  .tcard{background:var(--card);border-radius:16px;padding:15px 16px;margin-bottom:10px;
+    box-shadow:0 1px 3px rgba(15,23,42,.06);border:2px solid transparent;text-align:left;width:100%;display:block}
+  @media(hover:hover){.tcard:hover{box-shadow:0 4px 14px rgba(15,23,42,.10)}}
+  .tcard.sel{border-color:var(--acc)}
+  .tcard .row1{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}
+  .tcard .tid{font-family:'Manrope';font-weight:700;font-size:15.5px;color:var(--ink)}
+  .tcard .desc{font-size:14px;color:var(--sec);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .tcard .meta{font-size:13px;color:var(--muted);margin-top:6px}
+
+  .badge{display:inline-block;padding:3px 11px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
+  .b-open{background:var(--green-soft);color:var(--green-text)}
+  .b-claimed{background:var(--amber-soft);color:var(--amber-text)}
+  .b-in_progress{background:var(--amber-soft);color:var(--amber-text)}
+  .b-resolved{background:var(--acc-soft);color:var(--acc-text)}
+  .b-closed{background:#F1F5F9;color:var(--muted)}
+  .b-reopened{background:var(--red-soft);color:var(--red-text)}
+  .pri-urgent{background:var(--red-soft);color:var(--red-text)}
+  .pri-high{background:var(--amber-soft);color:var(--amber-text)}
+  .pri-normal{background:var(--acc-soft);color:var(--acc-text)}
+  .pri-low{background:#F1F5F9;color:var(--muted)}
+
+  .detail h2{font-family:'Manrope';font-weight:800;font-size:19px;color:var(--ink);margin-bottom:6px}
+  .detail .sub{font-size:14px;color:var(--muted);margin-bottom:16px}
+  .detail .desc-full{font-size:15.5px;color:var(--ink);background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:18px}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .btn{padding:9px 16px;border-radius:999px;font-size:14px;font-weight:600;background:var(--acc);color:#fff}
+  .btn.sec{background:var(--bg);color:var(--sec);border:1px solid var(--bd)}
+  .btn.danger{background:var(--red-soft);color:var(--red-text)}
+  @media(hover:hover){.btn:hover{box-shadow:0 4px 12px rgba(37,99,235,.25)}.btn.sec:hover{background:var(--bd)}.btn.danger:hover{box-shadow:0 4px 12px rgba(229,72,77,.2)}}
+  .section-label{font-size:14px;font-weight:700;color:var(--ink);margin:18px 0 10px}
+  .modgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .mod{padding:10px;border-radius:12px;background:var(--bg);border:1px solid var(--bd);font-size:14px;font-weight:600;color:var(--sec)}
+  @media(hover:hover){.mod:hover{background:var(--acc-soft);color:var(--acc-text);border-color:var(--acc-soft)}}
+  .reason{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--bd);font-family:inherit;font-size:15px;color:var(--ink);margin-bottom:10px;background:var(--card)}
+  .reason:focus{outline:2px solid var(--acc);outline-offset:1px}
+  .msg{background:var(--bg);border-radius:12px;padding:11px 14px;margin-bottom:8px}
+  .msg .who{font-size:13px;font-weight:700;color:var(--sec);margin-bottom:2px}
+  .msg .txt{font-size:14.5px;color:var(--ink)}
+  .msg.internal{border-left:3px solid var(--orange)}
+  .empty{color:var(--muted);text-align:center;padding:48px 20px;font-size:15.5px}
+
+  .audit-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .verify-banner{flex:1;min-width:240px;padding:13px 18px;border-radius:14px;font-weight:700;font-size:15.5px}
+  .v-ok{background:var(--green-soft);color:var(--green-text)}
+  .v-bad{background:var(--red-soft);color:var(--red-text)}
+  .filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .chip{padding:7px 14px;border-radius:999px;font-size:13.5px;font-weight:600;background:var(--card);border:1px solid var(--bd);color:var(--sec)}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .audit-list{flex:1;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
+  .entry{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:9px;box-shadow:0 1px 3px rgba(15,23,42,.06);border-left:4px solid var(--green)}
+  .entry.broken{border-left-color:var(--red);background:var(--red-soft)}
+  .entry .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+  .entry .act{font-family:'Manrope';font-weight:700;font-size:15.5px;color:var(--ink)}
+  .entry .seq{font-size:13px;font-weight:700;color:var(--muted)}
+  .entry .who{font-size:14px;color:var(--sec)}
+  .entry .hash{font-family:ui-monospace,'SF Mono',monospace;font-size:13px;color:var(--muted);word-break:break-all;margin-top:5px}
+
+  .team-grid{flex:1;overflow-y:auto;overscroll-behavior:contain;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;align-content:start;padding-right:4px}
+  .scard{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .scard .name{font-family:'Manrope';font-weight:700;font-size:16.5px;color:var(--ink);display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .dot{width:9px;height:9px;border-radius:999px;background:var(--green);flex-shrink:0}
+  .dot.off{background:#CBD5E1}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat .num{font-family:'Manrope';font-weight:800;font-size:22px;color:var(--ink)}
+  .stat .lbl{font-size:13px;color:var(--muted)}
+
+  #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:13px 22px;border-radius:999px;font-size:15px;
+    opacity:0;pointer-events:none;transition:opacity 220ms var(--ease),transform 220ms var(--ease);box-shadow:0 8px 24px rgba(15,23,42,.3)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  ::-webkit-scrollbar{width:9px}
+  ::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:999px}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div id="panel">
+  <header>
+    <div class="brand"><div class="logo">S</div><h1>Staff Suite</h1></div>
+    <button class="close" onclick="closePanel()" aria-label="Cerrar">✕</button>
+  </header>
+  <div class="tabs">
+    <button class="tab on" data-tab="reports" onclick="tab('reports')">Reportes</button>
+    <button class="tab" data-tab="audit" onclick="tab('audit')">Auditoría</button>
+    <button class="tab" data-tab="team" onclick="tab('team')">Equipo</button>
+  </div>
+  <div class="body">
+    <div class="view reports on" id="view-reports">
+      <div class="queue" id="queue"></div>
+      <div class="detail" id="detail"><div class="empty">Seleccioná un reporte para ver el detalle.</div></div>
+    </div>
+    <div class="view" id="view-audit">
+      <div class="audit-head">
+        <div class="verify-banner v-ok" id="vbanner">Cadena íntegra</div>
+        <button class="btn" onclick="verify()">Verificar cadena</button>
+      </div>
+      <div class="filters" id="filters"></div>
+      <div class="audit-list" id="auditList"></div>
+    </div>
+    <div class="view" id="view-team">
+      <div class="team-grid" id="teamGrid"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// SEGURIDAD innerHTML: todo string dinámico (description, reporter, actor, target,
+// reason, category, action, body) se escapa con esc() que cubre & < > " '.
+// hash es hex, id/seq numéricos, state/priority vienen de enums del core.
+const L = {
+  es:{queue_empty:'No hay reportes pendientes.',sel_detail:'Seleccioná un reporte para ver el detalle.',
+    claim:'Reclamar',resolve:'Resolver',close:'Cerrar',reopen:'Reabrir',transfer:'Transferir',
+    mod_label:'Moderación',reason_ph:'Razón (obligatoria para kick/ban/warn)',messages:'Mensajes',
+    verify_ok:'Cadena íntegra · %{n} entradas verificadas',verify_bad:'Cadena ROTA en seq %{seq} · manipulación detectada',
+    all:'Todas',on_duty:'En servicio',off_duty:'Fuera',hours:'horas',resolved:'resueltos',rating:'rating',shifts:'turnos',
+    goto:'Ir al jugador',bring:'Traer',freeze:'Congelar',heal:'Curar',kick:'Expulsar',ban:'Banear',warn:'Advertir',
+    cat:{bug:'Bug',player:'Jugador',staff:'Staff',question:'Consulta',other:'Otro'},
+    pri:{low:'Baja',normal:'Normal',high:'Alta',urgent:'Urgente'},
+    st:{open:'Abierto',claimed:'Reclamado',in_progress:'En curso',resolved:'Resuelto',closed:'Cerrado',reopened:'Reabierto'}},
+  en:{queue_empty:'No pending reports.',sel_detail:'Select a report to see details.',
+    claim:'Claim',resolve:'Resolve',close:'Close',reopen:'Reopen',transfer:'Transfer',
+    mod_label:'Moderation',reason_ph:'Reason (required for kick/ban/warn)',messages:'Messages',
+    verify_ok:'Chain intact · %{n} entries verified',verify_bad:'Chain BROKEN at seq %{seq} · tampering detected',
+    all:'All',on_duty:'On duty',off_duty:'Off',hours:'hours',resolved:'resolved',rating:'rating',shifts:'shifts',
+    goto:'Go to player',bring:'Bring',freeze:'Freeze',heal:'Heal',kick:'Kick',ban:'Ban',warn:'Warn',
+    cat:{bug:'Bug',player:'Player',staff:'Staff',question:'Question',other:'Other'},
+    pri:{low:'Low',normal:'Normal',high:'High',urgent:'Urgent'},
+    st:{open:'Open',claimed:'Claimed',in_progress:'In progress',resolved:'Resolved',closed:'Closed',reopened:'Reopened'}},
+};
+let locale='es';
+const t=(k)=> (L[locale]&&L[locale][k])||k;
+let state={tickets:{},audit:[],duty:[],verify:[true,null]};
+let cur='reports', selTicket=null, auditFilter='all';
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function post(cb,data){fetch('https://staff_suite/'+cb,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})}).catch(()=>{});}
+function closePanel(){document.getElementById('panel').classList.remove('open');post('close');}
+function tab(x){cur=x;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===x));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='view-'+x));}
+function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3200);}
+function shortId(id){return String(id).replace('license:','').slice(0,12);}
+function badge(s){return `<span class="badge b-${esc(s)}">${esc((t('st')||{})[s]||s)}</span>`;}
+
+function renderQueue(){
+  const q=document.getElementById('queue');
+  const ts=Object.values(state.tickets||{}).sort((a,b)=>b.id-a.id);
+  if(!ts.length){q.innerHTML=`<div class="empty">${t('queue_empty')}</div>`;return;}
+  q.innerHTML=ts.map(tk=>`<button class="tcard ${selTicket===tk.id?'sel':''}" onclick="selectTicket(${tk.id})">
+    <div class="row1"><span class="tid">#${tk.id} · ${esc((t('cat')||{})[tk.category]||tk.category)}</span>${badge(tk.state)}</div>
+    <div class="desc">${esc(tk.description||'')}</div>
+    <div class="meta">${esc(shortId(tk.reporter))} · <span class="badge pri-${esc(tk.priority)}">${esc((t('pri')||{})[tk.priority]||tk.priority)}</span></div>
+  </button>`).join('');
+}
+function selectTicket(id){selTicket=id;renderQueue();renderDetail();}
+function renderDetail(){
+  const d=document.getElementById('detail');
+  const tk=state.tickets&&state.tickets[selTicket];
+  if(!tk){d.innerHTML=`<div class="empty">${t('sel_detail')}</div>`;return;}
+  const acts=[];
+  if(tk.state==='open'||tk.state==='reopened')acts.push(['claim',t('claim'),'btn']);
+  if(tk.state==='claimed'||tk.state==='in_progress'){acts.push(['resolve',t('resolve'),'btn']);acts.push(['close',t('close'),'btn sec']);}
+  if(tk.state==='resolved')acts.push(['close',t('close'),'btn sec']);
+  if(tk.state==='closed'||tk.state==='resolved')acts.push(['reopen',t('reopen'),'btn sec']);
+  const mods=['goto','bring','freeze','heal','kick','ban','warn'];
+  const msgs=(tk.messages||[]).map(m=>`<div class="msg ${m.internal?'internal':''}"><div class="who">${esc(shortId(m.author))}${m.internal?' · interno':''}</div><div class="txt">${esc(m.body)}</div></div>`).join('');
+  d.innerHTML=`<h2>#${tk.id} · ${esc((t('cat')||{})[tk.category]||tk.category)} ${badge(tk.state)}</h2>
+    <div class="sub">${esc(shortId(tk.reporter))} · <span class="badge pri-${esc(tk.priority)}">${esc((t('pri')||{})[tk.priority]||tk.priority)}</span>${tk.claimer?' · '+esc(shortId(tk.claimer)):''}</div>
+    <div class="desc-full">${esc(tk.description||'')}</div>
+    <div class="actions">${acts.map(a=>`<button class="${a[2]}" onclick="ticketAction(${tk.id},'${a[0]}')">${a[1]}</button>`).join('')}</div>
+    <div class="section-label">${t('mod_label')}</div>
+    <input class="reason" id="reason" placeholder="${t('reason_ph')}">
+    <div class="modgrid">${mods.map(m=>`<button class="mod" onclick="modAction('${m}',${tk.id})">${t(m)}</button>`).join('')}</div>
+    ${msgs?`<div class="section-label">${t('messages')}</div>${msgs}`:''}`;
+}
+function ticketAction(id,action){post('ticketAction',{id,action,extra:{ts:Math.floor(Date.now()/1000)}});setTimeout(()=>post('refresh'),150);}
+function modAction(action,id){
+  const tk=state.tickets[id];const reason=(document.getElementById('reason')||{}).value||'';
+  const tgt=tk?tk.reporter:'';post('modAction',{action,target:tgt,reason});toast(t(action));
+}
+
+function renderAudit(){
+  const v=state.verify||[true,null];
+  const banner=document.getElementById('vbanner');
+  const n=(state.audit||[]).length;
+  if(v[0]){banner.className='verify-banner v-ok';banner.textContent=t('verify_ok').replace('%{n}',n);}
+  else{banner.className='verify-banner v-bad';banner.textContent=t('verify_bad').replace('%{seq}',v[1]);}
+  const actions=[...new Set((state.audit||[]).map(e=>e.action))];
+  document.getElementById('filters').innerHTML=
+    `<button class="chip ${auditFilter==='all'?'on':''}" onclick="setFilter('all')">${t('all')}</button>`+
+    actions.map(a=>`<button class="chip ${auditFilter===a?'on':''}" onclick="setFilter('${esc(a)}')">${esc(a)}</button>`).join('');
+  const brokenAt=v[0]?null:v[1];
+  const rows=(state.audit||[]).filter(e=>auditFilter==='all'||e.action===auditFilter).slice().reverse();
+  document.getElementById('auditList').innerHTML=rows.length?rows.map(e=>{
+    const broken=brokenAt!=null&&e.seq>=brokenAt;
+    return `<div class="entry ${broken?'broken':''}"><div class="top"><span class="act">${esc(e.action)}</span><span class="seq">seq ${e.seq}</span></div>
+      <div class="who">${esc(shortId(e.actor))} → ${esc(shortId(e.target))}${e.reason?' · '+esc(e.reason):''}</div>
+      <div class="hash">${e.hash?esc(e.hash.slice(0,40))+'…':''}</div></div>`;
+  }).join(''):`<div class="empty">${t('queue_empty')}</div>`;
+}
+function setFilter(f){auditFilter=f;renderAudit();}
+function verify(){post('verify');}
+
+function renderTeam(){
+  const d=state.duty||[];
+  const g=document.getElementById('teamGrid');
+  if(!d.length){g.innerHTML=`<div class="empty">${t('queue_empty')}</div>`;return;}
+  g.innerHTML=d.map(s=>`<div class="scard"><div class="name"><span class="dot ${s.on_duty?'':'off'}"></span>${esc(shortId(s.actor))}
+    <span class="badge ${s.on_duty?'b-open':'b-closed'}" style="margin-left:auto">${s.on_duty?t('on_duty'):t('off_duty')}</span></div>
+    <div class="stats">
+      <div class="stat"><div class="num">${(s.duty_hours||0).toFixed(1)}</div><div class="lbl">${t('hours')}</div></div>
+      <div class="stat"><div class="num">${s.resolved||0}</div><div class="lbl">${t('resolved')}</div></div>
+      <div class="stat"><div class="num">${s.avg_rating?s.avg_rating.toFixed(1):'—'}</div><div class="lbl">${t('rating')}</div></div>
+      <div class="stat"><div class="num">${s.sessions||0}</div><div class="lbl">${t('shifts')}</div></div>
+    </div></div>`).join('');
+}
+
+function renderAll(){renderQueue();renderDetail();renderAudit();renderTeam();}
+window.addEventListener('message',e=>{
+  const d=e.data||{};
+  if(d.type==='open')document.getElementById('panel').classList.add('open');
+  if(d.type==='close')document.getElementById('panel').classList.remove('open');
+  if(d.type==='state'){state=d.payload||state;locale=state.locale||locale;renderAll();}
+  if(d.type==='auditResult'){state.verify=[d.payload.ok,d.payload.at];renderAudit();}
+  if(d.type==='notify')toast(d.payload);
+});
+</script>
+</body>
+</html>
