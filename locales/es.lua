@@ -22,6 +22,7 @@ Locale['es'] = {
   already_claimed = 'Este reporte ya fue reclamado por otro staff.',
   input_too_long = 'El texto supera el máximo de %{max} caracteres.',
   rate_limited = 'Estás enviando acciones demasiado rápido. Esperá unos segundos.',
+  report_failed = 'No se pudo crear el reporte. Probá de nuevo.',
   report_too_many_open = 'Ya tenés %{max} reportes abiertos. Esperá a que el staff los atienda.',
   mod_target_protected = 'No podés moderar a un staff de rango superior.',
   invalid_transition = 'Acción no válida para el estado actual.',

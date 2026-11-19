@@ -6,7 +6,7 @@ import { formatDateTime, formatRelative, shortId } from '../format';
 import { isLite } from '../edition';
 import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone } from '../labels';
 import { useApp } from '../store';
-import type { ModAction, Priority, Ticket, TicketState } from '../types';
+import type { ModAction, Priority, Ticket, TicketCreateResult, TicketState } from '../types';
 import v from './views.module.css';
 
 type Group = 'all' | 'open' | 'active' | 'done';
@@ -284,6 +284,8 @@ export function TicketsView() {
   const [selected, setSelected] = useState<number | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [text, setText] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [target, setTarget] = useState('');
   const [category, setCategory] = useState('player');
   const [newPriority, setNewPriority] = useState<Priority>('normal');
@@ -306,7 +308,15 @@ export function TicketsView() {
     if (selected == null && list.length) setSelected(list[0].id);
   }, [list, selected]);
 
-  const close = () => { setDialog(null); setText(''); setTarget(''); setBanDuration(''); };
+  const close = () => { setDialog(null); setText(''); setTarget(''); setBanDuration(''); setCreateError(null); };
+  const submitReport = async () => {
+    setCreating(true);
+    setCreateError(null);
+    const res = (await send('ticket_create', { category, priority: isLite ? 'normal' : newPriority, body: text.trim() })) as TicketCreateResult | null;
+    setCreating(false);
+    if (res?.ok) close();
+    else setCreateError(res?.error || t('report_failed'));
+  };
   const targets = Array.isArray(state.config.transfer_targets)
     ? state.config.transfer_targets.map((x) => ({ value: x.identifier, label: x.name || shortId(x.identifier) }))
     : (state.duty?.staff ?? []).map((s) => ({ value: s.actor, label: shortId(s.actor) }));
@@ -426,7 +436,7 @@ export function TicketsView() {
           onClose={close}
           footer={<>
             <Button onClick={close}>{t('ui_cancel')}</Button>
-            <Button variant="primary" disabled={!text.trim() || overLimit(text, reportMax)} onClick={() => { void send('ticket_create', { category, priority: isLite ? 'normal' : newPriority, body: text.trim() }); close(); }}>{t('report_submit')}</Button>
+            <Button variant="primary" disabled={creating || !text.trim() || overLimit(text, reportMax)} onClick={() => { void submitReport(); }}>{t('report_submit')}</Button>
           </>}
         >
           <div className={v.queueRow}>
@@ -448,6 +458,7 @@ export function TicketsView() {
             <textarea className={ui.input} rows={4} value={text} onChange={(e) => setText(e.target.value)} />
           </label>
           <LimitHint text={text} max={reportMax} />
+          {createError && <p className={v.setHint} role="alert">{createError}</p>}
         </Dialog>
       )}
     </main>

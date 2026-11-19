@@ -180,9 +180,29 @@ on('ticket_claim', ticketAction('claim'))
 on('ticket_resolve', ticketAction('resolve'))
 on('ticket_close', ticketAction('close'))
 on('ticket_reopen', ticketAction('reopen'))
-on('ticket_create', function(d)
-  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''))
-  refreshSoon()
+-- El panel espera la respuesta del server para cerrar el diálogo o conservar el borrador.
+local pendingCreates, createSeq = {}, 0
+RegisterNUICallback('ticket_create', function(d, cb)
+  d = d or {}
+  createSeq = createSeq + 1
+  local req = createSeq
+  pendingCreates[req] = cb
+  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''), req)
+  SetTimeout(10000, function()
+    local pending = pendingCreates[req]
+    if pending then
+      pendingCreates[req] = nil
+      pending({ ok = false, error = t('report_failed') })
+    end
+  end)
+end)
+RegisterNetEvent('staff_suite:ticketCreateResult', function(res)
+  if source ~= 65535 or type(res) ~= 'table' then return end
+  local cb = pendingCreates[res.req]
+  if not cb then return end
+  pendingCreates[res.req] = nil
+  cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil })
+  if res.ok == true then refreshSoon() end
 end)
 if not lite then
   on('ticket_rate', function(d)

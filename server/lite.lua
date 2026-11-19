@@ -115,19 +115,20 @@ local function publishUpdates()
   end
 end
 
+-- Devuelve true o false y el motivo, para que el panel conserve el borrador si falla.
 local function createReport(src, category, body)
-  if src == 0 then return end
+  if src == 0 then return false end
   local tooLong
   body, tooLong = cleanText(body, limits.ticket_body)
-  if tooLong then notify(src, 'input_too_long', { max = tooLong }); return end
-  if not body or body == '' then return end
+  if tooLong then notify(src, 'input_too_long', { max = tooLong }); return false, t('input_too_long', { max = tooLong }) end
+  if not body or body == '' then return false end
   local reporter, open = identifier(src), 0
   for _, ticket in pairs(store.tickets) do
     if ticket.reporter == reporter and ticket.state ~= 'resolved' and ticket.state ~= 'closed' then open = open + 1 end
   end
   if limits.open_tickets_per_player and open >= limits.open_tickets_per_player then
     notify(src, 'report_too_many_open', { max = limits.open_tickets_per_player })
-    return
+    return false, t('report_too_many_open', { max = limits.open_tickets_per_player })
   end
   local selected = 'other'
   for _, allowed in ipairs(Config.Categories) do
@@ -139,6 +140,7 @@ local function createReport(src, category, body)
   record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = selected })
   notify(src, 'report_created', { id = ticket.id })
   publishUpdates()
+  return true
 end
 
 RegisterCommand(Config.Commands.report, function(src, args)
@@ -165,7 +167,15 @@ local function net(name, fn)
 end
 
 net('staff_suite:getState', function() sendState(source) end)
-net('staff_suite:ticketCreate', function(category, _, body) createReport(source, category, body) end)
+RegisterNetEvent('staff_suite:ticketCreate', function(category, _, body, req)
+  local src = source
+  local ok, err = false, t('rate_limited')
+  if allowRate(src, 'staff_suite:ticketCreate') then ok, err = createReport(src, category, body) end
+  req = tonumber(req)
+  if req and req > 0 and req <= 2147483647 and req % 1 == 0 then
+    TriggerClientEvent('staff_suite:ticketCreateResult', src, { req = math.tointeger(req), ok = ok == true, error = err })
+  end
+end)
 net('staff_suite:ticketAction', function(id, action, extra)
   local src = source
   if not isStaff(src) or not actions[action] then return end

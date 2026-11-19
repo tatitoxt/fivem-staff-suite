@@ -110,6 +110,11 @@ export interface TransferTarget {
   identifier: string;
 }
 
+export interface TicketCreateResult {
+  ok: boolean;
+  error?: string;
+}
+
 export interface UiConfig {
   core_url?: string;
   panel_key?: string;
