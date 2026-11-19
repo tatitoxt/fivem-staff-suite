@@ -8,6 +8,7 @@ local modules = {
   "tests.test_tickets",
   "tests.test_permissions",
   "tests.test_duty",
+  "tests.test_locales",
   "tests.test_bridges",
 }
 local pass, fail = 0, 0
