@@ -6,7 +6,7 @@
 
 Versión **0.1.0**. Lo marcado **(próximamente)** está planeado pero todavía no está implementado.
 
-## Features
+## Funciones de Core
 
 - **Reportes/tickets:** `/report`, máquina de estados (abierto → reclamado → en curso → resuelto → cerrado, reabrir), claim con lock, transferencia.
 - **Chat del ticket:** chat dentro del ticket con notas internas y transferencia a otro staff conectado.
@@ -19,7 +19,7 @@ Versión **0.1.0**. Lo marcado **(próximamente)** está planeado pero todavía 
 - **Persistencia:** archivo JSON sin dependencias, u oxmysql (MySQL/MariaDB).
 - **ES/EN** con locales abiertos.
 - **Captura externa.** Eventos de ESX, QBCore, Qbox y txAdmin según los hooks que expone cada recurso.
-- **Próximamente.** Calificación de tickets.
+- **Tickets F2.** Respuestas predefinidas, calificación del jugador y captura de evidencia con `screenshot-basic`.
 
 No reemplaza a txAdmin: noclip, god y spawn siguen ahí.
 
@@ -31,7 +31,7 @@ No reemplaza a txAdmin: noclip, god y spawn siguen ahí.
 | **Core** | $29–39 pago único | Suite completo: reportes avanzados, moderación en ticket, duty/analytics, auditoría unificada con export off-box, permisos por rango, multi-framework. |
 | **Integrity Pro** | $8–12/mes por server | **(próximamente)** Inventario de permisos cross-system, permisos con vencimiento, flags de anomalías, case files, apelaciones, dashboard del dueño. |
 
-Venta por Tebex con escrow de Cfx **(próximamente)**.
+Free Lite está preparado para distribución gratuita por GitHub y foro bajo licencia MIT. Core se empaqueta para Tebex con Cfx Asset Escrow. [Comparar ediciones](docs/es/ediciones.md).
 
 ## Requisitos
 
@@ -39,11 +39,11 @@ Venta por Tebex con escrow de Cfx **(próximamente)**.
 - Opcional: oxmysql + MySQL/MariaDB.
 - Opcional: ESX Legacy, QBCore o Qbox (se detectan solos con `Config.Framework = 'auto'`). Sin framework, permisos por ACE.
 
-## Paquete para Cfx Asset Escrow
+## Paquetes de release
 
-Desde el repositorio, ejecutá `./scripts/build-release.sh` en Linux con Bash, Node.js 24 y npm, Lua 5.4 y `zip`. El script compila la NUI y genera `dist/staff_suite-<version>.zip` con una carpeta raíz `staff_suite/`. La versión sale de `fxmanifest.lua`. GitHub Actions también publica ese ZIP como artifact. Para instalar el recurso, extraé `staff_suite/` en `resources/` y agregá `ensure staff_suite` a `server.cfg`.
+En Linux con Bash, Node.js 24 y npm, Lua 5.4 y `zip`, ejecutá `./scripts/build-release.sh --edition lite` para generar `dist/staff_suite_lite-<version>.zip` o `./scripts/build-release.sh --edition core` para generar `dist/staff_suite-<version>.zip`. Ambos ZIP tienen raíz `staff_suite/`, usan la versión de `fxmanifest.lua` y se publican como artifacts de GitHub Actions.
 
-`escrow_ignore` mantiene editables `config.lua`, `server/config.lua`, `locales/*.lua` y `sql/*.sql`. Los bridges quedan protegidos porque la selección de framework y los mapeos de permisos y jobs se ajustan en la configuración abierta. El build de la NUI se incluye en el ZIP y Cfx Asset Escrow no cifra la NUI.
+En Core, `escrow_ignore` mantiene editables `config.lua`, `server/config.lua`, `locales/*.lua` y `sql/*.sql`. Los bridges quedan protegidos porque la selección de framework y los mapeos de permisos y jobs se ajustan en la configuración abierta. Cfx deja abierta la NUI compilada.
 
 ## Documentación
 
@@ -71,7 +71,7 @@ FIVEM_LICENSE_KEY=... scripts/e2e-fxserver.sh   # E2E en FXServer real, ver docs
 
 Version **0.1.0**. Anything marked **(coming soon)** is planned but not implemented yet.
 
-### Features
+### Core features
 
 - **Reports/tickets:** `/report`, state machine (open → claimed → in progress → resolved → closed, reopen), locked claim, transfer.
 - **Ticket chat:** in-ticket chat with internal notes and transfer to another online staff member.
@@ -84,7 +84,7 @@ Version **0.1.0**. Anything marked **(coming soon)** is planned but not implemen
 - **Persistence:** dependency-free JSON file, or oxmysql (MySQL/MariaDB).
 - **ES/EN** with open locales.
 - **External event capture.** Staff Suite listens to supported ESX, QBCore, Qbox and txAdmin events.
-- **Coming soon.** Ticket ratings.
+- **F2 tickets.** Canned replies, player ratings and evidence capture with `screenshot-basic`.
 
 It does not replace txAdmin: noclip, god and spawning stay there.
 
@@ -96,7 +96,7 @@ It does not replace txAdmin: noclip, god and spawning stay there.
 | **Core** | $29–39 one-time | Full suite: advanced reports, in-ticket moderation, duty/analytics, unified audit log with off-box export, rank permissions, multi-framework. |
 | **Integrity Pro** | $8–12/month per server | **(coming soon)** Cross-system permission inventory, expiring permissions, anomaly flags, case files, appeals, owner dashboard. |
 
-Sold on Tebex with Cfx escrow **(coming soon)**.
+Free Lite is packaged under MIT for free distribution on GitHub and the forum. Core is packaged for Tebex with Cfx Asset Escrow. [Compare editions](docs/en/editions.md).
 
 ### Requirements
 
@@ -104,11 +104,11 @@ Sold on Tebex with Cfx escrow **(coming soon)**.
 - Optional: oxmysql + MySQL/MariaDB.
 - Optional: ESX Legacy, QBCore or Qbox (auto-detected with `Config.Framework = 'auto'`). Without a framework, permissions come from ACE.
 
-### Cfx Asset Escrow package
+### Release packages
 
-Run `./scripts/build-release.sh` from the repository on Linux with Bash, Node.js 24 and npm, Lua 5.4, and `zip`. The script builds the NUI and creates `dist/staff_suite-<version>.zip` with a top-level `staff_suite/` folder. The version comes from `fxmanifest.lua`. GitHub Actions also publishes the ZIP as an artifact. To install the resource, extract `staff_suite/` into `resources/` and add `ensure staff_suite` to `server.cfg`.
+On Linux with Bash, Node.js 24 and npm, Lua 5.4, and `zip`, run `./scripts/build-release.sh --edition lite` for `dist/staff_suite_lite-<version>.zip` or `./scripts/build-release.sh --edition core` for `dist/staff_suite-<version>.zip`. Both ZIPs have a top-level `staff_suite/` folder, use the version from `fxmanifest.lua`, and are uploaded as GitHub Actions artifacts.
 
-`escrow_ignore` keeps `config.lua`, `server/config.lua`, `locales/*.lua` and `sql/*.sql` editable. The bridges stay protected because framework selection and permission and job mappings are managed in the open configuration. The ZIP includes the compiled NUI, which Cfx Asset Escrow does not encrypt.
+In Core, `escrow_ignore` keeps `config.lua`, `server/config.lua`, `locales/*.lua` and `sql/*.sql` editable. The bridges stay protected because framework selection and permission and job mappings are managed in the open configuration. The compiled NUI stays open under Cfx.
 
 ### Documentation
 
