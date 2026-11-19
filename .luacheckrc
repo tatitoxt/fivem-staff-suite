@@ -23,7 +23,9 @@ files['client/**/*.lua'].read_globals = runtime_with({
   'PlayerPedId', 'RegisterKeyMapping', 'RegisterNUICallback', 'SendNUIMessage',
   'SetEntityCoords', 'SetNuiFocus', 'TriggerServerEvent',
 })
-files['tests/e2e_resource/server.lua'].read_globals = runtime
+files['tests/e2e_resource/server.lua'].read_globals = runtime_with({
+  'ExecuteCommand', 'GetConvar', 'GetConvarInt', 'GetGameTimer', 'SetHttpHandler',
+})
 files['shared/loader.lua'].read_globals = runtime
 
 files['**/fxmanifest.lua'].read_globals = {
@@ -49,5 +51,4 @@ files['server/export.lua'].globals = { 'StaffSuiteModules' }
 
 -- Advertencias preexistentes, acotadas al archivo y al símbolo.
 files['core/tickets.lua'].ignore = { '212/ts' }
-files['tests/e2e_resource/server.lua'].ignore = { '211/at' }
 files['tests/test_audit_chain.lua'].ignore = { '211/at' }

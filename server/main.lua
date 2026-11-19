@@ -328,6 +328,12 @@ exports('TicketAction', function(id, action, actor, extra)
   return ticket, ev
 end)
 exports('GetState', snapshot)
+exports('SetDuty', function(actor, onDuty)
+  local ev, err
+  if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
+  if ev then record(ev.event, actor, actor, '', {}) end
+  return ev, err
+end)
 
 -- ===== Init =====
 CreateThread(function()

@@ -1,0 +1,62 @@
+name: E2E FXServer
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E FXServer (opcional)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      FIVEM_LICENSE_KEY: ${{ secrets.FIVEM_LICENSE_KEY }}
+    steps:
+      - name: Verificar FIVEM_LICENSE_KEY
+        id: key
+        run: |
+          if [ -n "$FIVEM_LICENSE_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::FIVEM_LICENSE_KEY no está configurado; se omite el E2E en FXServer."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.key.outputs.enabled == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        if: steps.key.outputs.enabled == 'true'
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Instalar dependencias
+        if: steps.key.outputs.enabled == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 zip unzip xz-utils
+      - name: Empaquetar el ZIP de release
+        if: steps.key.outputs.enabled == 'true'
+        run: ./scripts/build-release.sh
+      - name: Correr E2E en FXServer
+        if: steps.key.outputs.enabled == 'true'
+        env:
+          E2E_WORK_DIR: ${{ runner.temp }}/e2e
+          E2E_CACHE_DIR: ${{ runner.temp }}/fxserver
+        run: ./scripts/e2e-fxserver.sh --resource "$(ls dist/staff_suite-*.zip)"
+      - name: Subir logs
+        if: always() && steps.key.outputs.enabled == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-fxserver
+          path: |
+            ${{ runner.temp }}/e2e/fxserver.log
+            ${{ runner.temp }}/e2e/profile.json
+          if-no-files-found: ignore
+          retention-days: 7
