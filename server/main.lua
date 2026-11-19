@@ -18,6 +18,7 @@ local store = tickets.new_store()
 local pmodel = perms.new()
 local dreg = duty.new_registry()
 local bans = {}
+local pendingBans = {}
 local entry_count = 0
 local ready = false
 
@@ -32,7 +33,15 @@ local function snapshot()
   }
 end
 
-local storage = persist.new(Config, snapshot)
+local storage = persist.new(Config, function()
+  local state = snapshot()
+  if next(pendingBans) then
+    state.bans = {}
+    for id, ban in pairs(bans) do state.bans[id] = ban end
+    for id, ban in pairs(pendingBans) do state.bans[id] = ban end
+  end
+  return state
+end)
 
 local function restore(data)
   if not data then return end
@@ -161,6 +170,7 @@ local modActions = {
   ban = { reason = true, run = function(m)
     local identifier = bridges.ban_identifiers(m.tgt)[1]
     if not identifier then return false, t('mod_invalid_target') end
+    if pendingBans[identifier] then return false, t('ban_pending') end
     local seconds = m.duration
     if seconds == nil then seconds = Config.Moderation.ban_duration or 86400 end
     if seconds ~= 0 and (type(seconds) ~= 'number' or not positiveInteger(seconds) or seconds > 31536000) then
@@ -168,10 +178,19 @@ local modActions = {
     end
     local now = os.time()
     local ban = { actor = m.actor, reason = m.reason, created_at = now, expires_at = seconds == 0 and 0 or now + seconds }
-    bans[identifier] = ban
+    pendingBans[identifier] = ban
     m.payload.expires_at = ban.expires_at
     m.payload.identifier = identifier
-    m.onSaved = afterSanction(m, function() DropPlayer(m.tgt, banMessage(ban)) end)
+    local notify = afterSanction(m, function() DropPlayer(m.tgt, banMessage(ban)) end)
+    m.onSaved = function(ok)
+      pendingBans[identifier] = nil
+      if ok then
+        bans[identifier] = ban
+      else
+        record('mod_ban_failed', m.actor, m.target, m.reason, m.payload)
+      end
+      notify(ok)
+    end
   end },
 }
 

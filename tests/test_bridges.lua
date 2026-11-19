@@ -244,7 +244,7 @@ local function serverSandbox(options)
       for _, fn in ipairs(hooks[name] or {}) do fn(...) end
     end,
     commands = commands, online = online, payloads = payloads,
-    threads = threads, reads = reads, states = states, identifiers = {}, files = files, now = 10000,
+    threads = threads, timers = timers, reads = reads, states = states, identifiers = {}, files = files, now = 10000,
   }
   env.GetPlayerPed = function(src) return online[tostring(src)] and src * 10 or 0 end
   env.GetEntityCoords = function(ped) return { x = ped, y = 0, z = 0 } end
@@ -448,6 +448,24 @@ function T.test_ban_persists_before_drop_and_checks_expiration_on_reconnect()
   s.now = 10000000
   s.hook('playerConnecting', '', function(message) reason = message end)
   assert(s.cancelled and reason:find('perma', 1, true))
+end
+
+function T.test_failed_ban_does_not_block_connections_or_return_on_retry()
+  local s = serverSandbox()
+  s.ace.admin = true
+  s.failWrites = true
+  s.event('modAction', 'ban', 18, 'regla', 60)
+  assert(s.recipients[17]['staff_suite:notify'] == s.env.Locale.es.mod_save_failed)
+  assert(not s.kicked and not s.api.GetState().bans['license:account18'])
+  s.env.source = 18
+  s.hook('playerConnecting', '', function() error('un ban fallido no debe bloquear la conexión') end)
+  assert(not s.cancelled)
+
+  s.failWrites = false
+  s.timers[1]()
+  local saved = s.files[s.env.Config.JsonFile]
+  assert(not saved.bans['license:account18'])
+  assert(saved.chain.entries[2].action == 'mod_ban_failed' and s.api.Verify())
 end
 
 function T.test_revive_dispatches_framework_bridge_or_standalone()

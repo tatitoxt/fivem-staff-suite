@@ -71,6 +71,7 @@ Locale['es'] = {
   persistence_fallback = '[StaffSuite] oxmysql no está disponible. Se usará el respaldo JSON hasta reiniciar el recurso.',
   persistence_save_failed = '[StaffSuite] No se pudieron guardar los datos.',
   ban_invalid_duration = 'La duración del ban debe estar entre 1 segundo y 1 año, o ser 0 para un ban permanente.',
+  ban_pending = 'Ya se está guardando un ban para ese jugador.',
   ban_permanent = 'Ban permanente: %{reason}',
   ban_expires = 'Baneado hasta %{date}: %{reason}',
   spectate_unavailable = 'No se puede observar a ese jugador en este momento.',
