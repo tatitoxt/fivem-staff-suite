@@ -12,6 +12,7 @@ local alertsCache = {}
 local playerInfo = nil
 local transferTargets = nil
 local exportStatus = nil
+local evidenceEnabled = false
 
 local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
@@ -19,6 +20,18 @@ end
 
 local function nui(kind, payload)
   SendNUIMessage({ type = kind, payload = payload })
+end
+
+local function cannedList()
+  local s, out = strings(uiLocale), {}
+  for i, c in ipairs(Config.CannedResponses or {}) do
+    if type(c) == 'table' then
+      out[#out + 1] = { id = tostring(c.id or i), title = tostring(c.title or ''), text = tostring(c.text or '') }
+    elseif type(c) == 'string' then
+      out[#out + 1] = { id = c, title = s['canned_' .. c .. '_title'] or c, text = s['canned_' .. c] or c }
+    end
+  end
+  return out
 end
 
 local function sendInit()
@@ -47,6 +60,8 @@ local function sendInit()
         anchor_every = Config.Export.anchor_every,
       }) or nil,
       transfer_targets = transferTargets,
+      canned = cannedList(),
+      evidence = evidenceEnabled,
     },
   })
 end
@@ -138,6 +153,15 @@ local function ticketAction(action)
 end
 
 on('close_ui', function() closePanel() end)
+on('ticket_rate', function(d)
+  TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
+  if not panelOpen then SetNuiFocus(false, false) end
+end)
+on('rate_dismiss', function()
+  if not panelOpen then SetNuiFocus(false, false) end
+end)
+on('ticket_evidence', function(d) TriggerServerEvent('staff_suite:ticketEvidence', d.id) end)
+on('evidence_get', function(d) TriggerServerEvent('staff_suite:evidenceGet', d.id, d.n) end)
 on('refresh', function() TriggerServerEvent('staff_suite:getState') end)
 on('set_locale', function(d)
   if Locale and Locale[d.locale] then uiLocale = d.locale; sendInit() end
@@ -170,6 +194,7 @@ RegisterNetEvent('staff_suite:state', function(state)
   local initDirty = false
   if state.transferTargets then transferTargets = state.transferTargets; initDirty = true end
   if state.exportStatus then exportStatus = state.exportStatus; initDirty = true end
+  if state.evidenceEnabled ~= nil then evidenceEnabled = state.evidenceEnabled == true; initDirty = true end
   if state.player then
     playerInfo = state.player
     rank = state.player.rank or rank
@@ -221,6 +246,18 @@ end)
 RegisterNetEvent('staff_suite:tp', function(coords)
   local ped = PlayerPedId()
   SetEntityCoords(ped, coords.x, coords.y, coords.z, false, false, false, false)
+end)
+
+-- Valoración del reporter al resolverse su ticket (el panel puede estar cerrado).
+RegisterNetEvent('staff_suite:ratePrompt', function(p)
+  if type(p) ~= 'table' or not p.id then return end
+  sendInit()
+  SetNuiFocus(true, true)
+  nui('rate', { id = p.id })
+end)
+
+RegisterNetEvent('staff_suite:evidence', function(p)
+  if type(p) == 'table' then nui('evidence', p) end
 end)
 
 -- Solo el servidor autoriza el revive y el inicio del modo espectador.

@@ -44,7 +44,7 @@ Es el default (`Config.Persistence = 'json'`). No necesitás nada más. Los dato
    ```lua
    Config.Persistence = 'oxmysql'
    ```
-3. Ejecutá `sql/001_staff_suite.sql` en la base configurada para oxmysql antes de iniciar Staff Suite. Si ya usabas oxmysql, el primer arranque importa el estado de `staff_state` al nuevo esquema.
+3. Al iniciar, Staff Suite aplica las migraciones pendientes de `sql/` y las registra en `staff_schema` (el usuario de MySQL necesita permisos CREATE y ALTER). Si preferís hacerlo a mano, ejecutá `sql/001_staff_suite.sql` y después `sql/002_tickets_f2.sql` en la base configurada para oxmysql antes de iniciar Staff Suite. Si ya usabas oxmysql, el primer arranque importa el estado de `staff_state` al nuevo esquema.
 
 Si oxmysql no está iniciado o falla la lectura o escritura, Staff Suite usa el respaldo JSON. Poné `ensure oxmysql` antes de `ensure staff_suite`.
 
