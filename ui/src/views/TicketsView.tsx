@@ -101,7 +101,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
 
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
-  const canWork = (st === 'claimed' || st === 'in_progress') && can('report.claim');
+  const canTransfer = st === 'claimed' && can('report.claim');
   const canResolve = (st === 'claimed' || st === 'in_progress') && can('report.resolve');
   const canClose = st !== 'closed' && can('report.resolve');
   const canReopen = DONE.has(st) && can('report.resolve');
@@ -167,7 +167,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
             <h3>{t('ui_ticket_actions')}</h3>
             <div className={v.railGrid}>
               <Button variant="primary" className={v.railWide} disabled={!canClaim} onClick={() => void send('ticket_claim', { id: tk.id })}>{t('claim')}</Button>
-              <Button disabled={!canWork} onClick={() => openDialog({ kind: 'transfer' })}>{t('transfer')}</Button>
+              <Button disabled={!canTransfer} onClick={() => openDialog({ kind: 'transfer' })}>{t('transfer')}</Button>
               <Button disabled={!canResolve} onClick={() => openDialog({ kind: 'resolve' })}>{t('resolve')}</Button>
               <Button disabled={!canClose} onClick={() => void send('ticket_close', { id: tk.id })}>{t('close')}</Button>
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
