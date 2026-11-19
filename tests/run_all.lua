@@ -2,7 +2,8 @@
 -- Uso: lua tests/run_all.lua   (desde la raíz del repo)
 package.path = "./?.lua;" .. package.path
 
-local modules = { "tests.test_sha256", "tests.test_audit_chain" }
+local modules = { "tests.test_sha256", "tests.test_audit_chain", "tests.test_tickets",
+                  "tests.test_permissions", "tests.test_duty" }
 local pass, fail = 0, 0
 local failed = {}
 
