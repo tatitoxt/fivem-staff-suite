@@ -5,6 +5,7 @@ import { Toasts } from './components/Toasts';
 import { Empty } from './components/ui';
 import s from './components/layout.module.css';
 import { useMock } from './nui';
+import { isLite } from './edition';
 import { AppProvider, useApp } from './store';
 import { AuditView } from './views/AuditView';
 import { DashboardView } from './views/DashboardView';
@@ -25,8 +26,8 @@ function CurrentView() {
   switch (state.view) {
     case 'audit': return <AuditView />;
     case 'tickets': return <TicketsView />;
-    case 'dashboard': return <DashboardView />;
-    case 'duty': return <DutyView />;
+    case 'dashboard': return isLite ? null : <DashboardView />;
+    case 'duty': return isLite ? null : <DutyView />;
     case 'settings': return <SettingsView />;
   }
 }

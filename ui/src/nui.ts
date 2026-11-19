@@ -7,6 +7,7 @@ import type { IncomingMessage, OutgoingAction, OutgoingPayloads } from './types'
 declare global {
   interface Window {
     GetParentResourceName?: () => string;
+    invokeNative?: (action: 'openUrl', url: string) => void;
   }
 }
 

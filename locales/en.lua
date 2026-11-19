@@ -81,6 +81,10 @@ Locale['en'] = {
   ui_alert_audit_chain_broken = 'Audit chain mismatch starting at entry %{seq}.',
   -- ===== NUI (React) — ui_ keys =====
   ui_brand_tag = 'Integrity Suite',
+  ui_upgrade_core = 'Explore Staff Suite Core',
+  ui_upgrade_details = 'Core adds in-ticket moderation, shifts and statistics, framework integrations, and advanced audit tools.',
+  ui_upgrade_tebex = 'View on Tebex',
+  ui_rank_lite_staff = 'Staff',
   ui_nav_dashboard = 'Dashboard', ui_nav_duty = 'Duty', ui_nav_settings = 'Settings',
   ui_no_access = 'Your rank has no access to this section.',
   ui_status_on = 'On duty', ui_status_off = 'Off duty',
@@ -116,6 +120,7 @@ Locale['en'] = {
   ui_filter_clear = 'Clear', ui_filter_state = 'Status',
   ui_audit_count = '%{n} of %{total}', ui_audit_no_match = 'No entries match the filters.',
   ui_tickets_sub = 'Report queue with chat, internal notes and moderation in one place.',
+  ui_lite_tickets_sub = 'Report queue for claiming, resolving, and closing tickets.',
   ui_tickets_all = 'All', ui_tickets_open = 'Open', ui_tickets_active = 'Active', ui_tickets_done = 'Closed',
   ui_queue = 'Ticket queue', ui_ticket_new = 'New ticket', ui_ticket_select = 'Pick a ticket from the queue.',
   ui_ticket_reporter = 'Reporter', ui_ticket_claimer = 'Handled by', ui_ticket_created = 'Created',

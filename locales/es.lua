@@ -81,6 +81,10 @@ Locale['es'] = {
   ui_alert_audit_chain_broken = 'La cadena de auditoría no coincide a partir de la entrada %{seq}.',
   -- ===== NUI (React) — claves ui_ =====
   ui_brand_tag = 'Integrity Suite',
+  ui_upgrade_core = 'Conocé Staff Suite Core',
+  ui_upgrade_details = 'Core suma moderación en tickets, turnos y estadísticas, integraciones con frameworks y herramientas avanzadas de auditoría.',
+  ui_upgrade_tebex = 'Ver en Tebex',
+  ui_rank_lite_staff = 'Staff',
   ui_nav_dashboard = 'Dashboard', ui_nav_duty = 'Servicio', ui_nav_settings = 'Ajustes',
   ui_no_access = 'Tu rango no tiene acceso a esta sección.',
   ui_status_on = 'En servicio', ui_status_off = 'Fuera de servicio',
@@ -116,6 +120,7 @@ Locale['es'] = {
   ui_filter_clear = 'Limpiar', ui_filter_state = 'Estado',
   ui_audit_count = '%{n} de %{total}', ui_audit_no_match = 'Ninguna entrada coincide con los filtros.',
   ui_tickets_sub = 'Cola de reportes con chat, notas internas y moderación en el mismo lugar.',
+  ui_lite_tickets_sub = 'Cola de reportes para reclamar, resolver y cerrar tickets.',
   ui_tickets_all = 'Todos', ui_tickets_open = 'Abiertos', ui_tickets_active = 'En curso', ui_tickets_done = 'Cerrados',
   ui_queue = 'Cola de tickets', ui_ticket_new = 'Nuevo ticket', ui_ticket_select = 'Elegí un ticket de la cola.',
   ui_ticket_reporter = 'Reportó', ui_ticket_claimer = 'Atiende', ui_ticket_created = 'Creado',

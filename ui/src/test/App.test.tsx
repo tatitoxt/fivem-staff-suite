@@ -10,6 +10,7 @@ describe('NUI smoke', () => {
   it('renderiza las cinco vistas con los strings del init', async () => {
     render(<App />);
     expect(await screen.findByRole('heading', { name: 'Auditoría' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: LOCALES.es.ui_upgrade_core })).not.toBeInTheDocument();
     expect(screen.getAllByTestId(/^entry-/).length).toBeGreaterThanOrEqual(40);
 
     await nav(/Reportes/);
