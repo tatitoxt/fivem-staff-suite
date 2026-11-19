@@ -535,13 +535,26 @@ function T.test_evidence_detected_captured_and_verified()
       cb(false, shot)
     end,
   }
-  s.env.SaveResourceFile = function(_, path, data) files[path] = data end
+  local saveOk = false
+  s.env.SaveResourceFile = function(_, path, data)
+    if saveOk then files[path] = data end
+    return saveOk
+  end
+  local encode = s.env.json.encode
+  s.env.json.encode = function(value)
+    local index = encode(value)
+    return value.sha256 and ('{"sha256":"' .. value.sha256 .. '"}') or index
+  end
   s.env.LoadResourceFile = function(_, path) return files[path] end
   s.env.TriggerLatentClientEvent = function(event, src, _, data) latent = { event = event, src = src, data = data } end
   s.event('getState')
   assert(s.sent['staff_suite:state'].evidenceEnabled == true)
+  local before = #s.api.GetChain()
   s.event('ticketEvidence', id)
-  assert(requested == 19 and #ticket.evidence == 1)
+  assert(requested == 19 and #ticket.evidence == 0 and #s.api.GetChain() == before, 'sin archivo no hay evidencia')
+  saveOk = true
+  s.event('ticketEvidence', id)
+  assert(#ticket.evidence == 1)
   local item = ticket.evidence[1]
   assert(item.by == 'license:account17' and item.size == #shot and #item.sha256 == 64)
   local entries = s.api.GetChain()
@@ -550,9 +563,12 @@ function T.test_evidence_detected_captured_and_verified()
   s.event('evidenceGet', id, 1)
   assert(latent.event == 'staff_suite:evidence' and latent.src == 17)
   assert(latent.data.ok == true and latent.data.data == shot)
-  files['staff_suite_evidence_' .. id .. '_1.txt'] = 'data:image/jpeg;base64,BBBB'
+  assert(item.audit_seq == #entries)
+  local forged = 'data:image/jpeg;base64,BBBB'
+  files['staff_suite_evidence_' .. id .. '_1.txt'] = forged
+  item.sha256 = s.env.StaffSuiteModules.loadmod('core.sha256').hex(forged)
   s.event('evidenceGet', id, 1)
-  assert(latent.data.ok == false)
+  assert(latent.data.ok == false, 'reescribir archivo y ticket no alcanza: manda la auditoría')
 end
 
 return T

@@ -357,7 +357,7 @@ RegisterNetEvent('staff_suite:ticketEvidence', function(id)
       TriggerClientEvent('staff_suite:notify', src, t('evidence_failed'))
       return
     end
-    local item = { n = n, ts = os.time(), by = by, sha256 = sha256.hex(data), size = #data }
+    local item = { n = n, ts = os.time(), by = by, sha256 = sha256.hex(data), size = #data, audit_seq = #chain.entries + 1 }
     ticket.evidence[n] = item
     record('ticket_evidence', by, 'ticket:' .. id, '', { n = n, sha256 = item.sha256, size = item.size })
     TriggerClientEvent('staff_suite:notify', src, t('evidence_saved', { n = n }))
@@ -376,9 +376,12 @@ RegisterNetEvent('staff_suite:evidenceGet', function(id, n)
     TriggerClientEvent('staff_suite:notify', src, t('evidence_failed'))
     return
   end
-  TriggerLatentClientEvent('staff_suite:evidence', src, 250000, {
-    id = id, n = n, data = data, ok = sha256.hex(data) == item.sha256,
-  })
+  -- Se verifica contra la entrada de auditoría (protegida por la cadena), no contra el ticket.
+  local entry = item.audit_seq and chain.entries[item.audit_seq]
+  local hash = sha256.hex(data)
+  local ok = entry ~= nil and entry.action == 'ticket_evidence' and entry.target == 'ticket:' .. id
+    and type(entry.payload) == 'string' and entry.payload:find(hash, 1, true) ~= nil
+  TriggerLatentClientEvent('staff_suite:evidence', src, 250000, { id = id, n = n, data = data, ok = ok })
 end)
 
 RegisterNetEvent('staff_suite:modAction', function(action, tgt, reason)
