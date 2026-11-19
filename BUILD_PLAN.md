@@ -22,7 +22,7 @@
 | 15 | NUI: panel tickets (cola, claim, chat, moderación) | ✅ smoke test claim |
 | 16 | NUI: dashboard staff (duty, leaderboard) | ✅ + Duty + Ajustes |
 | 17 | Locales ES/EN completos | ✅ test_locales (8 tests) |
-| 18 | Test resource E2E (eventos simulados → asserts) | ✅ `tests/e2e_resource` (27 asserts, validado con natives mockeados) · corrida real en #19 |
+| 18 | Test resource E2E (eventos simulados → asserts) | ✅ `tests/e2e_resource` (30 asserts; exports devuelven `false, código`, persistencia con `Flush`) · corrida real en #19 |
 | 19 | Deploy QA + E2E green + resmon <0.05ms | 🔨 `scripts/e2e-fxserver.sh` + job CI opcional + `docs/*/qa.md` · falta correrlo con `FIVEM_LICENSE_KEY` |
 | 20 | Sesión in-game Fausto (beta) + feedback | ⏳ (requiere Fausto) |
 | 21 | Docs ES/EN (install, config, permisos, FAQ) | ✅ README + docs/es + docs/en |

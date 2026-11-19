@@ -193,20 +193,26 @@ import json, sys
 path, budget = sys.argv[1], float(sys.argv[2])
 data = json.load(open(path))
 events = data.get('traceEvents', data) if isinstance(data, dict) else data
-total_us, n = 0.0, 0
+total_us, n, timed = 0.0, 0, 0
 for ev in events if isinstance(events, list) else []:
+    if not isinstance(ev, dict) or 'dur' not in ev:
+        continue
+    timed += 1
     blob = json.dumps(ev)
-    if 'staff_suite' in blob and 'staff_suite_tests' not in blob and 'dur' in ev:
+    if 'staff_suite' in blob and 'staff_suite_tests' not in blob:
         total_us += float(ev['dur']); n += 1
+if not timed:
+    print('[e2e] profiler sin eventos: presupuesto de staff_suite no medido')
+    sys.exit(0)
 per_tick = total_us / 1000 / 300
-print(f'[e2e] METRIC profiler_staff_suite_events={n}')
+print(f'[e2e] METRIC profiler_events={timed} profiler_staff_suite_events={n}')
 print(f'[e2e] METRIC profiler_staff_suite_ms_per_tick={per_tick:.4f} (presupuesto {budget})')
-sys.exit(4 if n and per_tick > budget else 0)
+sys.exit(4 if per_tick > budget else 0)
 PY
   then
     echo "[e2e] FAIL: staff_suite supera ${max_tick_ms} ms por tick" >&2; exit 4
   fi
 else
-  info 'profiler sin datos: rendimiento no medido (ver METRIC tick_*/record_* arriba)'
+  info 'profiler sin datos: rendimiento no medido (ver METRIC server_*/record_* arriba)'
 fi
 echo "[e2e] PASS: $result"
