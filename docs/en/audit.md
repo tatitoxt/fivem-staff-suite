@@ -20,7 +20,7 @@ If someone edits a field, deletes an entry in the middle or reorders entries, th
 | `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reports (`/report`, panel and the `TicketAction` export) |
 | `ticket_message` | ticket messages (the `payload` says whether it is an internal note, not the text) |
 | `mod_<action>` | moderation from the panel (`goto`, `bring`, `freeze`, `heal`, `kick`, `ban`, `warn`, `spectate`, `revive`) |
-| `duty.in`, `duty.out` | `/duty` |
+| `duty.in`, `duty.out` | `/duty` and the `SetDuty` export |
 | `audit_verify` | verification from the panel (result in `reason`) |
 | `framework_job`, `framework_group`, `framework_item_added`, `framework_money` | events from the active framework when `Config.Audit.capture_framework = true` |
 | `txadmin_ban`, `txadmin_kick`, `txadmin_warn`, `txadmin_heal` | txAdmin events controlled by the same setting |
@@ -82,6 +82,7 @@ Automatic comparison against anchors (the core already has `verify_head`) and an
 | `CreateTicket(data)` | Creates a ticket (`reporter`, `category`, `priority`, `description`, `ts`). Returns the id. |
 | `TicketAction(id, action, actor, extra)` | Ticket transition (`claim`, `unclaim`, `transfer`, `start`, `resolve`, `close`, `reopen`) plus its audit entry. Returns `ticket, event` or `nil, error`. For `transfer`, `extra.to` is the recipient's identifier. |
 | `GetState()` | Full state (chain, tickets, permissions, duty). |
+| `SetDuty(actor, onDuty)` | Clock in (`true`) or out (`false`) with its `duty.in`/`duty.out` entry. Returns the event or `nil, error`. |
 
 Example:
 

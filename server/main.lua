@@ -421,6 +421,12 @@ expose('TicketAction', function(id, action, actor, extra)
   return ticket, ev
 end)
 expose('GetState', snapshot)
+expose('SetDuty', function(actor, onDuty)
+  local ev, err
+  if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
+  if ev then record(ev.event, actor, actor, '', {}) end
+  return ev, err
+end)
 
 -- ===== Init =====
 CreateThread(function()

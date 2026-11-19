@@ -53,12 +53,14 @@ Desde el repositorio, ejecutá `./scripts/build-release.sh` en Linux con Bash, N
 - [Panel (NUI)](docs/es/panel.md)
 - [Auditoría: export y verificación](docs/es/auditoria.md)
 - [FAQ y solución de problemas](docs/es/faq.md)
+- [QA y E2E en FXServer](docs/es/qa.md)
 
 ## Tests
 
 ```
 lua5.4 tests/run_all.lua
 cd ui && npm ci && npm test
+FIVEM_LICENSE_KEY=... scripts/e2e-fxserver.sh   # E2E en FXServer real, ver docs/es/qa.md
 ```
 
 ---
@@ -116,10 +118,12 @@ Run `./scripts/build-release.sh` from the repository on Linux with Bash, Node.js
 - [Panel (NUI)](docs/en/panel.md)
 - [Audit: export and verification](docs/en/audit.md)
 - [FAQ and troubleshooting](docs/en/faq.md)
+- [QA and FXServer E2E](docs/en/qa.md)
 
 ### Tests
 
 ```
 lua5.4 tests/run_all.lua
 cd ui && npm ci && npm test
+FIVEM_LICENSE_KEY=... scripts/e2e-fxserver.sh   # real FXServer E2E, see docs/en/qa.md
 ```
