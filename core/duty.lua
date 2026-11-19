@@ -23,9 +23,10 @@ end
 function M.clock_out(reg, actor, ts)
   local s = ensure(reg, actor)
   if not s.on_duty then return nil, "not on duty" end
-  s.total_seconds = s.total_seconds + (ts - s.since)
+  local seconds = ts - s.since
+  s.total_seconds = s.total_seconds + seconds
   s.on_duty = false; s.since = nil
-  return { event="duty.out", actor=actor, ts=ts, seconds=(ts - (s.since or ts)) }
+  return { event="duty.out", actor=actor, ts=ts, seconds=seconds }
 end
 
 function M.record_resolved(reg, actor, response_seconds)

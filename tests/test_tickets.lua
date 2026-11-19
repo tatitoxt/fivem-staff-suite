@@ -1,56 +1,73 @@
--- tests/test_tickets.lua — state machine + claim exclusivo + rating.
+-- tests/test_tickets.lua — state machine de reports.
 local tickets = require("core.tickets")
 local T = {}
 
-local function mk() return tickets.new("t1","license:player1","bug","high",1000) end
+local function store_with_ticket()
+  local s = tickets.new_store()
+  local t = tickets.create(s, { reporter = "license:p1", category = "bug", priority = "high", description = "x", ts = 100 })
+  return s, t
+end
 
-function T.test_lifecycle()
-  local t = mk()
-  assert(t.state == "open")
-  assert(tickets.claim(t,"license:mod1",1001).to == "claimed")
-  assert(tickets.start(t,"license:mod1",1002).to == "in_progress")
-  assert(tickets.resolve(t,"license:mod1",1003,"fixed").to == "resolved")
-  assert(tickets.close(t,"license:mod1",1004).to == "closed")
-  assert(t.resolution == "fixed")
+function T.test_create()
+  local s, t = store_with_ticket()
+  assert(t.id == 1 and t.state == "open", "create open id 1")
+  assert(s.next_id == 2, "next_id increments")
+end
+
+function T.test_happy_path()
+  local s, t = store_with_ticket()
+  local _, e1 = tickets.transition(s, 1, "claim", "license:staff1", { ts = 101 })
+  assert(t.state == "claimed" and t.claimer == "license:staff1", "claimed")
+  assert(e1.action == "ticket_claim" and e1.from == "open" and e1.to == "claimed", "claim event")
+  tickets.transition(s, 1, "start", "license:staff1", { ts = 102 })
+  assert(t.state == "in_progress", "in_progress")
+  tickets.transition(s, 1, "resolve", "license:staff1", { resolution = "fixed", ts = 103 })
+  assert(t.state == "resolved" and t.resolution == "fixed", "resolved")
+  tickets.transition(s, 1, "close", "license:staff1", { ts = 104 })
+  assert(t.state == "closed", "closed")
 end
 
 function T.test_invalid_transition()
-  local t = mk()
-  local ev, err = tickets.resolve(t,"license:mod1",1001,"x")  -- open -> resolve inválido
-  assert(ev == nil and err, "resolve from open must fail")
+  local s = store_with_ticket()
+  local _, err = tickets.transition(s, 1, "resolve", "license:staff1")
+  assert(err and err:find("invalid_transition"), "cannot resolve from open")
 end
 
-function T.test_claim_exclusive()
-  local t = mk()
-  tickets.claim(t,"license:mod1",1001)
-  assert(not tickets.can_claim(t,"license:mod2"), "claimed ticket not claimable")
-  local ev, err = tickets.claim(t,"license:mod2",1002)
-  assert(ev == nil, "double claim must fail")
+function T.test_double_claim()
+  local s = store_with_ticket()
+  tickets.transition(s, 1, "claim", "license:staff1")
+  local _, err = tickets.transition(s, 1, "claim", "license:staff2")
+  assert(err == "already_claimed", "second staff cannot claim")
 end
 
 function T.test_transfer()
-  local t = mk()
-  tickets.claim(t,"license:mod1",1001)
-  local ev = tickets.transfer(t,"license:mod1",1002,"license:mod2")
-  assert(ev.to == "claimed" and t.claimer == "license:mod2", "transfer reassigns")
+  local s = store_with_ticket()
+  tickets.transition(s, 1, "claim", "license:staff1")
+  local t = tickets.transition(s, 1, "transfer", "license:staff2")
+  assert(t.claimer == "license:staff2", "transfer changes claimer")
 end
 
 function T.test_reopen()
-  local t = mk()
-  tickets.claim(t,"m",1001); tickets.resolve(t,"m",1002,"x"); tickets.close(t,"m",1003)
-  local ev = tickets.reopen(t,"license:player1",1004)
-  assert(ev.to == "reopened" and t.claimer == nil, "reopen clears claimer")
+  local s = store_with_ticket()
+  tickets.transition(s, 1, "claim", "license:s")
+  tickets.transition(s, 1, "resolve", "license:s", { resolution = "x" })
+  tickets.transition(s, 1, "reopen", "license:p1")
+  local t = s.tickets[1]
+  assert(t.state == "reopened" and t.claimer == nil and t.resolution == nil, "reopen clears")
 end
 
 function T.test_messages_and_rating()
-  local t = mk()
-  tickets.add_message(t,"license:player1","hay un bug",1001,false)
-  tickets.add_message(t,"license:mod1","lo veo",1002,true)  -- nota interna
-  assert(#t.messages == 2 and t.messages[2].internal)
-  tickets.claim(t,"m",1003); tickets.resolve(t,"m",1004,"ok")
-  assert(tickets.rate(t,"license:player1",5,1005).stars == 5)
-  local _, err = tickets.rate(t,"license:player1",9,1006)
-  assert(err, "rating > 5 must fail")
+  local s = store_with_ticket()
+  tickets.add_message(s, 1, "license:p1", "hola", false, 101)
+  tickets.add_message(s, 1, "license:s", "nota interna", true, 102)
+  assert(#s.tickets[1].messages == 2, "2 messages")
+  assert(s.tickets[1].messages[2].internal, "internal flag")
+  tickets.transition(s, 1, "claim", "license:s")
+  tickets.transition(s, 1, "resolve", "license:s", { resolution = "ok" })
+  local _, err = tickets.rate(s, 1, "license:p1", 5, 105)
+  assert(not err and s.tickets[1].rating == 5, "rating ok")
+  local _, err2 = tickets.rate(s, 1, "license:other", 3, 106)
+  assert(err2 == "not_reporter", "only reporter rates")
 end
 
 return T
