@@ -353,7 +353,10 @@ RegisterNetEvent('staff_suite:ticketEvidence', function(id)
     end
     ticket.evidence = ticket.evidence or {}
     local n = #ticket.evidence + 1
-    SaveResourceFile(GetCurrentResourceName(), evidenceFile(id, n), data, -1)
+    if not SaveResourceFile(GetCurrentResourceName(), evidenceFile(id, n), data, -1) then
+      TriggerClientEvent('staff_suite:notify', src, t('evidence_failed'))
+      return
+    end
     local item = { n = n, ts = os.time(), by = by, sha256 = sha256.hex(data), size = #data }
     ticket.evidence[n] = item
     record('ticket_evidence', by, 'ticket:' .. id, '', { n = n, sha256 = item.sha256, size = item.size })
