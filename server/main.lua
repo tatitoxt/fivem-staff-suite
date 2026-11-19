@@ -10,13 +10,16 @@ local bridges = loadmod('server.bridges.init')
 local duty   = loadmod('core.duty')
 local persist = loadmod('server.persist')
 local export = loadmod('server.export')
+local capture = loadmod('server.capture')
 
 -- ===== Estado =====
 local chain = audit.new()
 local store = tickets.new_store()
 local pmodel = perms.new()
 local dreg = duty.new_registry()
+local bans = {}
 local entry_count = 0
+local ready = false
 
 -- ===== Persistencia =====
 local function snapshot()
@@ -25,28 +28,30 @@ local function snapshot()
     tickets = store,
     perms = pmodel,
     duty = dreg,
+    bans = bans,
   }
 end
 
-local function save()
-  if Config.Persistence == 'oxmysql' and persist.db_ready() then
-    persist.save_db(snapshot())
-  else
-    persist.save_json(Config.JsonFile, snapshot())
-  end
-end
+local storage = persist.new(Config, snapshot)
 
 local function restore(data)
   if not data then return end
   if data.chain then chain.entries = data.chain.entries or {}; chain.head = data.chain.head or audit.GENESIS end
-  if data.tickets then store = data.tickets end
+  if data.tickets then
+    store.next_id = data.tickets.next_id or 1
+    for _, ticket in pairs(data.tickets.tickets or {}) do
+      store.tickets[ticket.id] = ticket
+      store.next_id = math.max(store.next_id, ticket.id + 1)
+    end
+  end
   if data.perms then pmodel = data.perms end
   if data.duty then dreg = data.duty end
+  if data.bans then bans = data.bans end
   entry_count = #chain.entries
 end
 
 -- ===== Auditoría =====
-local function record(action, actor, target, reason, payload)
+local function record(action, actor, target, reason, payload, onSaved)
   local e = audit.append(chain, {
     ts = os.time(), actor = actor or 'system', action = action,
     target = target or '', reason = reason or '',
@@ -54,7 +59,7 @@ local function record(action, actor, target, reason, payload)
   })
   entry_count = entry_count + 1
   if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
-  save()
+  storage.save(onSaved)
   return e
 end
 
@@ -111,34 +116,105 @@ local function sendTickets(src, player)
 end
 
 -- ===== Moderación (wrappers server-authoritative) =====
+local function banMessage(ban)
+  if ban.expires_at == 0 then return t('ban_permanent', { reason = ban.reason }) end
+  return t('ban_expires', { reason = ban.reason, date = os.date('!%Y-%m-%d %H:%M UTC', ban.expires_at) })
+end
+
+local function afterSanction(ctx, fn)
+  return function(ok)
+    if not ok then
+      if getIdentifier(ctx.src) == ctx.actor then
+        TriggerClientEvent('staff_suite:notify', ctx.src, t('mod_save_failed'))
+      end
+      return
+    end
+    if GetPlayerName(ctx.tgt) and getIdentifier(ctx.tgt) == ctx.target then fn() end
+  end
+end
+
 local modActions = {
-  ['goto'] = function(src, tgt) local p = GetPlayerPed(tgt); local c = GetEntityCoords(p); TriggerClientEvent('staff_suite:tp', src, c) end,
-  bring   = function(src, tgt) local p = GetPlayerPed(src); local c = GetEntityCoords(p); TriggerClientEvent('staff_suite:tp', tgt, c) end,
-  freeze  = function(_, tgt) FreezeEntityPosition(GetPlayerPed(tgt), true) end,
-  heal    = function(_, tgt) SetEntityHealth(GetPlayerPed(tgt), 200) end,
-  kick    = function(_, tgt, reason) DropPlayer(tgt, reason or t('kick_default_reason')) end,
+  ['goto'] = { run = function(m)
+    TriggerClientEvent('staff_suite:tp', m.src, GetEntityCoords(GetPlayerPed(m.tgt)))
+  end },
+  bring = { run = function(m)
+    TriggerClientEvent('staff_suite:tp', m.tgt, GetEntityCoords(GetPlayerPed(m.src)))
+  end },
+  freeze = { run = function(m) FreezeEntityPosition(GetPlayerPed(m.tgt), true) end },
+  heal = { run = function(m) SetEntityHealth(GetPlayerPed(m.tgt), 200) end },
+  kick = { reason = 'configured', run = function(m) DropPlayer(m.tgt, m.reason or t('kick_default_reason')) end },
+  revive = { run = function(m)
+    if not bridges.revive(m.tgt, Config) then return false, t('mod_unavailable') end
+  end },
+  spectate = { run = function(m)
+    local ped = GetPlayerPed(m.tgt)
+    if m.src == m.tgt or ped == 0 or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
+      return false, t('spectate_unavailable')
+    end
+    TriggerClientEvent('staff_suite:spectate', m.src, m.tgt, GetEntityCoords(ped))
+  end },
+  warn = { reason = true, run = function(m)
+    m.onSaved = afterSanction(m, function()
+      TriggerClientEvent('staff_suite:notify', m.tgt, t('warn_received', { reason = m.reason }))
+    end)
+  end },
+  ban = { reason = true, run = function(m)
+    local identifier = bridges.ban_identifiers(m.tgt)[1]
+    if not identifier then return false, t('mod_invalid_target') end
+    local seconds = m.duration
+    if seconds == nil then seconds = Config.Moderation.ban_duration or 86400 end
+    if seconds ~= 0 and (type(seconds) ~= 'number' or not positiveInteger(seconds) or seconds > 31536000) then
+      return false, t('ban_invalid_duration')
+    end
+    local now = os.time()
+    local ban = { actor = m.actor, reason = m.reason, created_at = now, expires_at = seconds == 0 and 0 or now + seconds }
+    bans[identifier] = ban
+    m.payload.expires_at = ban.expires_at
+    m.payload.identifier = identifier
+    m.onSaved = afterSanction(m, function() DropPlayer(m.tgt, banMessage(ban)) end)
+  end },
 }
 
-local function doMod(src, action, tgt, reason)
+local function doMod(src, action, tgt, reason, duration)
   if type(action) ~= 'string' then return false, t('mod_unavailable') end
   local player = getPlayer(src)
   if not can(player, 'mod.' .. action) then return false, t('no_permission') end
 
-  local fn = modActions[action]
-  if not fn then return false, t('mod_unavailable') end
+  local spec = modActions[action]
+  if not spec then return false, t('mod_unavailable') end
   tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
   if not tgt or not GetPlayerName(tgt) then
     return false, t('mod_invalid_target')
   end
-  reason = type(reason) == 'string' and reason:match('%S') and reason or nil
-  if Config.Moderation.require_reason and action == 'kick' and not reason then
+  reason = type(reason) == 'string' and reason:match('^%s*(.-)%s*$') or nil
+  if reason == '' then reason = nil end
+  if not reason and (spec.reason == true or spec.reason == 'configured' and Config.Moderation.require_reason) then
     return false, t('reason_required')
   end
-  local target = getIdentifier(tgt)
-  fn(src, tgt, reason)
-  record('mod_' .. action, actorId(player, src), target, reason, { action = action })
+  local ctx = { src = tonumber(src), tgt = tgt, actor = actorId(player, src), target = getIdentifier(tgt),
+    reason = reason, duration = duration, payload = { action = action } }
+  local ok, err = spec.run(ctx)
+  if ok == false then return false, err end
+  record('mod_' .. action, ctx.actor, ctx.target, reason, ctx.payload, ctx.onSaved)
   return true
 end
+
+AddEventHandler('playerConnecting', function(_, setKickReason)
+  if not ready then
+    setKickReason(t('persistence_starting'))
+    CancelEvent()
+    return
+  end
+  local now = os.time()
+  for _, identifier in ipairs(bridges.ban_identifiers(source)) do
+    local ban = bans[identifier]
+    if ban and (ban.expires_at == 0 or ban.expires_at > now) then
+      setKickReason(banMessage(ban))
+      CancelEvent()
+      return
+    end
+  end
+end)
 
 -- ===== Comandos =====
 local function configuredValue(values, requested, default)
@@ -162,11 +238,18 @@ local function createReport(src, category, priority, body)
   sendTickets(src, player)
 end
 
-RegisterCommand(Config.Commands.report, function(src, args)
-  createReport(src, args[1], nil, table.concat(args, ' ', 2))
-end, false)
+local function command(name, fn)
+  RegisterCommand(name, function(src, ...)
+    if ready then return fn(src, ...) end
+    if src ~= 0 then TriggerClientEvent('staff_suite:notify', src, t('persistence_starting')) end
+  end, false)
+end
 
-RegisterCommand(Config.Commands.duty, function(src)
+command(Config.Commands.report, function(src, args)
+  createReport(src, args[1], nil, table.concat(args, ' ', 2))
+end)
+
+command(Config.Commands.duty, function(src)
   if src == 0 then return end
   local player = getPlayer(src)
   if not can(player, 'staff.duty') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
@@ -176,9 +259,9 @@ RegisterCommand(Config.Commands.duty, function(src)
   if s and s.on_duty then ev = duty.clock_out(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_out', { time = string.format('%.1fh', (ev.seconds or 0) / 3600) }))
   else ev = duty.clock_in(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_in')) end
   if ev then record(ev.event, id, id, '', {}) end
-end, false)
+end)
 
-RegisterCommand(Config.Commands.audit, function(src)
+command(Config.Commands.audit, function(src)
   if src == 0 then
     local ok, at = audit.verify(chain)
     print(ok and t('console_audit_ok', { n = #chain.entries }) or t('console_audit_broken', { seq = at }))
@@ -187,15 +270,22 @@ RegisterCommand(Config.Commands.audit, function(src)
   if not can(getPlayer(src), 'audit.view') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
   local ok, at = audit.verify(chain)
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
-end, false)
+end)
 
 -- ===== NUI / eventos de panel =====
-RegisterNetEvent('staff_suite:ticketCreate', function(category, priority, body)
+local function net(name, fn)
+  RegisterNetEvent(name, function(...)
+    if ready then return fn(...) end
+    TriggerClientEvent('staff_suite:notify', source, t('persistence_starting'))
+  end)
+end
+
+net('staff_suite:ticketCreate', function(category, priority, body)
   if type(body) ~= 'string' or not body:match('%S') then return end
   createReport(source, category, priority, body)
 end)
 
-RegisterNetEvent('staff_suite:getState', function()
+net('staff_suite:getState', function()
   local src = source
   local player = getPlayer(src)
   local capabilities = {}
@@ -239,7 +329,7 @@ local ticketActionCaps = {
   transfer = 'report.resolve', resolve = 'report.resolve', close = 'report.resolve', reopen = 'report.resolve',
 }
 
-RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
+net('staff_suite:ticketAction', function(id, action, extra)
   local src = source
   local player = getPlayer(src)
   local cap = ticketActionCaps[action]
@@ -265,12 +355,13 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
     TriggerClientEvent('staff_suite:notify', src, t(ev:match('^[^:]+') or 'invalid_transition'))
     return
   end
+  if action == 'resolve' then duty.record_resolved(dreg, ev.actor) end
   record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   sendTickets(src, player)
   if recipientSrc and recipientSrc ~= tonumber(src) then sendTickets(recipientSrc, recipient) end
 end)
 
-RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal)
+net('staff_suite:ticketMessage', function(id, body, internal)
   local src = source
   id = positiveInteger(id)
   if not id or type(body) ~= 'string' or not body:match('%S') then return end
@@ -290,13 +381,13 @@ RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal)
   if claimerSrc and claimerSrc ~= tonumber(src) then sendTickets(claimerSrc, claimer) end
 end)
 
-RegisterNetEvent('staff_suite:modAction', function(action, tgt, reason)
+net('staff_suite:modAction', function(action, tgt, reason, duration)
   local src = source
-  local ok, err = doMod(src, action, tgt, reason)
+  local ok, err = doMod(src, action, tgt, reason, duration)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end
 end)
 
-RegisterNetEvent('staff_suite:verify', function()
+net('staff_suite:verify', function()
   local src = source
   local player = getPlayer(src)
   if not can(player, 'audit.verify') then return end
@@ -305,44 +396,43 @@ RegisterNetEvent('staff_suite:verify', function()
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
 end)
 
--- ===== Captura de comandos de admin (best-effort) =====
-if Config.Audit.capture_commands then
-  for _, cmd in ipairs({ 'ban', 'kick', 'warn', 'giveitem', 'givemoney', 'setjob' }) do
-    RegisterCommand(cmd, function(src, args)
-      if src == 0 then return end
-      record('cmd_' .. cmd, getIdentifier(src), args[1] or '', table.concat(args, ' ', 2), { args = args })
-    end, true)  -- restricted: solo si ya existe el comando con permisos
-  end
+-- ===== Exports (para test resource E2E + otros recursos) =====
+local function expose(name, fn)
+  exports(name, function(...)
+    if ready then return fn(...) end
+    return nil, 'persistence_starting'
+  end)
 end
 
--- ===== Exports (para test resource E2E + otros recursos) =====
-exports('Record', record)
-exports('Verify', function() return audit.verify(chain) end)
-exports('GetChain', function() return chain.entries end)
-exports('CreateTicket', function(data) local tk, ev = tickets.create(store, data); record(ev.action, ev.actor, ev.target, '', { ticket = tk.id }); return tk.id end)
-exports('TicketAction', function(id, action, actor, extra)
+expose('Record', function(action, actor, target, reason, payload) return record(action, actor, target, reason, payload) end)
+expose('Verify', function() return audit.verify(chain) end)
+expose('GetChain', function() return chain.entries end)
+expose('CreateTicket', function(data)
+  local tk, ev = tickets.create(store, data)
+  record(ev.action, ev.actor, ev.target, '', { ticket = tk.id })
+  return tk.id
+end)
+expose('TicketAction', function(id, action, actor, extra)
   local ticket, ev = tickets.transition(store, id, action, actor, extra)
   if ticket and ev then
+    if action == 'resolve' then duty.record_resolved(dreg, ev.actor) end
     record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   end
   return ticket, ev
 end)
-exports('GetState', snapshot)
+expose('GetState', snapshot)
 
 -- ===== Init =====
 CreateThread(function()
-  if Config.Persistence == 'oxmysql' and persist.db_ready() then
-    persist.init_schema(function() persist.load_db(restore) end)
-  else
-    restore(persist.load_json(Config.JsonFile))
-  end
-  print(t('console_started', { n = #chain.entries, persistence = Config.Persistence, framework = bridges.select(Config) }))
+  storage.load(function(data, backend)
+    restore(data)
+    ready = true
+    capture.install(Config, bridges.select, getIdentifier, record)
+    print(t('console_started', { n = #chain.entries, persistence = backend, framework = bridges.select(Config) }))
+  end)
 end)
 
--- Guardado periódico + al apagar
-CreateThread(function()
-  while true do Wait(60000); save() end
-end)
+-- Los lotes pendientes se respaldan antes de apagar el recurso.
 AddEventHandler('onResourceStop', function(res)
-  if res == GetCurrentResourceName() then save() end
+  if ready and res == GetCurrentResourceName() then storage.stop() end
 end)

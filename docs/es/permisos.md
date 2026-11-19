@@ -84,15 +84,15 @@ Una transferencia solo se acepta si el destinatario está conectado y tiene `rep
 
 ## Moderación
 
-Cada acción pasa por: chequeo de capability → jugador objetivo conectado (por server id o identificador) → razón obligatoria para `kick` (si `Config.Moderation.require_reason`) → ejecución → entrada en la auditoría (`mod_<acción>`).
+Cada acción pasa por: chequeo de capability → jugador objetivo conectado (por server id o identificador) → razón obligatoria para `ban` y `warn`, y para `kick` si `Config.Moderation.require_reason` → ejecución → entrada en la auditoría (`mod_<acción>`).
 
 | Acción | Estado en 0.1.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Funcionan. |
-| `ban`, `warn`, `spectate`, `revive` | Deshabilitadas: responden "Esta acción de moderación no está disponible.", no se auditan; en el panel warn y ban aparecen deshabilitados y spectate y revive no aparecen **(próximamente)**. |
+| `ban`, `warn`, `spectate`, `revive` | Disponibles en el panel para quien tenga la capability correspondiente. |
 | Descongelar (`unfreeze`) | **(próximamente)** |
 
-Staff Suite **no** reemplaza a txAdmin: noclip, god mode, spawn, ban, etc. siguen en txAdmin o tu framework.
+Noclip, god mode y spawn siguen en txAdmin o tu framework.
 
 ## Overrides por persona (próximamente)
 

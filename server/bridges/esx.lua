@@ -15,5 +15,15 @@ function B.get_player(src)
   }
 end
 
+function B.revive(src)
+  if GetResourceState('esx_death') == 'started' then
+    return exports.esx_death:Revive(src, 'staff_suite')
+  end
+  if GetResourceState('esx_ambulancejob') == 'started' then
+    TriggerClientEvent('esx_ambulancejob:revive', src)
+    return true
+  end
+end
+
 if StaffSuiteModules then StaffSuiteModules['server.bridges.esx'] = B end
 return B

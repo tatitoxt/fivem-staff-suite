@@ -14,5 +14,11 @@ function B.get_player(src)
   }
 end
 
+function B.revive(src)
+  if GetResourceState('qbx_medical') ~= 'started' then return end
+  exports.qbx_medical:Revive(src)
+  return true
+end
+
 if StaffSuiteModules then StaffSuiteModules['server.bridges.qbox'] = B end
 return B

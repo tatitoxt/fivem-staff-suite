@@ -32,7 +32,7 @@
 close_ui, set_locale{locale}, audit_verify, audit_filter{actor,action,from,to},
 ticket_claim{id}, ticket_transfer{id,to}, ticket_resolve{id,resolution}, ticket_close{id},
 ticket_reopen{id}, ticket_message{id,body,internal}, ticket_create{category,priority,body},
-mod_action{action,target,reason}, duty_toggle, refresh
+mod_action{action,target,reason,duration?}, duty_toggle, refresh
 ```
 **Tipos:**
 ```ts

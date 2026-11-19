@@ -45,9 +45,9 @@ La lista de destinatarios de transferencia la manda el server: staff conectado q
 
 El panel de moderación del ticket actúa sobre quien hizo el reporte. Cada botón necesita `mod.<acción>`. Con `Config.Moderation.require_reason = true`, kick pide una razón.
 
-- Funcionan: goto, bring, freeze, heal y kick.
-- Warn y ban aparecen deshabilitados, porque el server no manda esas capabilities mientras las acciones no existan **(próximamente)**.
-- Spectate y revive no aparecen en el panel **(próximamente)**.
+- Ban y warn siempre piden una razón. El ban puede ser temporal o permanente y el warn se notifica al jugador en el juego.
+- Spectate requiere que el objetivo esté en la misma instancia. Usá Retroceso para salir.
+- Revive usa la integración médica del framework si está disponible, con una implementación standalone para los demás casos.
 
 ## Idioma
 

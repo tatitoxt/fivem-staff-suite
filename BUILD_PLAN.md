@@ -13,8 +13,8 @@
 | 6 | core/permissions.lua (capabilities) | ✅ 7 tests |
 | 7 | core/duty.lua (analytics) | ✅ 3 tests |
 | 8 | Adapter FiveM: fxmanifest + server main | 🔨 |
-| 9 | Adapter: captura eventos framework + comandos | ⏳ |
-| 10 | Adapter: persistencia oxmysql + fallback JSON | ⏳ |
+| 9 | Adapter: captura de eventos de framework y txAdmin | ✅ Hooks server-side con mocks en ESX, QBCore, Qbox y txAdmin |
+| 10 | Adapter: persistencia oxmysql + fallback JSON | ✅ Migración SQL versionada, transacciones y recuperación de respaldo |
 | 11 | Adapter: export off-box (webhook + archivo) | ⏳ |
 | 12 | Adapter: bridges ESX/QBCore/Qbox/standalone | ✅ Tests Lua con mocks |
 | 13 | NUI: design system + layout (light, Manrope/DM Sans) | ✅ React 18+TS+Vite, `ui/` |
