@@ -288,8 +288,8 @@ RegisterNetEvent('staff_suite:ticketAction', function(id, action, extra)
     TriggerClientEvent('staff_suite:notify', src, t(ev:match('^[^:]+') or 'invalid_transition'))
     return
   end
-  record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   afterTransition(ticket, ev)
+  record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   sendTickets(src, player)
   if recipientSrc and recipientSrc ~= tonumber(src) then sendTickets(recipientSrc, recipient) end
 end)
@@ -414,8 +414,8 @@ exports('CreateTicket', function(data) local tk, ev = tickets.create(store, data
 exports('TicketAction', function(id, action, actor, extra)
   local ticket, ev = tickets.transition(store, id, action, actor, extra)
   if ticket and ev then
-    record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
     afterTransition(ticket, ev)
+    record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   end
   return ticket, ev
 end)
