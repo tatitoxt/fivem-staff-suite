@@ -28,6 +28,8 @@ local function sendInit()
     config = {
       panel_key = Config.PanelKey or 'F6',
       locales = locales,
+      categories = Config.Categories,
+      priorities = Config.Priorities,
       require_reason = Config.Moderation and Config.Moderation.require_reason ~= false,
       persistence = Config.Persistence,
       export = Config.Export and {
@@ -113,8 +115,16 @@ local function on(action, fn)
   end)
 end
 
+local function refreshSoon()
+  SetTimeout(250, function() TriggerServerEvent('staff_suite:getState') end)
+end
+
 local function ticketAction(action)
-  return function(d) TriggerServerEvent('staff_suite:ticketAction', d.id, action, d) end
+  return function(d)
+    d.ts = GetCloudTimeAsInt()
+    TriggerServerEvent('staff_suite:ticketAction', d.id, action, d)
+    refreshSoon()
+  end
 end
 
 on('close_ui', function() closePanel() end)
@@ -135,13 +145,14 @@ end)
 on('ticket_create', function(d)
   local body = tostring(d.body or ''):gsub('[\r\n]+', ' ')
   ExecuteCommand(('%s %s %s'):format(Config.Commands.report, d.category or 'other', body))
+  refreshSoon()
 end)
 on('mod_action', function(d)
   TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason)
 end)
 on('duty_toggle', function()
   ExecuteCommand(Config.Commands.duty)
-  SetTimeout(250, function() TriggerServerEvent('staff_suite:getState') end)
+  refreshSoon()
 end)
 
 -- ===== server -> NUI =====
