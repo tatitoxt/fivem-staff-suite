@@ -84,18 +84,20 @@ export function Dialog({
   title, children, footer, onClose,
 }: { title: string; children: ReactNode; footer: ReactNode; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const el = ref.current?.querySelector<HTMLElement>('input, textarea, select, button');
     el?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        closeRef.current();
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
+  }, []);
   return (
     <div className={v.overlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={v.dialog} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
