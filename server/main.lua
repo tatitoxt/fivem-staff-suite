@@ -148,10 +148,17 @@ local function cleanText(value, maxBytes)
   return value
 end
 
+-- Una entrada corrupta en disco no debe tumbar el handler: se reporta como rotura.
+local function safeVerify()
+  local done, ok, at = pcall(audit.verify, chain)
+  if done then return ok, at end
+  return false, #chain.entries
+end
+
 local function verifyCached()
   local n = #chain.entries
   if verifyCache.n ~= n or verifyCache.head ~= chain.head then
-    verifyCache = { n = n, head = chain.head, result = { audit.verify(chain) } }
+    verifyCache = { n = n, head = chain.head, result = { safeVerify() } }
   end
   return verifyCache.result
 end
@@ -386,12 +393,12 @@ end, 'staff_suite:duty')
 
 command(Config.Commands.audit, function(src)
   if src == 0 then
-    local ok, at = audit.verify(chain)
+    local ok, at = safeVerify()
     print(ok and t('console_audit_ok', { n = #chain.entries }) or t('console_audit_broken', { seq = at }))
     return
   end
   if not can(getPlayer(src), 'audit.view') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
-  local ok, at = audit.verify(chain)
+  local ok, at = safeVerify()
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
 end)
 
@@ -590,7 +597,7 @@ net('staff_suite:evidenceGet', function(id, n)
   local ok = entry ~= nil and entry.action == 'ticket_evidence' and entry.target == 'ticket:' .. id
     and type(entry.payload) == 'string' and entry.payload:find(hash, 1, true) ~= nil
   if ok then
-    local chainOk, brokenAt = audit.verify(chain)
+    local chainOk, brokenAt = safeVerify()
     ok = chainOk or (brokenAt ~= nil and brokenAt > item.audit_seq)
   end
   TriggerLatentClientEvent('staff_suite:evidence', src, 250000, { id = id, n = n, data = data, ok = ok })
@@ -606,7 +613,7 @@ net('staff_suite:verify', function()
   local src = source
   local player = getPlayer(src)
   if not can(player, 'audit.verify') then return end
-  local ok, at = audit.verify(chain)
+  local ok, at = safeVerify()
   record('audit_verify', actorId(player, src), '', ok and 'ok' or ('broken:' .. tostring(at)), {})
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
 end)

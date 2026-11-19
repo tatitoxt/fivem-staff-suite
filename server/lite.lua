@@ -65,10 +65,17 @@ local function cleanText(value, maxBytes)
   return value
 end
 
+-- Una entrada corrupta en disco no debe tumbar el handler: se reporta como rotura.
+local function safeVerify()
+  local done, ok, at = pcall(audit.verify, chain)
+  if done then return ok, at end
+  return false, #chain.entries
+end
+
 local verifyCache = {}
 local function verifyCached()
   if verifyCache.n ~= #chain.entries or verifyCache.head ~= chain.head then
-    verifyCache = { n = #chain.entries, head = chain.head, result = { audit.verify(chain) } }
+    verifyCache = { n = #chain.entries, head = chain.head, result = { safeVerify() } }
   end
   return verifyCache.result
 end
@@ -143,7 +150,7 @@ RegisterCommand(Config.Commands.reports, function(src)
 end, false)
 RegisterCommand(Config.Commands.audit, function(src)
   if src == 0 then
-    local ok, at = audit.verify(chain)
+    local ok, at = safeVerify()
     print(ok and t('console_audit_ok', { n = #chain.entries }) or t('console_audit_broken', { seq = at }))
   elseif isStaff(src) then
     TriggerClientEvent('staff_suite:openPanel', src, 'audit')
@@ -181,7 +188,7 @@ end)
 net('staff_suite:verify', function()
   local src = source
   if not isStaff(src) then return end
-  local ok, at = audit.verify(chain)
+  local ok, at = safeVerify()
   record('audit_verify', identifier(src), '', ok and 'ok' or ('broken:' .. tostring(at)))
   publishUpdates()
   TriggerClientEvent('staff_suite:auditResult', src, { ok = ok, at = at, n = #chain.entries })
