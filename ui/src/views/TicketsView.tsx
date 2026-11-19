@@ -52,6 +52,21 @@ function Composer({ tk }: { tk: Ticket }) {
   };
   return (
     <div className={cx(v.composer, internal && v.composerInternal)}>
+      {canned.length > 0 && (
+        <select
+          className={cx(ui.input, v.cannedPick)}
+          aria-label={t('ui_canned')}
+          value=""
+          disabled={disabled}
+          onChange={(e) => {
+            const c = canned.find((x) => x.id === e.target.value);
+            if (c) setBody((b) => (b.trim() ? `${b.trimEnd()} ${c.text}` : c.text));
+          }}
+        >
+          <option value="">{t('ui_canned_pick')}</option>
+          {canned.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+      )}
       <textarea
         className={ui.input}
         value={body}
@@ -74,21 +89,6 @@ function Composer({ tk }: { tk: Ticket }) {
           <span className={v.switchTrack} />
           {t('ui_internal_toggle')}
         </button>
-        {canned.length > 0 && (
-          <select
-            className={cx(ui.input, v.cannedPick)}
-            aria-label={t('ui_canned')}
-            value=""
-            disabled={disabled}
-            onChange={(e) => {
-              const c = canned.find((x) => x.id === e.target.value);
-              if (c) setBody((b) => (b.trim() ? `${b.trimEnd()} ${c.text}` : c.text));
-            }}
-          >
-            <option value="">{t('ui_canned_pick')}</option>
-            {canned.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-          </select>
-        )}
         <Button variant="primary" size="small" disabled={disabled || !body.trim()} onClick={submit}>
           <Send size={16} />{t('ui_send')}
         </Button>
