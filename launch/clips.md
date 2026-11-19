@@ -1,7 +1,7 @@
 # 10 clips para TikTok / Shorts / Reels
 
 > Formato: vertical 1080×1920, 15–35 s, subtítulos quemados, el hook en pantalla en el primer segundo. Mínimo 2 por semana (`DISTRIBUTION.md` §3).
-> Material: grabaciones reales del server QA o de las sesiones de Fausto (OBS). Nada que no exista: los clips marcados [PANEL] esperan a #13–16.
+> Material: grabaciones reales del server QA o de las sesiones de Fausto (OBS). Nada que no exista. El panel ya está (#13–16): los clips [PANEL] se graban in-game en el server QA, no con el modo demo del navegador.
 > Medir por clip: retención a los 3 s, % visto completo, clics al link de la bio. A las 4 semanas, repetir el ángulo que mejor rinda.
 > Caption base: hook + `Lite gratis, link en bio` + `#fivem #gtarp #fivemscripts #gtav` (EN: `#fivem #gtarp #fivemdev #gtav`).
 
@@ -46,7 +46,7 @@
 - Pantalla partida: dos staff hacen clic en "Reclamar" a la vez → uno lo toma, al otro le sale "Este reporte ya fue reclamado por otro staff." VO: "Se terminó el 'pensé que lo estabas viendo vos'." Sin panel: salida del E2E (`doble claim rechazado`).
 
 **6 · "No se kickea sin razón" (15 s) [PANEL]**
-- Intentar kick con la razón vacía → "Se requiere una razón." Escribir "RDM reiterado" → kick → aparece la entrada en la auditoría. VO: "Y queda registrado quién lo hizo."
+- Ticket abierto: el botón "Expulsar" está en gris con la razón vacía. Escribir "RDM reiterado" → se habilita → expulsar → aparece la entrada en la auditoría. VO: "Y queda registrado quién lo hizo."
 
 **7 · "Hash-chain explicado con un ban" (35 s)**
 - Pizarra simple: 3 cajas (entrada 1, 2, 3), flechas con el hash de la anterior. VO: "Cada entrada guarda una huella de la anterior. Si cambiás la 2, su huella cambia, y la 3 ya no coincide." Corte a la consola: `audit BROKEN at 2`. Cierre: "Esto es lo que usa Staff Integrity Suite. El Lite es gratis."

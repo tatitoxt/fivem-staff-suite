@@ -32,9 +32,10 @@ Lo que hay hoy:
 - /report con reclamo y transferencia (no se puede reclamar dos veces)
 - moderación desde el ticket con razón obligatoria
 - /duty con turnos registrados
+- panel in-game (F6): cola de tickets con notas internas, visor de auditoría con "Verificar cadena", dashboard de servicio
 - rangos desde ESX, QBCore, Qbox o ACE: nadie es staff hasta que lo configures
 - standalone, sin base de datos obligatoria
-- 39 tests en verde, con CI en cada PR
+- 41 tests en verde, con CI en cada PR
 
 **6/**
 Lo que NO hace, para que quede claro:
@@ -42,7 +43,7 @@ Lo que NO hace, para que quede claro:
 - no reemplaza a txAdmin (se usa junto a él)
 - no intercepta todo lo que hacen otros scripts: registra lo que pasa por el sistema y lo que le mandes
 
-Próximamente: panel in-game, chat de tickets, analytics del staff.
+Próximamente: chat con el jugador, analytics por staff (resueltos, tiempo de respuesta, rating).
 
 **7/**
 Va a haber una versión Lite gratis y una Core paga.
@@ -79,9 +80,10 @@ What works today:
 - /report with claim and transfer (no double claims)
 - moderation from the ticket with a required reason
 - /duty with logged shifts
+- in-game panel (F6): ticket queue with internal notes, audit viewer with "Verify chain", duty dashboard
 - ranks from ESX, QBCore, Qbox or ACE: nobody is staff until you configure it
 - standalone, no database required
-- 39 tests passing, with CI on every PR
+- 41 tests passing, with CI on every PR
 
 **6/**
 What it does NOT do:
@@ -89,7 +91,7 @@ What it does NOT do:
 - it doesn't replace txAdmin (it runs alongside it)
 - it can't intercept everything other scripts do: it logs what goes through it and what you send it
 
-Coming soon: in-game panel, ticket chat, staff analytics.
+Coming soon: chat with the player, per-staff analytics (resolved, response time, rating).
 
 **7/**
 There'll be a free Lite and a paid Core.

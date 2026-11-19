@@ -33,7 +33,7 @@ Cada acción que pasa por el sistema (un reporte, un reclamo, una moderación, u
 - `/duty` para entrar y salir de servicio, con la duración del turno registrada.
 - Funciona sin base de datos (JSON). oxmysql es opcional.
 - Español e inglés. `config.lua` y los locales se pueden editar.
-- *Próximamente:* panel in-game (F6) con cola de tickets y visor de auditoría.
+- **Panel in-game (F6 o `/staffsuite`):** cola de tickets con filtros, visor de auditoría con filtros y botón "Verificar cadena", y vista de servicio. La entrada alterada se marca en rojo.
 
 **Requisitos:** FXServer actualizado (Lua 5.4, `fx_version cerulean`). Standalone (rangos por ACE) o ESX, QBCore o Qbox: los detecta solo.
 
@@ -52,7 +52,7 @@ Every action that goes through the system (a report, a claim, a moderation actio
 - `/duty` to go on and off duty, with shift length recorded.
 - Works without a database (JSON). oxmysql is optional.
 - Spanish and English. `config.lua` and locales are editable.
-- *Coming soon:* in-game panel (F6) with ticket queue and audit viewer.
+- **In-game panel (F6 or `/staffsuite`):** ticket queue with filters, audit viewer with filters and a "Verify chain" button, and a duty view. The altered entry is highlighted in red.
 
 **Requirements:** up-to-date FXServer (Lua 5.4, `fx_version cerulean`). Standalone (ACE ranks) or ESX, QBCore or Qbox, detected automatically.
 
@@ -72,8 +72,10 @@ Todo el flujo de trabajo de tu staff en un solo script: reportes, moderación de
 - **Registro de comandos de admin:** `ban`, `kick`, `warn`, `giveitem`, `givemoney` y `setjob` quedan en la auditoría (best-effort, depende de cómo los registre tu server).
 - **API para tus scripts:** `exports.staff_suite:Record(...)` agrega cualquier acción de otro resource a la misma cadena.
 - **Persistencia en MySQL** vía oxmysql. Si no tenés, usa JSON.
+- **Ticket completo en el panel:** mensajes del staff y notas internas, prioridades, transferir a un staff de la lista y resolver con texto de resolución.
+- **Dashboard:** tickets abiertos y resueltos, quién está en servicio, horas y sesiones de cada staff, y alerta si la cadena se rompe.
 - **Updates de por vida** de la edición Core.
-- *Próximamente:* panel in-game (F6) con mensajes y notas internas del staff en el ticket y prioridades (la lógica en el server ya está; falta la interfaz), chat con el jugador, calificación del jugador (1–5), ban/warn/spectate/revive, respuestas predefinidas, evidencia con screenshot-basic, analytics del staff (horas, tickets resueltos, tiempo de respuesta, ranking).
+- *Próximamente:* chat con el jugador, calificación del jugador (1–5), ban/warn/spectate/revive, respuestas predefinidas, evidencia con screenshot-basic, analytics del staff (tickets resueltos, tiempo de respuesta y rating por staff).
 
 **Requisitos:** FXServer actualizado, OneSync (para goto/bring/freeze/heal), oxmysql opcional. Standalone, ESX, QBCore o Qbox.
 **Escrow:** el core va protegido con el Asset Escrow de Cfx. `config.lua`, locales y la interfaz quedan abiertos para editar.
@@ -90,8 +92,10 @@ Your staff's whole workflow in one script: reports, moderation from the ticket, 
 - **Admin command logging:** `ban`, `kick`, `warn`, `giveitem`, `givemoney` and `setjob` are written to the audit log (best-effort, depends on how your server registers them).
 - **API for your scripts:** `exports.staff_suite:Record(...)` adds any action from another resource to the same chain.
 - **MySQL storage** via oxmysql. Without it, JSON is used.
+- **Full ticket view in the panel:** staff messages and internal notes, priorities, transfer to a staff member from a list, and resolve with a resolution note.
+- **Dashboard:** open and resolved tickets, who's on duty, hours and sessions per staff member, and an alert if the chain breaks.
 - **Lifetime updates** for the Core edition.
-- *Coming soon:* in-game panel (F6) with staff messages and internal notes on tickets plus priorities (the server logic is done; the UI isn't), chat with the player, player rating (1–5), ban/warn/spectate/revive, canned responses, screenshot-basic evidence, staff analytics (hours, resolved tickets, response time, leaderboard).
+- *Coming soon:* chat with the player, player rating (1–5), ban/warn/spectate/revive, canned responses, screenshot-basic evidence, staff analytics (resolved tickets, response time and rating per staff member).
 
 **Requirements:** up-to-date FXServer, OneSync (for goto/bring/freeze/heal), oxmysql optional. Standalone, ESX, QBCore or Qbox.
 **Escrow:** the core is protected with Cfx Asset Escrow. `config.lua`, locales and the UI stay open for editing.
@@ -140,6 +144,7 @@ Priced per server, not per staff member: your team can grow without paying more.
 | Auditoría con hash-chain SHA-256 | SHA-256 hash-chained audit log |
 | Detecta entradas editadas, borradas o reordenadas | Detects edited, deleted or reordered entries |
 | Ancla externa en Discord + archivo | Off-server anchor in Discord + file |
+| Panel in-game: tickets, auditoría, servicio | In-game panel: tickets, audit, duty |
 | Tickets con reclamo y transferencia | Tickets with claim and transfer |
 | Moderación desde el ticket, con razón | Moderation from the ticket, with a reason |
 | Turnos de staff registrados | Staff duty shifts recorded |
@@ -152,11 +157,13 @@ Priced per server, not per staff member: your team can grow without paying more.
 | Tickets + ciclo completo | ✅ | ✅ | ✅ |
 | Audit hash-chain + verificación + ancla externa | ✅ | ✅ | ✅ |
 | Duty on/off | ✅ | ✅ | ✅ |
+| Panel in-game (F6): cola de tickets + visor de auditoría | ✅ | ✅ | ✅ |
+| Mensajes/notas internas, prioridades, dashboard de horas y servicio | — | ✅ | ✅ |
 | Moderación desde el ticket | — | ✅ | ✅ |
 | Permisos por rango + overrides | — | ✅ | ✅ |
 | Rangos desde ESX / QBCore / Qbox | — | ✅ | ✅ |
 | Registro de comandos de admin + API `Record` | — | ✅ | ✅ |
-| Analytics de staff | — | próximamente | próximamente |
+| Analytics por staff (resueltos, tiempo de respuesta, rating) | — | próximamente | próximamente |
 | Inventario de permisos, flags, casos, apelaciones | — | — | próximamente |
 | Precio | $0 | {{PRECIO_CORE}} único | {{PRECIO_PRO}}/mes |
 
@@ -201,7 +208,7 @@ Priced per server, not per staff member: your team can grow without paying more.
 
 Tebex: la imagen del paquete se muestra según el template; la guía de Tebex pide **PNG de ≤165 px de alto** para la imagen del paquete, y permite videos de YouTube en un carrusel junto a las imágenes ([doc](https://docs.tebex.io/creators/tebex-control-panel/how-to-create-packages/how-to-create-a-package)). Tebex recomienda un template consistente (Figma), título visible, colores con contraste y no sacar capturas de noche.
 
-Estilo: el del panel (BUILD_PLAN: fondo claro, Manrope 800 para títulos, DM Sans para el cuerpo, verde #16A34A = íntegro, naranja #F58220 = acento, rojo #E5484D = cadena rota). Sin gradientes violetas ni emojis. Todas las capturas son reales: panel final (#13–16) en un server de QA con datos de prueba, sin nombres reales de jugadores.
+Estilo: el del panel (BUILD_PLAN: fondo claro, Manrope 800 para títulos, DM Sans para el cuerpo, verde #16A34A = íntegro, naranja #F58220 = acento, rojo #E5484D = cadena rota). Sin gradientes violetas ni emojis. Todas las capturas son reales: panel corriendo in-game en un server de QA con datos de prueba (no el modo demo de `npm run dev`), sin nombres reales de jugadores.
 
 | # | Archivo | Tamaño | Contenido | Uso |
 |---|---|---|---|---|
@@ -212,10 +219,11 @@ Estilo: el del panel (BUILD_PLAN: fondo claro, Manrope 800 para títulos, DM San
 | 5 | `cover-1280x720.png` | 1280×720 (16:9) | Pantalla partida: a la izquierda, cadena verde "íntegra"; a la derecha, la misma cadena con una entrada en rojo "rota en #12". Texto: "¿Alguien borró un log?" | Miniatura de YouTube + primera imagen del post del foro (preview) |
 | 6 | `shot-audit.png` | 1920×1080 | Visor de auditoría: timeline con seq, acción, actor → target, razón, hash truncado | Carrusel Tebex + foro |
 | 7 | `shot-broken.png` | 1920×1080 | Resultado de verificar con una entrada manipulada a mano, resaltada en rojo | Carrusel + foro (la imagen más importante) |
-| 8 | `shot-ticket.png` | 1920×1080 | Ticket abierto: estado, reclamado por, botones de moderación, pedido de razón | Carrusel + foro |
+| 8 | `shot-ticket.png` | 1920×1080 | Ticket abierto: estado, reclamado por, hilo con una nota interna, botones de moderación con la razón escrita. Ojo: Advertir y Banear aparecen en gris (próximamente); recortar o aclararlo | Carrusel + foro |
+| 8b | `shot-dashboard.png` | 1920×1080 | Dashboard con tickets abiertos/resueltos, staff en servicio y la tabla del equipo. Tiempo de respuesta y rating todavía salen "—": no destacarlos | Carrusel |
 | 9 | `shot-discord.png` | 1280×720 | Mensaje del webhook "Ancla de auditoría · seq N · hash" (EN: "Audit anchor · seq N · hash") en un canal de Discord | Carrusel + foro |
 | 10 | `shot-console.png` | 1280×720 | Consola del server: `[StaffSuite] auditoría OK: N entradas` y después `auditoría ROTA en la entrada N` (o en inglés: `audit OK: N entries` / `audit BROKEN at entry N`) | Foro (prueba técnica) |
 | 11 | `shot-resmon.png` | recorte real | resmon con `staff_suite` (#19) | Foro (exigido por las reglas) |
 | 12 | `gif-verify.gif` | 600×338, ≤5 MB | Loop de 5–8 s: clic en "Verificar cadena" → verde; editar → rojo | Post del foro (como hacen los releases top) |
 
-Mientras el panel no esté terminado, las imágenes 5, 7 y 10 se pueden hacer con la consola del server (comando `/audit`) y un archivo de datos editado a mano: también es real.
+Para las imágenes 5, 7 y 12: frenar el resource, editar a mano una entrada en `staff_suite_data.json`, volver a iniciar y tocar "Verificar cadena" en el panel. La 10 sale de la consola con `/audit`.

@@ -2,7 +2,8 @@
 
 > Dos videos separados (YouTube ES y YouTube EN), mismo montaje. Grabado en el server QA con OBS (Fausto, PC Windows, D007), 1920×1080 a 60 fps, de día in-game, HUD limpio.
 > Estructura sugerida por Tebex para videos de scripts: presentación → features únicas → script en acción, en 30–90 s.
-> **Prerrequisito:** panel final (#13–16) y números de resmon (#19). Las escenas marcadas [PANEL] necesitan el panel. Si se graba antes, usar la **variante consola** indicada en cada escena: también es real.
+> **Prerrequisito:** números de resmon (#19). El panel ya está (#13–16): grabar las escenas [PANEL] in-game en el server QA, no con el modo demo del navegador. La **variante consola** de cada escena queda como alternativa (también es real).
+> En el ticket, Advertir y Banear aparecen en gris (próximamente): encuadrar para que no se lean como features.
 > Nada de mockups presentados como producto. Si una feature todavía no existe, no aparece en pantalla.
 
 ## Datos de prueba para la grabación
@@ -20,9 +21,9 @@
 | 2 | 5–10 s | Logo + nombre | **Staff Integrity Suite** · "El staff suite que audita a tu staff" | "Staff Integrity Suite registra lo que hace tu staff, y si alguien lo toca, se nota." |
 | 3 | 10–22 s | Jugador escribe `/report player me mató sin rol` → notificación "Reporte #4 creado" | `/report` | "El jugador reporta con un comando. El ticket llega al staff." |
 | 4 | 22–34 s | [PANEL] Mod_Lucas abre F6 → cola → reclama el #4 → otro staff intenta reclamarlo → "Este reporte ya fue reclamado". *Variante consola:* salida del resource de E2E (`tests/e2e_resource`): `[SSTEST] ok   doble claim rechazado`. | "Reclamar · transferir · resolver" | "Lo reclama un staff, y nadie más se lo puede pisar. Se puede transferir, resolver o reabrir." |
-| 5 | 34–46 s | [PANEL] Desde el ticket: goto → kick → pide razón → escribe "RDM reiterado" → kick | "Razón obligatoria" | "La moderación se hace desde el mismo ticket, y para expulsar a alguien, la razón es obligatoria." |
+| 5 | 34–46 s | [PANEL] Desde el ticket: goto → "Expulsar" está en gris → escribe la razón "RDM reiterado" → se habilita → expulsar | "Razón obligatoria" | "La moderación se hace desde el mismo ticket, y para expulsar a alguien, la razón es obligatoria." |
 | 6 | 46–58 s | [PANEL] Visor de auditoría: timeline con seq, actor → target, razón, hash. Zoom a `prev_hash` de una entrada = `hash` de la anterior. *Variante consola:* el JSON con dos entradas, resaltando los hashes. | "Cada entrada lleva el hash de la anterior" | "Todo queda en una cadena SHA-256: cada entrada lleva el hash de la anterior." |
-| 7 | 58–70 s | Corte: archivo editado (entrada #7). Clic en "Verificar cadena" → rojo "Cadena ROTA en la entrada 7". *Variante consola:* `audit` → `[StaffSuite] auditoría ROTA en la entrada 7`. | "Alguien editó la #7" | "Si alguien cambia una razón, borra un ban o reordena entradas, la verificación te dice exactamente dónde se rompió." |
+| 7 | 58–70 s | Corte: archivo editado (entrada #7). Clic en "Verificar cadena" → rojo "Cadena rota en #7", la #7 marcada "Alterada" y las siguientes "Sin garantía". *Variante consola:* `audit` → `[StaffSuite] auditoría ROTA en la entrada 7`. | "Alguien editó la #7" | "Si alguien cambia una razón, borra un ban o reordena entradas, la verificación te dice exactamente dónde se rompió." |
 | 8 | 70–76 s | Canal de Discord con mensajes "Ancla de auditoría · seq 20 · hash…" | "Ancla fuera del server" | "Y cada tantas entradas, el hash queda en tu Discord, fuera del alcance del que tenga acceso al server." |
 | 9 | 76–84 s | resmon con `staff_suite` · tabla Lite / Core | "Lite gratis · Core {{PRECIO_CORE}}" · "Standalone · ESX · QBCore · Qbox · ES/EN" | "Funciona standalone o con ESX, QBCore y Qbox, sin base de datos. Lite gratis, Core con moderación y permisos por rango." |
 | 10 | 84–90 s | Links | "Link en la descripción" | "Probalo gratis. Link abajo." |
@@ -58,9 +59,9 @@ No es un anticheat ni reemplaza a txAdmin: se usa junto a él.
 | 2 | 5–10 s | Logo + name | **Staff Integrity Suite** · "The staff suite that audits your staff" | "Staff Integrity Suite records what your staff does, and if someone touches the record, it shows." |
 | 3 | 10–22 s | Player types `/report player killed me with no RP` → "Report #4 created" | `/report` | "Players report with one command. The ticket goes to staff." |
 | 4 | 22–34 s | [PANEL] Mod_Lucas opens F6 → queue → claims #4 → another staff tries → "already claimed". *Console variant:* output of the E2E resource (`tests/e2e_resource`): `[SSTEST] ok   doble claim rechazado`. | "Claim · transfer · resolve" | "One staff member claims it, and nobody else can take it over. Transfer, resolve or reopen it." |
-| 5 | 34–46 s | [PANEL] From the ticket: goto → kick → reason prompt → "repeated RDM" → kick | "Reason required" | "Moderation happens right from the ticket, and kicks require a reason." |
+| 5 | 34–46 s | [PANEL] From the ticket: goto → "Kick" is greyed out → type the reason "repeated RDM" → it enables → kick | "Reason required" | "Moderation happens right from the ticket, and kicks require a reason." |
 | 6 | 46–58 s | [PANEL] Audit viewer: timeline with seq, actor → target, reason, hash. Zoom on `prev_hash` matching the previous `hash`. *Console variant:* the JSON with two entries, hashes highlighted. | "Each entry carries the previous hash" | "Everything goes into a SHA-256 chain: each entry carries the hash of the one before it." |
-| 7 | 58–70 s | Cut: edited file (entry #7). Click "Verify chain" → red "Chain BROKEN at entry 7". *Console variant:* `audit` → `[StaffSuite] audit BROKEN at entry 7`. | "Someone edited #7" | "If someone changes a reason, deletes a ban or reorders entries, verification shows exactly where it broke." |
+| 7 | 58–70 s | Cut: edited file (entry #7). Click "Verify chain" → red "Chain broken at #7", #7 tagged "Altered" and the rest "Not guaranteed". *Console variant:* `audit` → `[StaffSuite] audit BROKEN at entry 7`. | "Someone edited #7" | "If someone changes a reason, deletes a ban or reorders entries, verification shows exactly where it broke." |
 | 8 | 70–76 s | Discord channel with "Audit anchor · seq 20 · hash…" | "Anchored off-server" | "And every few entries, the hash is posted to your Discord, out of reach of whoever has server access." |
 | 9 | 76–84 s | resmon with `staff_suite` · Lite / Core table | "Lite free · Core {{PRECIO_CORE}}" · "Standalone · ESX · QBCore · Qbox · EN/ES" | "It runs standalone or on ESX, QBCore and Qbox, no database needed. Lite is free; Core adds moderation and rank permissions." |
 | 10 | 84–90 s | Links | "Link in the description" | "Try it free. Link below." |

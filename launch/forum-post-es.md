@@ -35,27 +35,29 @@ Si no carga el video, [hacé clic acá]({{YOUTUBE_ES}}).
 * **Entradas encadenadas:** quién, qué, a quién, cuándo y por qué, cada una ligada a la anterior con SHA-256.
 * **Detección de manipulación:** detecta entradas editadas, borradas o reordenadas, y te dice cuál se rompió.
 * **Ancla fuera del server:** cada N entradas (20 por defecto) el hash actual va a un webhook de Discord y a un archivo de log. Si alguien reescribe toda la cadena, no coincide con el ancla.
-* **Verificación cuando quieras:** `/audit` desde la consola o in-game. La verificación también queda registrada.
+* **Verificación cuando quieras:** `/audit` desde la consola o in-game, o el botón "Verificar cadena" del panel. La verificación también queda registrada.
+* **Visor de auditoría:** timeline con filtros por staff, acción y fecha. La entrada alterada se marca en rojo y las siguientes como "sin garantía".
 * **API:** con `exports.staff_suite:Record(action, actor, target, reason, payload)` tus otros scripts escriben en la misma cadena.
 
 **Reportes**
 * `/report <categoría> <descripción>`, con categorías configurables.
 * Reclamar, liberar, transferir, resolver, cerrar y reabrir. No se puede reclamar dos veces el mismo ticket.
 * Cada paso del ticket queda en la cadena.
+* Panel in-game (F6 o `/staffsuite`): cola con filtros por estado y prioridad, y detalle del ticket.
 
 **Lo que suma Core (pago)**
 * **Moderación desde el ticket:** goto, bring, freeze, heal y kick. El kick pide razón obligatoria. Todo queda en la cadena.
 * **Permisos por rango:** 5 rangos, 20 permisos, altas y bajas por persona.
 * **Rangos desde tu framework:** detecta Qbox, QBCore o ESX (o lo forzás con `Config.Framework`) y mapea grupos, permisos y jobs a los rangos (`Config.RankMap`, `Config.JobRankMap`). En standalone, por ACE (`staff_suite.<rango>`). Nadie tiene permisos de staff hasta que los configures.
 * **Registro de comandos de admin (best-effort):** `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`.
-* **Turnos:** `/duty` on/off con la duración registrada.
+* **Ticket completo en el panel:** mensajes del staff y notas internas, prioridades, transferir a un staff de la lista, resolver con texto.
+* **Turnos y dashboard:** `/duty` o el botón del panel, con la duración registrada. Dashboard con tickets abiertos/resueltos, quién está en servicio y horas por staff. Alerta si la cadena se rompe.
 * **Persistencia:** JSON sin base de datos, u oxmysql.
 
 **Próximamente** (sin fechas; lo anuncio cuando esté probado)
-* Panel in-game (F6): cola de tickets, timeline de auditoría y equipo. Los mensajes del staff, las notas internas y las prioridades ya funcionan en el server; falta el panel
 * Chat con el jugador y calificación del jugador
 * ban / warn / spectate / revive
-* Analytics del staff: horas, tickets resueltos, tiempo de respuesta, ranking
+* Analytics por staff: tickets resueltos, tiempo de respuesta y rating
 
 ## Lo que NO hace
 * No es un anticheat y no frena el abuso: hace que quede a la vista y que borrarlo se note.

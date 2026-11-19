@@ -37,27 +37,29 @@ If the video doesn't load, [click here]({{YOUTUBE_EN}}).
 * **Hash-chained entries:** who, what, to whom, when and why, each one linked to the previous one with SHA-256.
 * **Tamper detection:** edited, deleted or reordered entries are detected, and the broken entry is reported.
 * **Off-server anchor:** every N entries (default 20) the current hash goes to a Discord webhook and an append-only log file. If someone rewrites the whole chain, it won't match the anchor.
-* **On-demand verification:** `/audit` from the server console or in-game. The verification itself is logged.
+* **On-demand verification:** `/audit` from the server console or in-game, or the panel's "Verify chain" button. The verification itself is logged.
+* **Audit viewer:** timeline with filters by staff member, action and date. The altered entry is highlighted in red and everything after it is flagged "not guaranteed".
 * **API:** `exports.staff_suite:Record(action, actor, target, reason, payload)` lets your other scripts write to the same chain.
 
 **Reports**
 * `/report <category> <description>`, with configurable categories.
 * Claim, unclaim, transfer, resolve, close and reopen. Double claims are blocked.
 * Every ticket step goes into the audit chain.
+* In-game panel (F6 or `/staffsuite`): queue with state and priority filters, plus ticket details.
 
 **Core adds**
 * **Moderation from the ticket:** goto, bring, freeze, heal, kick. Kicks require a reason. Every action goes into the chain.
 * **Rank permissions:** 5 ranks, 20 capabilities, per-person grants and revokes.
 * **Ranks from your framework:** detects Qbox, QBCore or ESX (or force it with `Config.Framework`) and maps groups, permissions and jobs to ranks (`Config.RankMap`, `Config.JobRankMap`). Standalone uses ACE (`staff_suite.<rank>`). Nobody gets staff permissions until you configure them.
 * **Admin command logging (best-effort):** `ban`, `kick`, `warn`, `giveitem`, `givemoney`, `setjob`.
-* **Duty:** `/duty` on/off, shift length logged.
+* **Full ticket view in the panel:** staff messages and internal notes, priorities, transfer to a staff member from a list, resolve with a note.
+* **Duty and dashboard:** `/duty` or the panel button, shift length logged. Dashboard with open/resolved tickets, who's on duty and hours per staff member. Alert if the chain breaks.
 * **Storage:** JSON with no database, or oxmysql.
 
 **Coming soon** (no dates; announced here when tested)
-* In-game panel (F6) with ticket queue, audit timeline and team view. Staff messages, internal notes and priorities already work server-side; they need the panel
 * Chat with the player and player ratings
 * ban / warn / spectate / revive actions
-* Staff analytics: hours, resolved tickets, response time, leaderboard
+* Per-staff analytics: resolved tickets, response time and rating
 
 ## What it does NOT do
 * It's not an anticheat and it doesn't stop abuse. It makes abuse visible and hard to erase.
