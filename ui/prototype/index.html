@@ -274,7 +274,7 @@ window.addEventListener('message',e=>{
   const d=e.data||{};
   if(d.type==='open')document.getElementById('panel').classList.add('open');
   if(d.type==='close')document.getElementById('panel').classList.remove('open');
-  if(d.type==='state'){state=d.payload||state;locale=state.locale||locale;renderAll();}
+  if(d.type==='state'){state={...state,...d.payload};locale=state.locale||locale;renderAll();}
   if(d.type==='auditResult'){state.verify=[d.payload.ok,d.payload.at];renderAudit();}
   if(d.type==='notify')toast(d.payload);
 });
