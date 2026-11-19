@@ -77,11 +77,12 @@ describe('NUI dentro de FiveM', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<App />);
     act(() => {
-      window.postMessage({
+      const fromNui = (data: unknown) => window.dispatchEvent(new MessageEvent('message', { data, origin: 'https://nui-game-internal' }));
+      fromNui({
         type: 'init',
         payload: { locale: 'es', strings: LOCALES.es, version: '0.1.0', config: {}, player: { name: 'Fausto', rank: 'owner' } },
-      }, '*');
-      window.postMessage({ type: 'open', payload: { view: 'tickets' } }, '*');
+      });
+      fromNui({ type: 'open', payload: { view: 'tickets' } });
     });
     expect(await screen.findByText('Cargando datos…')).toBeInTheDocument();
 

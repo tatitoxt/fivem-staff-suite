@@ -61,6 +61,7 @@ Locale['es'] = {
   warn_received = 'Recibiste una advertencia del staff: %{reason}',
   export_username = 'Staff Suite Audit',
   export_anchor = 'Ancla de auditoría · seq %{seq} · `%{hash}`',
+  console_export_webhook_failed = '[StaffSuite] el webhook no recibió el ancla #%{seq} (HTTP %{status}, %{attempts} intentos). El archivo y la cadena no se afectan.',
   console_chain_broken = '[StaffSuite] ATENCIÓN: la cadena de auditoría cargada no verifica (entrada %{at}). Revisá el backup antes de seguir.',
   console_started = '[StaffSuite] iniciado · %{n} entradas de auditoría · persistencia=%{persistence} · framework=%{framework}',
   console_audit_ok = '[StaffSuite] auditoría OK: %{n} entradas',
