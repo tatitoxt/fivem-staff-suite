@@ -28,13 +28,19 @@ it('previews the preset reason and duration and sends only the preset ID for the
     locale: 'es', strings, version: '0.2.0', config: {
       sanction_templates: [{ id: 'evasion_day', action: 'ban', reason: 'Motivo fijo', duration: 86400 }],
     },
-    player: { name: 'Alex', rank: 'admin', capabilities: ['report.view', 'mod.warn', 'mod.ban', 'mod.template'] },
+    player: { name: 'Alex', rank: 'admin', capabilities: ['report.view', 'mod.warn', 'mod.ban', 'mod.freeze', 'mod.template'] },
   } });
   dispatch({ type: 'tickets', payload: { tickets: [ticket] } });
   dispatch({ type: 'open', payload: { view: 'tickets' } });
-  fireEvent.change(await screen.findByLabelText(strings.ui_sanction_template), { target: { value: 'evasion_day' } });
+  const selector = await screen.findByLabelText(strings.ui_sanction_template);
+  fireEvent.change(screen.getByLabelText(strings.ui_mod_reason), { target: { value: 'Borrador manual' } });
+  fireEvent.change(selector, { target: { value: 'evasion_day' } });
   expect(screen.getByRole('button', { name: strings.mod_warn })).toBeDisabled();
   expect(screen.getByLabelText(strings.ui_mod_reason)).toHaveValue('Motivo fijo');
+  fireEvent.click(screen.getByRole('button', { name: strings.mod_freeze }));
+  expect(transport).toHaveBeenCalledWith('https://staff_suite/mod_action', expect.objectContaining({
+    body: JSON.stringify({ action: 'freeze', target: 'license:reporter', reason: '', ticket: 42 }),
+  }));
   fireEvent.click(screen.getByRole('button', { name: strings.mod_ban }));
   const dialog = within(screen.getByRole('dialog', { name: strings.ui_confirm_ban_title }));
   expect(dialog.getByText(/86400/)).toBeInTheDocument();

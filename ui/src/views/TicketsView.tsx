@@ -73,7 +73,7 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
   const mod = (action: ModAction) => {
     if (action === 'ban') return openDialog({ kind: 'ban' });
     const preset = template?.action === action ? template.id : undefined;
-    void send('mod_action', { action, target: tk.reporter, reason: preset ? '' : reason.trim(), ticket: tk.id, template: preset });
+    void send('mod_action', { action, target: tk.reporter, reason: template ? '' : reason.trim(), ticket: tk.id, template: preset });
     if (NEEDS_REASON.has(action) || action === 'kick') {
       setReason('');
       setTemplate('');
