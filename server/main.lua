@@ -25,6 +25,24 @@ local entry_count = 0
 local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
+local profileHistory = {}
+local profileAuditIntact = true
+local profileKinds = { mod_warn = 'warns', mod_ban = 'bans', mod_ban_failed = 'bans',
+  player_profile_note = 'notes' }
+
+local function indexProfileEntry(entry)
+  local kind = profileKinds[entry.action]
+  if not kind then return end
+  local profile = profileHistory[entry.target]
+  if not profile then
+    profile = { warns = {}, bans = {}, notes = {} }
+    profileHistory[entry.target] = profile
+  end
+  local rows = profile[kind]
+  table.insert(rows, 1, { seq = entry.seq, ts = entry.ts, actor = entry.actor, text = entry.reason,
+    failed = entry.action == 'mod_ban_failed' or nil })
+  rows[21] = nil
+end
 
 -- ===== Persistencia =====
 local function snapshot()
@@ -55,7 +73,12 @@ local function restore(data)
     local last = chain.entries[#chain.entries]
     chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
     local verified, ok, at = pcall(audit.verify, chain)
-    if not verified or not ok then print(t('console_chain_broken', { at = at or '?' })) end
+    profileAuditIntact = verified and ok
+    if profileAuditIntact then
+      for _, entry in ipairs(chain.entries) do indexProfileEntry(entry) end
+    else
+      print(t('console_chain_broken', { at = at or '?' }))
+    end
   end
   if data.tickets then
     store.next_id = data.tickets.next_id or 1
@@ -78,6 +101,7 @@ local function record(action, actor, target, reason, payload, onSaved)
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
+  if profileAuditIntact and action ~= 'player_profile_note' then indexProfileEntry(e) end
   if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
   storage.save(onSaved)
   return e
@@ -441,18 +465,8 @@ end)
 
 -- ===== NUI / eventos de panel =====
 local function recentPlayerProfile(identifier)
-  local result = { warns = {}, bans = {}, notes = {}, tickets = {} }
-  local actions = { mod_warn = result.warns, mod_ban = result.bans, mod_ban_failed = result.bans,
-    player_profile_note = result.notes }
-  for i = #chain.entries, 1, -1 do
-    local entry = chain.entries[i]
-    local rows = actions[entry.action]
-    if rows and entry.target == identifier and #rows < 20 then
-      rows[#rows + 1] = { seq = entry.seq, ts = entry.ts, actor = entry.actor, text = entry.reason,
-        failed = entry.action == 'mod_ban_failed' or nil }
-    end
-    if #result.warns == 20 and #result.bans == 20 and #result.notes == 20 then break end
-  end
+  local profile = profileHistory[identifier] or {}
+  local result = { warns = profile.warns or {}, bans = profile.bans or {}, notes = profile.notes or {}, tickets = {} }
   -- Los IDs de ticket son monotónicos y el almacenamiento puede tener huecos.
   for _, ticket in pairs(store.tickets) do
     if ticket.reporter == identifier then
@@ -480,7 +494,7 @@ local function profileEvent(name, action, cap, fn)
     id = positiveInteger(id)
     local ticket = id and store.tickets[id]
     if not ticket then return reply(false, t('player_profile_missing')) end
-    if not verifyCached()[1] then return reply(false, t('player_profile_audit_broken')) end
+    if not profileAuditIntact then return reply(false, t('player_profile_audit_broken')) end
     fn(ticket.reporter, player, body, function(ok, err, data)
       if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then reply(ok, err, data) end
     end)
@@ -489,9 +503,8 @@ end
 
 profileEvent('staff_suite:playerProfile', 'staff_suite:playerProfileResult', 'player.profile.view',
   function(identifier, player, _, reply)
-    local profile = recentPlayerProfile(identifier)
     record('player_profile_view', player.identifier, identifier, '', nil, function(saved)
-      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and profile or nil)
+      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
     end)
   end)
 
@@ -499,7 +512,9 @@ profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResu
   function(identifier, player, body, reply)
     local text, err = cleanText(body, limit('message_body') or 1000)
     if not text or text == '' then return reply(false, err or t('player_profile_note_empty')) end
+    local sequence = #chain.entries + 1
     record('player_profile_note', player.identifier, identifier, text, nil, function(saved)
+      if saved then indexProfileEntry(chain.entries[sequence]) end
       reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
     end)
   end)
