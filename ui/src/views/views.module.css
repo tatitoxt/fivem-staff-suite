@@ -223,6 +223,9 @@
 .sectionHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); height: 44px; padding: 0 var(--s4); flex-shrink: 0; border-bottom: 1px solid var(--line); }
 .sectionHead h2 { font-size: 14px; }
 .tableWrap { flex: 1; }
+.playerSearch { display: flex; align-items: center; gap: var(--s2); color: var(--muted); }
+.playerSearch input { max-width: 320px; }
+.playerActions { display: flex; gap: var(--s1); }
 .table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
 .table th {
   position: sticky;

@@ -13,7 +13,7 @@ M.CAPS = {
   "mod.warn_escalate",
   "audit.view", "audit.verify", "audit.export",
   "staff.duty", "staff.analytics", "staff.announce", "staff.chat",
-  "player.profile.view", "player.profile.note",
+  "player.profile.view", "player.profile.note", "player.online.view",
   "staff.waypoint",
   "admin.config", "admin.permissions",
 }
@@ -27,7 +27,7 @@ local RANK_CAPS = {
     "report.view", "report.claim", "report.resolve", "report.message",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.kick", "mod.warn", "audit.view", "staff.duty", "staff.chat",
-    "player.profile.view", "player.profile.note",
+    "player.profile.view", "player.profile.note", "player.online.view",
     "mod.template",
   },
   admin = {
@@ -37,7 +37,7 @@ local RANK_CAPS = {
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
     "audit.view", "audit.verify", "staff.duty", "staff.analytics", "staff.announce", "staff.chat",
     "ban.view",
-    "player.profile.view", "player.profile.note",
+    "player.profile.view", "player.profile.note", "player.online.view",
     "mod.template",
     "mod.warn_escalate",
     "staff.waypoint",
@@ -52,7 +52,7 @@ local RANK_CAPS = {
     "mod.warn_escalate",
     "audit.view", "audit.verify", "audit.export",
     "staff.duty", "staff.analytics", "staff.announce", "staff.chat", "admin.config",
-    "player.profile.view", "player.profile.note",
+    "player.profile.view", "player.profile.note", "player.online.view",
     "staff.waypoint",
   },
   owner = nil, -- owner = todas (se resuelve abajo)

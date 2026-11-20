@@ -9,6 +9,7 @@ export const ALL_CAPS = [
   'report.export',
   'staff.chat',
   'player.profile.view', 'player.profile.note',
+  'player.online.view',
   'mod.template',
   'mod.goto', 'mod.bring', 'mod.spectate', 'mod.freeze', 'mod.heal',
   'mod.revive', 'mod.kick', 'mod.warn', 'mod.ban',

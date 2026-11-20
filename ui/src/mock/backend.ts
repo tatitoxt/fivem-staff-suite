@@ -282,6 +282,12 @@ export class MockBackend {
         this.emitAudit(false);
         return;
       }
+      case 'online_players':
+        return { ok: true, data: [
+          { id: 12, key: 1, name: 'Tomás', ping: 43, played_seconds: 6930, tickets: 1 },
+          { id: 37, key: 2, name: 'Meli', ping: 61, played_seconds: 3410, tickets: 1 },
+          { id: 42, key: 3, name: 'Vale', ping: 29, played_seconds: 1580, tickets: 0 },
+        ] };
       case 'player_profile':
       case 'player_profile_note': {
         const { id, body } = p as { id: number; body?: string };
@@ -398,7 +404,8 @@ export class MockBackend {
         this.toast('info', this.s('waypoint_no_marker'));
         return;
       case 'mod_action': {
-        const { action: mod, target, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
+        const { action: mod, target: destination, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
+        const target = typeof destination === 'string' ? destination : `src:${destination.id}`;
         const preset = template ? this.sanctionTemplates().find((item) => item.id === template && item.action === mod) : undefined;
         if (template && !preset) return this.toast('error', this.s('sanction_template_invalid'));
         const reason = preset?.reason ?? customReason;
