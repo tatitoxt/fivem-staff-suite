@@ -34,14 +34,15 @@ export function Sidebar() {
   const openTickets = state.tickets.filter((x) => x.state === 'open' || x.state === 'reopened').length;
   const broken = state.audit.verify?.ok === false;
   const name = state.player?.name ?? '';
+  const brand = state.config.brand;
 
   return (
     <aside className={s.sidebar}>
       <div className={s.brand}>
-        <div className={s.logo}><Link2 size={16} strokeWidth={2.4} /></div>
+        {brand?.logo ? <img className={s.logoImg} src={brand.logo} alt="" /> : <div className={s.logo}><Link2 size={16} strokeWidth={2.4} /></div>}
         <div>
-          <div className={s.brandName}>{t('panel_title')}</div>
-          <div className={s.brandTag}>{isLite ? 'Free Lite' : t('ui_brand_tag')}</div>
+          <div className={s.brandName}>{brand?.name || t('panel_title')}</div>
+          <div className={s.brandTag}>{isLite ? 'Free Lite' : brand?.name ? 'Staff Integrity Suite' : t('ui_brand_tag')}</div>
         </div>
       </div>
       <button type="button" className={s.cmdk} onClick={() => dispatch({ type: 'palette', open: true })} aria-keyshortcuts="Control+K">

@@ -123,3 +123,16 @@ lua5.4 tests/run_all.lua
 ```
 
 El test `test_locales` falla si falta una clave en algún idioma, si queda un texto vacío o si los placeholders (`%{id}`, `%{name}`…) no coinciden.
+
+## Tema y marca
+
+```lua
+Config.Theme = 'light'   -- 'light' | 'dark' | 'auto'
+Config.Brand = {
+  name = 'Los Santos RP',            -- reemplaza "Staff Suite" en el panel (máx. 40)
+  logo = 'brand/logo.png',           -- URL https:// o archivo en ui/public/brand/ (se copia a ui/dist/brand/ al compilar)
+  accent = '#1d4ed8',                -- '#RRGGBB'; se ignora si no cumple contraste AA en el tema activo
+}
+```
+
+`Config.Theme` es el tema por defecto. Cada staff puede elegir Claro, Oscuro o Automático en Ajustes, o cambiarlo con Ctrl+K; la preferencia queda en su cliente (KVP). Con el paquete de Tebex ya compilado, el logo local va directo en `ui/dist/brand/`.

@@ -28,7 +28,7 @@ files['client/**/*.lua'].read_globals = runtime_with({
   'IsEntityPositionFrozen', 'IsEntityVisible', 'IsPedInAnyVehicle', 'NetworkResurrectLocalPlayer', 'NetworkSetInSpectatorMode',
   'PlayerPedId', 'RegisterKeyMapping', 'RegisterNUICallback', 'SendNUIMessage',
   'SetEntityCollision', 'SetEntityCoords', 'SetEntityCoordsNoOffset', 'SetEntityHealth', 'SetEntityVisible',
-  'SetNuiFocus', 'TriggerServerEvent',
+  'SetNuiFocus', 'GetResourceKvpString', 'SetResourceKvp', 'TriggerServerEvent',
   'source',
 })
 files['tests/e2e_resource/server.lua'].read_globals = runtime_with({

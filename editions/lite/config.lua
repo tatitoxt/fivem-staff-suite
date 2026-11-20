@@ -2,6 +2,8 @@ Config = {
   Edition = 'lite',
   Locale = 'es',
   PanelKey = 'F6',
+  Theme = 'light', -- 'light' | 'dark' | 'auto'
+  Brand = { name = '', logo = '', accent = '' }, -- ver config.lua de Core
   Categories = { 'bug', 'player', 'staff', 'question', 'other' },
   Commands = { report = 'report', reports = 'reports', audit = 'audit' },
   JsonFile = 'staff_suite_data.json',

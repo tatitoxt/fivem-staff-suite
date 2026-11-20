@@ -3,6 +3,14 @@ Config = {}
 
 Config.Locale = 'es'                 -- 'es' | 'en'
 Config.PanelKey = 'F6'               -- tecla para abrir el panel NUI
+Config.Theme = 'light'               -- 'light' | 'dark' | 'auto'; cada staff lo puede cambiar en Ajustes
+
+-- Marca del server en el panel. Vacío = marca de Staff Suite.
+Config.Brand = {
+  name = '',                         -- nombre del server (máx. 40 caracteres)
+  logo = '',                         -- URL https:// o 'brand/logo.png' (archivo en ui/public/brand/ antes del build)
+  accent = '',                       -- color '#RRGGBB'; se ignora si no cumple contraste AA en el tema activo
+}
 
 Config.Commands = {
   report  = 'report',                -- jugador: abrir report
