@@ -80,9 +80,8 @@ it('uses the audited export response to prepare a CSV and neutralizes spreadshee
   dispatch({ type: 'open', payload: { view: 'weekly' } });
   dispatch({ type: 'dashboard', payload: { leaderboard: [], alerts: [], kpis: {} } } as IncomingMessage);
   fireEvent.click(await screen.findByRole('button', { name: strings.ui_weekly_export }));
-  expect(await screen.findByRole('textbox', { name: strings.ui_weekly_csv })).toHaveValue(
-    expect.stringContaining(`"'=HYPERLINK(""a"",""b"")",60,1,2,0,`),
-  );
+  const csv = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: strings.ui_weekly_csv });
+  expect(csv.value).toContain(`"'=HYPERLINK(""a"",""b"")",60,1,2,0,`);
   expect(transport).toHaveBeenLastCalledWith('https://staff_suite/staff_weekly', expect.objectContaining({
     body: JSON.stringify({ export: true }),
   }));

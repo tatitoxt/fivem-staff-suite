@@ -36,7 +36,7 @@ end
 function T.test_weekly_clips_shifts_and_counts_only_activity_in_the_window()
   local now, week = 700000, 604800
   local start = now - week
-  local result = D.weekly({
+  local result = duty.weekly({
     { actor = 'staff:A', action = 'duty.in', ts = start - 100 },
     { actor = 'staff:A', action = 'ticket_resolve', ts = start - 1 },
     { actor = 'staff:A', action = 'duty.out', ts = start + 200 },

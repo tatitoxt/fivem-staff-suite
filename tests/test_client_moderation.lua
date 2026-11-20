@@ -6,7 +6,7 @@ local function sandbox()
   local env = setmetatable({
     Config = { Locale = 'es' },
     StaffSuiteTranslate = function(key) return key end,
-    RegisterCommand = function(command, fn) client[command] = fn end,
+    RegisterCommand = function(name, fn) client.commands = client.commands or {}; client.commands[name] = fn end,
     RegisterKeyMapping = function() end,
     RegisterNetEvent = function(event, fn) events[event] = fn end,
     RegisterNUICallback = function(action, fn) callbacks[action] = fn end,
@@ -90,7 +90,7 @@ function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect
   assert(c.watched == 20 and c.focus == 20)
   events['staff_suite:spectateStop'](8)
   assert(c.watched == 20)
-  c.staffsuitestopspectate()
+  c.commands.staffsuitestopspectate()
   assert(c.pos.x == 1 and c.heading == 45 and c.visible and c.collision and not c.frozen and not c.watched and not c.focus)
   assert(c.args[1] == 'staff_suite:spectateEnded' and c.args[2] == 9)
 
@@ -171,6 +171,28 @@ function T.test_ticket_create_waits_for_server_result()
   callbacks.ticket_create({ body = 'sin respuesta' }, function(r) replies[#replies + 1] = r end)
   timers[2]()
   assert(replies[2].ok == false and replies[2].error == 'report_failed')
+end
+
+function T.test_hidden_panel_defers_data_until_open()
+  local client, env, events = sandbox()
+  local msgs = {}
+  env.SendNUIMessage = function(m) msgs[#msgs + 1] = m end
+  env.GetResourceMetadata = function() return '1.0' end
+  env.GetPlayerName = function() return 'Fausto' end
+  env.PlayerId = function() return 1 end
+  events['staff_suite:state']({ tickets = { { id = 1, messages = {} } } })
+  events['staff_suite:state']({ tickets = { { id = 1, messages = {} }, { id = 2, messages = {} } } })
+  for _, m in ipairs(msgs) do
+    assert(m.type ~= 'tickets' and m.type ~= 'dashboard', 'con el panel cerrado no se mandan datos a la NUI')
+  end
+  client.commands.staffsuite()
+  local open, tickets, count = nil, nil, 0
+  for i, m in ipairs(msgs) do
+    if m.type == 'open' then open = i end
+    if m.type == 'tickets' then tickets, count = i, count + 1 end
+  end
+  assert(open and tickets and tickets > open, 'al abrir se manda el último estado')
+  assert(count == 1 and #msgs[tickets].payload.tickets == 2, 'solo el último de cada tipo')
 end
 
 function T.test_notices_show_without_taking_focus()
