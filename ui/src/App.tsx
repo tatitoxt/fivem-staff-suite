@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { CommandPalette } from './components/CommandPalette';
 import { DevHarness } from './components/DevHarness';
 import { RatePrompt } from './components/RatePrompt';
@@ -70,7 +70,7 @@ function Shell() {
   }, [state.locale]);
 
   const nav = useNav();
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!state.visible) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
