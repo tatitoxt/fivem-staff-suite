@@ -13,3 +13,6 @@ Config.Export = {
 -- Mapeo opcional por identificador estable en standalone.
 -- Ejemplo: ['license:...'] = 'admin'
 Config.StandaloneRanks = {}
+
+-- Optativo. Tras este número de advertencias en la ventana, expulsa una vez por ventana.
+Config.WarnEscalation = { enabled = false, threshold = 3, window_seconds = 86400 }

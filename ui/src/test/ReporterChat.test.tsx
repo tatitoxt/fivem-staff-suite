@@ -20,12 +20,28 @@ function setup() {
   return transport;
 }
 
-const profile = (capabilities: string[]): IncomingMessage => ({
+const profile = (capabilities: string[], escalation?: { threshold: number; windowSeconds: number }): IncomingMessage => ({
   type: 'init',
   payload: {
-    locale: 'es', strings: LOCALES.es, version: '0.2.0', config: { limits: { message_body: 10 } },
+    locale: 'es', strings: LOCALES.es, version: '0.2.0',
+    config: { limits: { message_body: 10 }, warn_escalation: escalation },
     player: { name: 'Alex', rank: 'player', capabilities },
   },
+});
+
+it('shows the configured warning escalation only for authorized staff', async () => {
+  setup();
+  const ticket: Ticket = {
+    id: 1, reporter: 'license:reporter', state: 'open', category: 'bug', priority: 'normal',
+    claimer: null, created_ts: 1, updated_ts: 1, description: 'Report', messages: [], resolution: null, rating: null,
+  };
+  const rule = { threshold: 3, windowSeconds: 600 };
+  dispatch(profile(['report.view', 'mod.warn'], rule), { type: 'tickets', payload: { tickets: [ticket] } },
+    { type: 'open', payload: { view: 'tickets' } });
+  await screen.findByRole('button', { name: LOCALES.es.mod_warn });
+  expect(screen.queryByText(/acumular 3 advertencias en 10 min/)).not.toBeInTheDocument();
+  dispatch(profile(['report.view', 'mod.warn', 'mod.kick', 'mod.warn_escalate'], rule));
+  expect(screen.getByText(/acumular 3 advertencias en 10 min/)).toBeInTheDocument();
 });
 
 afterEach(() => {

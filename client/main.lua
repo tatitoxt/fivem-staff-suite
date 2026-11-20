@@ -15,6 +15,7 @@ local playerInfo = nil
 local transferTargets = nil
 local exportStatus = nil
 local evidenceEnabled = false
+local warnEscalation
 
 local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
@@ -66,6 +67,7 @@ local function sendInit()
       transfer_targets = transferTargets,
       canned = not lite and cannedList() or nil,
       evidence = not lite and evidenceEnabled,
+      warn_escalation = warnEscalation,
     },
   })
 end
@@ -245,6 +247,7 @@ RegisterNetEvent('staff_suite:state', function(state)
   if state.transferTargets then transferTargets = state.transferTargets; initDirty = true end
   if state.exportStatus then exportStatus = state.exportStatus; initDirty = true end
   if state.evidenceEnabled ~= nil then evidenceEnabled = state.evidenceEnabled == true; initDirty = true end
+  if state.warnEscalation ~= nil then warnEscalation = state.warnEscalation or nil; initDirty = true end
   if state.player then
     playerInfo = state.player
     rank = state.player.rank or rank

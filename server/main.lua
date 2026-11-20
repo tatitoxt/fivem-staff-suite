@@ -25,6 +25,36 @@ local entry_count = 0
 local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
+local rule = type(Config.WarnEscalation) == 'table' and Config.WarnEscalation or {}
+local escalate = rule.enabled == true and math.type(rule.threshold) == 'integer'
+  and rule.threshold >= 2 and rule.threshold <= 100
+  and math.type(rule.window_seconds) == 'integer' and rule.window_seconds >= 60 and rule.window_seconds <= 2592000
+local warnings, escalations, pendingEscalations = {}, {}, {}
+
+local function indexWarning(target, ts)
+  local history = warnings[target] or {}
+  warnings[target] = history
+  history[#history + 1] = ts
+  while #history > rule.threshold or history[1] <= ts - rule.window_seconds do
+    table.remove(history, 1)
+  end
+  return #history
+end
+
+local function restoreEscalation(now)
+  local cutoff, failures = now - rule.window_seconds, {}
+  for _, e in ipairs(chain.entries) do
+    if e.ts > cutoff and (e.action == 'mod_warn_failed' or e.action == 'mod_warn_escalation_failed') then
+      failures[tonumber(e.reason) or 0] = true
+    end
+  end
+  for _, e in ipairs(chain.entries) do
+    if e.ts > cutoff and not failures[e.seq] then
+      if e.action == 'mod_warn' then indexWarning(e.target, e.ts) end
+      if e.action == 'mod_warn_escalation' then escalations[e.target] = e.ts end
+    end
+  end
+end
 
 -- ===== Persistencia =====
 local function snapshot()
@@ -56,6 +86,10 @@ local function restore(data)
     chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
     local verified, ok, at = pcall(audit.verify, chain)
     if not verified or not ok then print(t('console_chain_broken', { at = at or '?' })) end
+    if escalate then
+      escalate = verified and ok
+      if escalate then restoreEscalation(os.time()) end
+    end
   end
   if data.tickets then
     store.next_id = data.tickets.next_id or 1
@@ -306,6 +340,42 @@ local modActions = {
   end },
 }
 
+local function canEscalate(player)
+  return escalate and can(player, 'mod.warn_escalate') and can(player, 'mod.warn') and can(player, 'mod.kick')
+end
+
+local function canKickEscalation(ctx)
+  if ctx.src == ctx.tgt or not GetPlayerName(ctx.src) or not GetPlayerName(ctx.tgt) then return false end
+  local actor, target = getPlayer(ctx.src), getPlayer(ctx.tgt)
+  return actor.identifier == ctx.actor and target.identifier == ctx.target and canEscalate(actor)
+    and not perms.outranks(target.rank, actor.rank)
+end
+
+local function warnSaved(ctx, sequence, saved)
+  if not saved then
+    record('mod_warn_failed', ctx.actor, ctx.target, tostring(sequence))
+    return
+  end
+  if not escalate then return end
+  local now = os.time()
+  local count = indexWarning(ctx.target, now)
+  if count < rule.threshold or pendingEscalations[ctx.target]
+    or (escalations[ctx.target] or -math.huge) > now - rule.window_seconds then return end
+  if not canKickEscalation(ctx) then return end
+  pendingEscalations[ctx.target] = true
+  local attempt = #chain.entries + 1
+  local reason = t('warn_escalation_reason', { count = count })
+  record('mod_warn_escalation', ctx.actor, ctx.target, reason, { warn_seq = sequence, count = count }, function(ok)
+    pendingEscalations[ctx.target] = nil
+    if not ok or not canKickEscalation(ctx) then
+      record('mod_warn_escalation_failed', ctx.actor, ctx.target, tostring(attempt))
+      return
+    end
+    escalations[ctx.target] = now
+    modActions.kick.run({ tgt = ctx.tgt, reason = reason })
+  end)
+end
+
 local function doMod(src, action, tgt, reason, duration)
   if type(action) ~= 'string' then return false, t('mod_unavailable') end
   local player = getPlayer(src)
@@ -330,6 +400,13 @@ local function doMod(src, action, tgt, reason, duration)
     reason = reason, duration = duration, payload = { action = action } }
   local ok, err = spec.run(ctx)
   if ok == false then return false, err end
+  if action == 'warn' and ctx.target:sub(1, 4) ~= 'src:' then
+    local sequence, notify = #chain.entries + 1, ctx.onSaved
+    ctx.onSaved = function(saved)
+      notify(saved)
+      warnSaved(ctx, sequence, saved)
+    end
+  end
   record('mod_' .. action, ctx.actor, ctx.target, reason, ctx.payload, ctx.onSaved)
   return true
 end
@@ -470,6 +547,7 @@ net('staff_suite:getState', function()
   local capabilities = {}
   for _, cap in ipairs(perms.CAPS) do
     local available = cap:sub(1, 4) ~= 'mod.' or modActions[cap:sub(5)]
+      or cap == 'mod.warn_escalate' and canEscalate(player)
     if available and can(player, cap) then capabilities[#capabilities + 1] = cap end
   end
   local rank = player.rank or 'player'
@@ -502,6 +580,7 @@ net('staff_suite:getState', function()
     verify = verify,
     alerts = alerts,
     evidenceEnabled = evidenceAvailable(),
+    warnEscalation = canEscalate(player) and { threshold = rule.threshold, windowSeconds = rule.window_seconds } or false,
     player = { name = player.name, rank = rank, identifier = player.identifier or '', capabilities = capabilities },
     rank = rank, locale = Config.Locale,
   })
@@ -688,6 +767,7 @@ end)
 
 net('staff_suite:modAction', function(action, tgt, reason, duration)
   local src = source
+  if action == 'warn' and not allowRate(src, 'staff_suite:modWarn') then return end
   local ok, err = doMod(src, action, tgt, reason, duration)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end
 end)

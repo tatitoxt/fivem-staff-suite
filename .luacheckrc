@@ -49,6 +49,7 @@ files['**/fxmanifest.lua'].read_globals = {
 files['config.lua'].globals = { 'Config' }
 files['editions/lite/config.lua'].globals = { 'Config' }
 files['server/config.lua'].globals = { 'Config.Export', 'Config.StandaloneRanks' }
+table.insert(files['server/config.lua'].globals, 'Config.WarnEscalation')
 files['locales/*.lua'].globals = { 'Locale' }
 files['shared/constants.lua'].globals = { 'SS' }
 files['shared/i18n.lua'].read_globals = { 'Config', 'Locale' }
