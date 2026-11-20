@@ -113,6 +113,20 @@ function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect
   assert(c.pos.x == 1 and c.visible and c.collision and not c.frozen)
 end
 
+function T.test_noclip_moves_forward_and_up_with_the_camera()
+  local c, env, events = sandbox()
+  env.source = 65535
+  env.GetDisabledControlNormal = function(_, control) return control == 31 and -1 or 0 end
+  env.GetGameplayCamRot = function() return { x = 20, z = 0 } end
+  env.GetFrameTime = function() return 1 / 60 end
+  env.IsControlPressed = function() return false end
+  env.DisableControlAction = function() end
+  env.SetEntityVelocity = function() end
+  events['staff_suite:staffMode']('noclip', true, 1)
+  assert(coroutine.resume(c.thread))
+  assert(c.pos.x == 1 and c.pos.y > 2 and c.pos.z > 3)
+end
+
 function T.test_invisible_restores_state_on_death_or_resource_stop()
   local c, env, events, _, hooks = sandbox()
   local change = events['staff_suite:staffMode']
