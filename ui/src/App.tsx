@@ -13,6 +13,7 @@ import { DashboardView } from './views/DashboardView';
 import { DutyView } from './views/DutyView';
 import { SettingsView } from './views/SettingsView';
 import { TicketsView } from './views/TicketsView';
+import { MyReportsView } from './views/MyReportsView';
 
 function CurrentView() {
   const { state, dispatch, t, send } = useApp();
@@ -44,6 +45,7 @@ function CurrentView() {
   switch (state.view) {
     case 'audit': return <AuditView />;
     case 'tickets': return <TicketsView />;
+    case 'myReports': return <MyReportsView />;
     case 'dashboard': return isLite ? null : <DashboardView />;
     case 'duty': return isLite ? null : <DutyView />;
     case 'settings': return <SettingsView />;

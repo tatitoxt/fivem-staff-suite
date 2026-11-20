@@ -19,7 +19,7 @@ If someone edits a field, deletes an entry in the middle or reorders entries, th
 |---|---|
 | `ticket_create`, `ticket_claim`, `ticket_unclaim`, `ticket_transfer`, `ticket_start`, `ticket_resolve`, `ticket_close`, `ticket_reopen` | reports (`/report`, panel and the `TicketAction` export) |
 | `ticket_message` | ticket messages (the `payload` says whether it is an internal note, not the text) |
-| `mod_<action>` | moderation from the panel (`goto`, `bring`, `freeze`, `heal`, `kick`, `ban`, `warn`, `spectate`, `revive`) |
+| `mod_<action>` | moderation from the panel (`goto`, `bring`, `freeze`, `unfreeze`, `heal`, `kick`, `ban`, `warn`, `spectate`, `revive`) |
 | `mod_ban_failed` | ban attempt that failed to take effect because of a persistence error |
 | `duty.in`, `duty.out` | `/duty` and the `SetDuty` export |
 | `audit_verify` | verification from the panel (result in `reason`) |

@@ -77,13 +77,13 @@ export function Segmented<T extends string>({
   );
 }
 
-export function ViewHeader({ title, subtitle, children }: { title: string; subtitle: string; children?: ReactNode }) {
+export function ViewHeader({ title, subtitle, children }: { title: string; subtitle?: string; children?: ReactNode }) {
   const { t, send } = useApp();
   return (
     <header className={v.viewHeader}>
       <div className={v.viewTitles}>
         <h1>{title}</h1>
-        <p>{subtitle}</p>
+        {subtitle && <p>{subtitle}</p>}
       </div>
       <div className={v.viewActions}>
         {children}

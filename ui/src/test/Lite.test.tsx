@@ -15,7 +15,8 @@ it('keeps audit and basic tickets visible while hiding Core screens and controls
   expect(await screen.findByRole('button', { name: 'Reclamar' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Transferir' })).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Moderación' })).not.toBeInTheDocument();
-  expect(screen.queryByText(LOCALES.es.ui_chat_title)).not.toBeInTheDocument();
+  expect(screen.getByText(LOCALES.es.ui_chat_title)).toBeInTheDocument();
+  expect(screen.queryByRole('switch', { name: LOCALES.es.ui_internal_toggle })).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Prioridad')).not.toBeInTheDocument();
 
   act(() => {
@@ -41,6 +42,29 @@ it('keeps audit and basic tickets visible while hiding Core screens and controls
   expect(await screen.findByRole('heading', { name: 'Ajustes' })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Exportación de auditoría' })).not.toBeInTheDocument();
   expect(screen.getByText('JSON')).toBeInTheDocument();
+});
+
+it('shows the player conversation in Lite', async () => {
+  render(<App />);
+  await screen.findByRole('button', { name: LOCALES.es.ui_my_reports });
+  act(() => {
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'init', payload: {
+        locale: 'en', strings: LOCALES.en, version: '0.1.0', config: {},
+        player: { name: 'Player', rank: 'player', capabilities: [] },
+      },
+    } }));
+    window.dispatchEvent(new MessageEvent('message', { data: {
+      type: 'myTickets', payload: { tickets: [{
+        id: 42, category: 'bug', state: 'open', description: 'My report',
+        messages: [{ mine: false, body: 'We are looking into it', ts: 1 }],
+      }] },
+    } }));
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'My reports' }));
+  expect(await screen.findByText('We are looking into it')).toBeInTheDocument();
+  expect(screen.getByRole('textbox', { name: LOCALES.en.ui_reply_placeholder })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: /^Reports/ })).not.toBeInTheDocument();
 });
 
 it('opens the upgrade details and links to Tebex only when configured', async () => {

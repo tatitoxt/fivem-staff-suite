@@ -2,7 +2,7 @@
 
 | Feature | Free Lite | Core |
 |---|---|---|
-| Reports and tickets | `/report`, queue, claim, resolve, close and reopen | Basic workflow, priorities, chat, internal notes, transfers, canned replies, ratings and evidence |
+| Reports and tickets | `/report`, queue, claim, resolve, close, reopen and public chat in My reports | Lite workflow plus priorities, internal notes, transfers, canned replies, ratings and evidence |
 | Audit | SHA-256 chain for panel actions, viewer and verification | Everything in Lite, external event capture, anchoring and audit export |
 | Moderation, duty and analytics | — | In-ticket moderation, duty and staff analytics |
 | Integrations and access | Standalone with a single staff ACE permission | Standalone, ESX, QBCore and Qbox with ranks and capabilities. Exports API for other resources |

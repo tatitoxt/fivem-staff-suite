@@ -22,17 +22,26 @@ for _, ticket in pairs(saved.tickets and saved.tickets.tickets or {}) do
 end
 store.next_id = math.max(store.next_id, saved.tickets and saved.tickets.next_id or 1)
 
-local capabilities = { 'report.view', 'report.claim', 'report.resolve', 'audit.view', 'audit.verify' }
+local capabilities = { 'report.view', 'report.claim', 'report.resolve', 'report.message', 'audit.view', 'audit.verify' }
 local actions = { claim = true, resolve = true, close = true, reopen = true }
 
-local function identifier(src)
+local function playerIdentifier(src)
   local ids = GetPlayerIdentifiers(src)
   local alternative = ids[1]
   for _, id in ipairs(ids) do
     if id:sub(1, 8) == 'license:' then return id end
     if id:sub(1, 9) == 'license2:' then alternative = id end
   end
-  return alternative or 'src:' .. src
+  return alternative
+end
+
+local function identifier(src)
+  return playerIdentifier(src) or 'src:' .. src
+end
+
+local function positiveInteger(value)
+  local n = tonumber(value)
+  if n and n > 0 and n <= 2147483647 and n % 1 == 0 then return math.tointeger(n) end
 end
 
 local function isStaff(src)
@@ -95,22 +104,28 @@ end
 
 local function sendState(src)
   local staff = isStaff(src)
+  local reporter = playerIdentifier(src)
   TriggerClientEvent('staff_suite:state', src, {
     tickets = staff and store.tickets or {},
+    myTickets = tickets.reporter_view(store, reporter),
     audit = staff and chain.entries or {},
     verify = staff and verifyCached() or {},
     player = {
-      identifier = identifier(src), name = GetPlayerName(src), rank = staff and 'lite_staff' or 'player',
+      identifier = reporter or 'src:' .. src, name = GetPlayerName(src), rank = staff and 'lite_staff' or 'player',
       capabilities = staff and capabilities or {},
     },
   })
 end
 
-local function publishUpdates()
+local function publishUpdates(ticket, staffReply)
   for _, player in ipairs(GetPlayers()) do
     local src = tonumber(player)
     if isStaff(src) then
       TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets, audit = chain.entries })
+    end
+    if ticket and playerIdentifier(src) == ticket.reporter then
+      TriggerClientEvent('staff_suite:state', src, { myTickets = tickets.reporter_view(store, ticket.reporter) })
+      if staffReply then notify(src, 'ticket_staff_reply', { id = ticket.id }) end
     end
   end
 end
@@ -124,7 +139,7 @@ local function createReport(src, category, body)
   if not body or body == '' then return false end
   local reporter, open = identifier(src), 0
   for _, ticket in pairs(store.tickets) do
-    if ticket.reporter == reporter and ticket.state ~= 'resolved' and ticket.state ~= 'closed' then open = open + 1 end
+    if ticket.reporter == reporter and tickets.is_open(ticket) then open = open + 1 end
   end
   if limits.open_tickets_per_player and open >= limits.open_tickets_per_player then
     notify(src, 'report_too_many_open', { max = limits.open_tickets_per_player })
@@ -139,7 +154,7 @@ local function createReport(src, category, body)
   })
   record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = selected })
   notify(src, 'report_created', { id = ticket.id })
-  publishUpdates()
+  publishUpdates(ticket)
   return true
 end
 
@@ -171,16 +186,16 @@ RegisterNetEvent('staff_suite:ticketCreate', function(category, _, body, req)
   local src = source
   local ok, err = false, t('rate_limited')
   if allowRate(src, 'staff_suite:ticketCreate') then ok, err = createReport(src, category, body) end
-  req = tonumber(req)
-  if req and req > 0 and req <= 2147483647 and req % 1 == 0 then
-    TriggerClientEvent('staff_suite:ticketCreateResult', src, { req = math.tointeger(req), ok = ok == true, error = err })
+  req = positiveInteger(req)
+  if req then
+    TriggerClientEvent('staff_suite:ticketCreateResult', src, { req = req, ok = ok == true, error = err })
   end
 end)
 net('staff_suite:ticketAction', function(id, action, extra)
   local src = source
   if not isStaff(src) or not actions[action] then return end
-  id = tonumber(id)
-  if not id or id < 1 or id % 1 ~= 0 then return end
+  id = positiveInteger(id)
+  if not id then return end
   extra = type(extra) == 'table' and extra or {}
   local resolution, tooLong = cleanText(extra.resolution, limits.resolution)
   if tooLong then notify(src, 'input_too_long', { max = tooLong }); return end
@@ -192,7 +207,51 @@ net('staff_suite:ticketAction', function(id, action, extra)
     return
   end
   record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to })
-  publishUpdates()
+  publishUpdates(ticket)
+end)
+
+local function addTicketMessage(src, id, body, asReporter)
+  local reporter = playerIdentifier(src)
+  local ticket = store.tickets[positiveInteger(id)]
+  if asReporter then
+    if not reporter or not ticket or reporter ~= ticket.reporter then return false, t('no_permission') end
+  elseif not isStaff(src) then
+    return false, t('no_permission')
+  end
+  local tooLong
+  body, tooLong = cleanText(body, limits.message_body or 1000)
+  if tooLong then return false, t('input_too_long', { max = tooLong }) end
+  if not ticket or not tickets.is_open(ticket) or not body or body == '' then
+    return false, t('ticket_message_failed')
+  end
+  local _, ev = tickets.add_message(store, ticket.id, reporter or 'src:' .. src, body, false, os.time())
+  record(ev.action, ev.actor, 'ticket:' .. ticket.id, '', { ticket = ticket.id, internal = false, message = #ticket.messages })
+  publishUpdates(ticket, not asReporter and reporter ~= ticket.reporter)
+  return true
+end
+
+local function receiveTicketMessage(src, id, body, internal, asReporter, req)
+  local ok, err = false
+  if not allowRate(src, 'staff_suite:ticketMessage') then
+    err = t('rate_limited')
+  elseif internal ~= nil and internal ~= false then
+    err = t('ticket_message_failed')
+  else
+    ok, err = addTicketMessage(src, id, body, asReporter)
+  end
+  req = positiveInteger(req)
+  if req then
+    TriggerClientEvent('staff_suite:ticketMessageResult', src, { req = req, ok = ok, error = err })
+  elseif err and err ~= t('rate_limited') then
+    TriggerClientEvent('staff_suite:notify', src, err)
+  end
+end
+
+RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal, req)
+  receiveTicketMessage(source, id, body, internal, false, req)
+end)
+RegisterNetEvent('staff_suite:ticketReply', function(id, body, req)
+  receiveTicketMessage(source, id, body, false, true, req)
 end)
 
 net('staff_suite:verify', function()

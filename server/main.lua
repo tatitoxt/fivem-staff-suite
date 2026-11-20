@@ -179,6 +179,17 @@ local function sendTickets(src, player)
   end
 end
 
+local function sendReporterTickets(src, reporter)
+  TriggerClientEvent('staff_suite:state', src, { myTickets = tickets.reporter_view(store, reporter) })
+end
+
+local function updateReporter(ticket, notify)
+  local src = findPlayerByIdentifier(ticket.reporter)
+  if not src then return end
+  sendReporterTickets(src, ticket.reporter)
+  if notify then TriggerClientEvent('staff_suite:notify', src, t('ticket_staff_reply', { id = ticket.id })) end
+end
+
 -- ===== Tickets: analytics, rating y evidencia =====
 local function afterTransition(ticket, ev)
   if not ticket or not ev or ev.action ~= 'ticket_resolve' then return end
@@ -217,6 +228,28 @@ local function afterSanction(ctx, fn)
   end
 end
 
+local function setFrozen(m, frozen)
+  local ped = GetPlayerPed(m.tgt)
+  if ped == 0 then return false, t('mod_invalid_target') end
+  FreezeEntityPosition(ped, frozen)
+  for _, player in ipairs(GetPlayers()) do
+    local src = tonumber(player)
+    if can(getPlayer(src), 'mod.freeze') then
+      TriggerClientEvent('staff_suite:freezeState', src, { target = m.target, frozen = frozen })
+    end
+  end
+end
+
+local function frozenPlayers()
+  local frozen = {}
+  for _, player in ipairs(GetPlayers()) do
+    local src = tonumber(player)
+    local ped = GetPlayerPed(src)
+    if ped ~= 0 and IsEntityPositionFrozen(ped) then frozen[getIdentifier(src)] = true end
+  end
+  return frozen
+end
+
 local modActions = {
   ['goto'] = { run = function(m)
     TriggerClientEvent('staff_suite:tp', m.src, GetEntityCoords(GetPlayerPed(m.tgt)))
@@ -224,7 +257,8 @@ local modActions = {
   bring = { protected = true, run = function(m)
     TriggerClientEvent('staff_suite:tp', m.tgt, GetEntityCoords(GetPlayerPed(m.src)))
   end },
-  freeze = { protected = true, run = function(m) FreezeEntityPosition(GetPlayerPed(m.tgt), true) end },
+  freeze = { protected = true, run = function(m) return setFrozen(m, true) end },
+  unfreeze = { protected = true, cap = 'mod.freeze', run = function(m) return setFrozen(m, false) end },
   heal = { run = function(m) SetEntityHealth(GetPlayerPed(m.tgt), 200) end },
   kick = { protected = true, reason = 'configured', run = function(m) DropPlayer(m.tgt, m.reason or t('kick_default_reason')) end },
   revive = { run = function(m)
@@ -275,9 +309,8 @@ local modActions = {
 local function doMod(src, action, tgt, reason, duration)
   if type(action) ~= 'string' then return false, t('mod_unavailable') end
   local player = getPlayer(src)
-  if not can(player, 'mod.' .. action) then return false, t('no_permission') end
-
   local spec = modActions[action]
+  if not can(player, spec and spec.cap or ('mod.' .. action)) then return false, t('no_permission') end
   if not spec then return false, t('mod_unavailable') end
   tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
   if not tgt or not GetPlayerName(tgt) then
@@ -339,7 +372,7 @@ end
 local function openTickets(reporter)
   local n = 0
   for _, ticket in pairs(store.tickets) do
-    if ticket.reporter == reporter and ticket.state ~= 'resolved' and ticket.state ~= 'closed' then n = n + 1 end
+    if ticket.reporter == reporter and tickets.is_open(ticket) then n = n + 1 end
   end
   return n
 end
@@ -367,6 +400,7 @@ local function createReport(src, category, priority, body)
   record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = category, priority = priority })
   TriggerClientEvent('staff_suite:notify', src, t('report_created', { id = ticket.id }))
   sendTickets(src, player)
+  sendReporterTickets(src, player.identifier)
   return true
 end
 
@@ -454,6 +488,8 @@ net('staff_suite:getState', function()
   local exportConfig = Config.Export
   TriggerClientEvent('staff_suite:state', src, {
     tickets = can(player, 'report.view') and store.tickets or {},
+    myTickets = tickets.reporter_view(store, player.identifier),
+    frozenPlayers = can(player, 'mod.freeze') and frozenPlayers() or {},
     transferTargets = can(player, 'report.resolve') and transferTargets() or {},
     exportStatus = {
       webhook = type(exportConfig.webhook) == 'string' and exportConfig.webhook ~= '',
@@ -519,29 +555,61 @@ net('staff_suite:ticketAction', function(id, action, extra)
   record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
   sendTickets(src, player)
   if recipientSrc and recipientSrc ~= tonumber(src) then sendTickets(recipientSrc, recipient) end
+  updateReporter(ticket)
 end)
 
-net('staff_suite:ticketMessage', function(id, body, internal)
-  local src = source
+local function addTicketMessage(src, id, body, internal, asReporter)
   id = positiveInteger(id)
   local err
   body, err = cleanText(body, limit('message_body'))
-  if err then TriggerClientEvent('staff_suite:notify', src, err); return end
-  if not id or not body or body == '' then return end
-  if internal ~= nil and type(internal) ~= 'boolean' then return end
-  local player = getPlayer(src)
-  if not can(player, 'report.message') or not can(player, 'report.view') then
-    TriggerClientEvent('staff_suite:notify', src, t('no_permission'))
-    return
+  if err then return false, err end
+  if not id or not body or body == '' or (internal ~= nil and type(internal) ~= 'boolean') then
+    return false, t('ticket_message_failed')
   end
+  local player = getPlayer(src)
   local ticket = store.tickets[id]
-  if not ticket or ticket.state == 'closed' then return end
-
+  if asReporter then
+    if not player.identifier or not ticket or ticket.reporter ~= player.identifier then return false, t('no_permission') end
+  elseif not can(player, 'report.message') or not can(player, 'report.view') then
+    return false, t('no_permission')
+  end
+  if not ticket or ticket.state == 'closed' or (not internal and not tickets.is_open(ticket)) then
+    return false, t('ticket_message_failed')
+  end
   local _, ev = tickets.add_message(store, id, actorId(player, src), body, internal, os.time())
   record(ev.action, ev.actor, 'ticket:' .. id, '', { ticket = id, internal = ev.internal, message = #ticket.messages })
-  sendTickets(src, player)
-  local claimerSrc, claimer = findPlayerByIdentifier(ticket.claimer)
-  if claimerSrc and claimerSrc ~= tonumber(src) then sendTickets(claimerSrc, claimer) end
+  for _, candidate in ipairs(GetPlayers()) do
+    local staff = tonumber(candidate)
+    if can(getPlayer(staff), 'report.view') then
+      TriggerClientEvent('staff_suite:state', staff, { ticket = ticket })
+    end
+  end
+  if not ev.internal then updateReporter(ticket, not asReporter and player.identifier ~= ticket.reporter) end
+  return true
+end
+
+local function receiveTicketMessage(src, id, body, internal, asReporter, req)
+  local ok, err = false
+  if not allowRate(src, 'staff_suite:ticketMessage') then
+    err = t('rate_limited')
+  elseif not ready then
+    err = t('persistence_starting')
+  else
+    ok, err = addTicketMessage(src, id, body, internal, asReporter)
+  end
+  req = positiveInteger(req)
+  if req then
+    TriggerClientEvent('staff_suite:ticketMessageResult', src, { req = req, ok = ok, error = err })
+  elseif err and err ~= t('rate_limited') then
+    TriggerClientEvent('staff_suite:notify', src, err)
+  end
+end
+
+RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal, req)
+  receiveTicketMessage(source, id, body, internal, false, req)
+end)
+RegisterNetEvent('staff_suite:ticketReply', function(id, body, req)
+  receiveTicketMessage(source, id, body, false, true, req)
 end)
 
 net('staff_suite:ticketRate', function(id, score)
@@ -698,6 +766,7 @@ expose('TicketAction', function(id, action, actor, extra)
   if ticket and ev then
     afterTransition(ticket, ev)
     record(ev.action, ev.actor, 'ticket:' .. id, ev.reason, { from = ev.from, to = ev.to, assigned_to = ev.assigned_to })
+    updateReporter(ticket)
   end
   if not ticket then return false, ev end
   return ticket, ev

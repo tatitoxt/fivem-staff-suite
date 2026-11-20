@@ -1,5 +1,5 @@
-import { Camera, Inbox, MessageSquare, Plus, Send, Star } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Camera, Inbox, Plus, Star } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
 import { formatDateTime, formatRelative, shortId } from '../format';
@@ -7,6 +7,7 @@ import { isLite } from '../edition';
 import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone } from '../labels';
 import { useApp } from '../store';
 import type { ModAction, Priority, Ticket, TicketCreateResult, TicketState } from '../types';
+import { LimitHint, TicketChat, overLimit } from './TicketChat';
 import v from './views.module.css';
 
 type Group = 'all' | 'open' | 'active' | 'done';
@@ -40,77 +41,6 @@ function TicketCard({ tk, selected, onSelect }: { tk: Ticket; selected: boolean;
   );
 }
 
-const encoder = new TextEncoder();
-// Los límites del servidor son en bytes; se avisa antes de enviar para no perder el borrador.
-function overLimit(text: string, max?: number) {
-  return max != null && encoder.encode(text.trim()).length > max;
-}
-
-function LimitHint({ text, max }: { text: string; max?: number }) {
-  const { t } = useApp();
-  return overLimit(text, max) ? <p className={v.setHint} role="alert">{t('input_too_long', { max: max ?? 0 })}</p> : null;
-}
-
-function Composer({ tk }: { tk: Ticket }) {
-  const { state, t, can, send } = useApp();
-  const canned = state.config.canned ?? [];
-  const [body, setBody] = useState('');
-  const [internal, setInternal] = useState(false);
-  const disabled = !can('report.message') || tk.state === 'closed';
-  const max = state.config.limits?.message_body;
-  const submit = () => {
-    if (!body.trim() || disabled || overLimit(body, max)) return;
-    void send('ticket_message', { id: tk.id, body: body.trim(), internal });
-    setBody('');
-  };
-  return (
-    <div className={cx(v.composer, internal && v.composerInternal)}>
-      {canned.length > 0 && (
-        <select
-          className={cx(ui.input, v.cannedPick)}
-          aria-label={t('ui_canned')}
-          value=""
-          disabled={disabled}
-          onChange={(e) => {
-            const c = canned.find((x) => x.id === e.target.value);
-            if (c) setBody((b) => (b.trim() ? `${b.trimEnd()} ${c.text}` : c.text));
-          }}
-        >
-          <option value="">{t('ui_canned_pick')}</option>
-          {canned.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-        </select>
-      )}
-      <textarea
-        className={ui.input}
-        value={body}
-        disabled={disabled}
-        aria-label={internal ? t('ui_note_placeholder') : t('ui_msg_placeholder')}
-        placeholder={internal ? t('ui_note_placeholder') : t('ui_msg_placeholder')}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
-        }}
-      />
-      <LimitHint text={body} max={max} />
-      <div className={v.composerRow}>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={internal}
-          className={cx(v.switch, internal && v.switchOn)}
-          onClick={() => setInternal((x) => !x)}
-        >
-          <span className={v.switchTrack} />
-          {t('ui_internal_toggle')}
-        </button>
-        <Button variant="primary" size="small" disabled={disabled || !body.trim() || overLimit(body, max)} onClick={submit}>
-          <Send size={16} />{t('ui_send')}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 interface DetailProps {
   tk: Ticket;
   openDialog: (d: DialogState) => void;
@@ -123,14 +53,8 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
   const [viewing, setViewing] = useState<number | null>(null);
   const shot = state.evidence;
   const closeViewer = () => { setViewing(null); dispatch({ type: 'evidenceClose' }); };
-  const listRef = useRef<HTMLDivElement>(null);
-  const me = state.player?.name;
+  const me = state.player?.identifier || state.player?.name;
   const requireReason = state.config.require_reason !== false;
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [tk.id, tk.messages.length]);
 
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
@@ -138,6 +62,8 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
   const canResolve = (st === 'claimed' || st === 'in_progress') && can('report.resolve');
   const canClose = st !== 'closed' && can('report.resolve');
   const canReopen = DONE.has(st) && can('report.resolve');
+  const canMessage = can('report.message');
+  const frozen = state.frozenPlayers[tk.reporter] === true;
 
   const mod = (action: ModAction) => {
     if (action === 'ban') return openDialog({ kind: 'ban' });
@@ -173,27 +99,16 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
         )}
       </section>
 
-      <div className={isLite ? undefined : v.detailBody}>
-        {!isLite && <section className={cx(ui.card, v.chat)}>
-          <div className={v.chatHead}>{t('ui_chat_title')}</div>
-          {tk.messages.length ? (
-            <div className={cx(ui.scroll, v.messages)} ref={listRef} tabIndex={0} role="log" aria-label={t('ui_chat_title')}>
-              {tk.messages.map((m, i) => (
-                <div key={i} className={cx(v.msg, m.author === me && v.msgMine, m.internal && v.msgInternal)}>
-                  <div className={v.msgMeta}>
-                    <span>{shortId(m.author)}</span>
-                    {m.internal && <span>· {t('ui_internal_note')}</span>}
-                    <span>· {formatRelative(m.ts, state.locale)}</span>
-                  </div>
-                  <div className={v.msgBody}>{m.body}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Empty icon={<MessageSquare size={22} />}>{t('ui_chat_empty')}</Empty>
-          )}
-          <Composer tk={tk} />
-        </section>}
+      <div className={v.detailBody}>
+        <TicketChat
+          key={tk.id}
+          id={tk.id}
+          messages={tk.messages.filter((m) => !isLite || !m.internal).map((m) => ({
+            ...m, label: shortId(m.author), mine: m.author === me,
+          }))}
+          allowPublic={canMessage && !DONE.has(st)}
+          allowInternal={!isLite && canMessage && st !== 'closed'}
+        />
 
         <div className={cx(v.rail, ui.scroll)}>
           <section className={cx(ui.card, v.railCard)}>
@@ -262,9 +177,9 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
                   variant={m === 'ban' ? 'danger' : 'secondary'}
                   className={m === 'ban' ? v.railWide : undefined}
                   disabled={!can(`mod.${m}`) || ((NEEDS_REASON.has(m) || (m === 'kick' && requireReason)) && !reason.trim())}
-                  onClick={() => mod(m)}
+                  onClick={() => mod(m === 'freeze' && frozen ? 'unfreeze' : m)}
                 >
-                  {t(`mod_${m}`)}
+                  {t(m === 'freeze' && frozen ? 'mod_unfreeze' : `mod_${m}`)}
                 </Button>
               ))}
             </div>

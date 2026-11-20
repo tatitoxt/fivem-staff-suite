@@ -3,7 +3,7 @@ import { fmt } from './format';
 import { isNui, send, subscribe, useMock } from './nui';
 import type {
   AuditEntry, DashboardPayload, DutyPayload, IncomingMessage, OutgoingAction, OutgoingPayloads,
-  EvidencePayload, PlayerInfo, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
+  EvidencePayload, PlayerInfo, ReporterTicket, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
 } from './types';
 
 export interface Toast { id: number; kind: ToastKind; text: string }
@@ -25,6 +25,8 @@ export interface AppState {
     checkedAt: number | null;
   };
   tickets: Ticket[];
+  myTickets: ReporterTicket[];
+  frozenPlayers: Record<string, boolean>;
   dashboard: DashboardPayload | null;
   duty: DutyPayload | null;
   toasts: Toast[];
@@ -60,6 +62,8 @@ export function initialState(visible: boolean): AppState {
     config: {},
     audit: { entries: [], head: '', verify: null, checking: false, checkedAt: null },
     tickets: [],
+    myTickets: [],
+    frozenPlayers: {},
     dashboard: null,
     duty: null,
     toasts: [],
@@ -69,10 +73,10 @@ export function initialState(visible: boolean): AppState {
 
 const arr = <T,>(x: T[] | unknown): T[] => (Array.isArray(x) ? x : []);
 
-function normalizeTickets(t: Ticket[] | Record<string, Ticket>): Ticket[] {
+function normalizeTickets<T extends Ticket | ReporterTicket>(t: T[] | Record<string, T>): T[] {
   const list = Array.isArray(t) ? t : Object.values(t);
   return list
-    .filter((x): x is Ticket => !!x && typeof x.id === 'number')
+    .filter((x) => !!x && typeof x.id === 'number')
     .map((x) => ({ ...x, messages: Array.isArray(x.messages) ? x.messages : [] }));
 }
 
@@ -81,7 +85,7 @@ function pushToast(state: AppState, kind: ToastKind, text: string): AppState {
   return { ...state, toasts };
 }
 
-const DATA_MESSAGES = new Set(['audit', 'tickets', 'dashboard', 'duty']);
+const DATA_MESSAGES = new Set(['audit', 'tickets', 'myTickets', 'dashboard', 'duty']);
 
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -137,6 +141,12 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     }
     case 'tickets':
       return { ...state, tickets: normalizeTickets(msg.payload.tickets ?? []) };
+    case 'myTickets':
+      return { ...state, myTickets: normalizeTickets(msg.payload.tickets ?? []) };
+    case 'frozenPlayers':
+      return { ...state, frozenPlayers: { ...msg.payload } };
+    case 'freezeState':
+      return { ...state, frozenPlayers: { ...state.frozenPlayers, [msg.payload.target]: msg.payload.frozen } };
     case 'dashboard':
       return {
         ...state,

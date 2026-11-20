@@ -215,7 +215,7 @@ local function testLite(ss)
     local ok, err = pcall(function() return ss[name](ss) end)
     check('Lite sin export Core ' .. name, not ok and tostring(err):find('No such export', 1, true), err)
   end
-  for _, route in ipairs({ 'duty', 'staff_suite:modAction', 'staff_suite:ticketMessage',
+  for _, route in ipairs({ 'duty', 'staff_suite:modAction',
     'staff_suite:ticketRate', 'staff_suite:ticketEvidence', 'staff_suite:evidenceGet' }) do
     check('Lite sin handler Core ' .. route, not probe(route))
   end
@@ -224,12 +224,22 @@ local function testLite(ss)
   local ticket = report.staff[stateEvent].tickets[1]
   check('Lite report crea ticket abierto y avisa al staff', ticket and ticket.state == 'open'
     and ticket.description == 'reporte Lite' and ticket.reporter == 'license:e2e_reporter'
-    and report.reporter[stateEvent] == nil)
+    and report.reporter[stateEvent].myTickets[1].id == 1 and not report.reporter[stateEvent].tickets)
   check('Lite reports abre cola', probe('reports', 'staff').staff['staff_suite:openPanel'] == 'tickets')
   check('Lite audit abre visor', probe('audit', 'staff').staff['staff_suite:openPanel'] == 'audit')
   local public = state('reporter')
   check('Lite oculta tickets, auditoría y permisos a jugadores', not next(public.tickets)
     and not next(public.audit) and not next(public.player.capabilities))
+  local messageResult = 'staff_suite:ticketMessageResult'
+  local denied = probe('staff_suite:ticketReply', 'staff', 1, 'reporte ajeno', 1)
+  check('Lite rechaza respuestas a tickets ajenos', denied.staff[messageResult].ok == false)
+  local staffReply = probe('staff_suite:ticketMessage', 'staff', 1, 'Estamos revisando', false, 2)
+  local reply = staffReply.reporter[stateEvent].myTickets[1].messages[1]
+  check('Lite entrega la respuesta sin IDs y avisa al reportante', reply.body == 'Estamos revisando'
+    and reply.mine == false and not reply.author and staffReply.reporter['staff_suite:notify'] ~= nil)
+  local reporterReply = probe('staff_suite:ticketReply', 'reporter', 1, 'Gracias', 3)
+  check('Lite entrega al staff la respuesta del reportante', reporterReply.reporter[messageResult].ok
+    and reporterReply.staff[stateEvent].tickets[1].messages[2].body == 'Gracias')
   probe(actionEvent, 'reporter', 1, 'claim')
   check('Lite claim sin ACE se ignora', state('staff').tickets[1].state == 'open')
   check('Lite verify sin ACE se ignora', probe(verifyEvent, 'reporter').reporter[resultEvent] == nil)
@@ -240,6 +250,7 @@ local function testLite(ss)
   check('Lite ignora transferencias', state('staff').tickets[1].claimer == 'license:e2e_staff')
   probe(actionEvent, 'staff', 1, 'resolve', { resolution = 'Revisado' })
   check('Lite resolve registra la resolución', state('staff').tickets[1].resolution == 'Revisado')
+  check('Lite solo muestra tickets activos al reportante', not next(state('reporter').myTickets))
   probe(actionEvent, 'staff', 1, 'close')
   check('Lite close cierra el ticket', state('staff').tickets[1].state == 'closed')
   probe(actionEvent, 'staff', 1, 'reopen')
@@ -247,7 +258,10 @@ local function testLite(ss)
   check('Lite verify valida la cadena', verify and verify.ok == true and verify.at == nil)
   local latest = state('staff')
   check('Lite reopen devuelve el ticket a la cola', latest.tickets[1].state == 'reopened')
-  local expected = { 'ticket_create', 'ticket_claim', 'ticket_resolve', 'ticket_close', 'ticket_reopen', 'audit_verify' }
+  local expected = {
+    'ticket_create', 'ticket_message', 'ticket_message', 'ticket_claim',
+    'ticket_resolve', 'ticket_close', 'ticket_reopen', 'audit_verify',
+  }
   local previous = string.rep('0', 64)
   local linked = #latest.audit == #expected
   for i, row in ipairs(latest.audit) do
@@ -260,7 +274,7 @@ local function testLite(ss)
   local stored = data and data.tickets and data.tickets.tickets
   local savedTicket = stored and (stored[1] or stored['1'])
   check('Lite guarda tickets en JSON', savedTicket and savedTicket.state == 'reopened'
-    and data.tickets.next_id == 2)
+    and data.tickets.next_id == 2 and savedTicket.messages[2].body == 'Gracias')
   check('Lite guarda la cadena en JSON', data and data.chain and #data.chain.entries == #expected
     and data.chain.head == previous and data.chain.entries[#expected].action == 'audit_verify')
   check('Lite no exporta anclajes a archivo', not LoadResourceFile(TARGET, 'audit_export.log'))

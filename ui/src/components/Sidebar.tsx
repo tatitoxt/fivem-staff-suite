@@ -1,4 +1,4 @@
-import { ArrowUpRight, Clock3, Inbox, LayoutDashboard, Link2, Settings, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Clock3, Inbox, LayoutDashboard, Link2, MessageSquare, Settings, ShieldCheck } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { isLite } from '../edition';
 import { rankLabel } from '../labels';
@@ -18,6 +18,7 @@ export function useNav(): NavDef[] {
       { id: 'dashboard', label: t('ui_nav_dashboard'), icon: <LayoutDashboard size={20} />, cap: 'staff.analytics' } as const,
       { id: 'duty', label: t('ui_nav_duty'), icon: <Clock3 size={20} />, cap: 'staff.duty' } as const,
     ]),
+    { id: 'myReports', label: t('ui_my_reports'), icon: <MessageSquare size={20} /> },
     { id: 'settings', label: t('ui_nav_settings'), icon: <Settings size={20} /> },
   ];
   return all.filter((n) => !n.cap || can(n.cap));

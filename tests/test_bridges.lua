@@ -247,6 +247,9 @@ local function serverSandbox(options)
     threads = threads, timers = timers, reads = reads, states = states, identifiers = {}, files = files, now = 10000,
   }
   env.GetPlayerPed = function(src) return online[tostring(src)] and src * 10 or 0 end
+  local frozen = {}
+  env.FreezeEntityPosition = function(ped, value) frozen[ped] = value end
+  env.IsEntityPositionFrozen = function(ped) return frozen[ped] == true end
   env.GetEntityCoords = function(ped) return { x = ped, y = 0, z = 0 } end
   server.buckets = {}
   env.GetPlayerRoutingBucket = function(src) return server.buckets[src] or 0 end
@@ -366,9 +369,8 @@ function T.test_ticket_message_permissions_and_audit()
   assert(entries[4].actor == 'license:account17' and entries[4].target == 'ticket:1')
   assert(s.payloads[tonumber(entries[4].payload)].internal == true)
   for _, src in ipairs({ 17, 18 }) do
-    assert(s.recipients[src]['staff_suite:state'].tickets[1].messages[2].body == 'Nota interna')
+    assert(s.recipients[src]['staff_suite:state'].ticket.messages[2].body == 'Nota interna')
   end
-  assert(not s.recipients[19]['staff_suite:state'])
 
   perms.revoke(s.api.GetState().perms, 'license:account17', 'report.message')
   s.event('ticketMessage', 1, 'nota revocada', true)
@@ -689,7 +691,7 @@ function T.test_ticket_create_preserves_priority()
   assert(tickets[2].priority == 'normal' and tickets[3].priority == 'normal' and not tickets[4])
   assert(tickets[3].description == 'high como parte del texto')
   assert(s.payloads[tonumber(s.api.GetChain()[1].payload)].priority == 'urgent')
-  assert(not s.sent['staff_suite:state'], 'crear un reporte no da acceso a la cola')
+  assert(#s.sent['staff_suite:state'].myTickets == 3 and not s.sent['staff_suite:state'].tickets)
 end
 
 local function perSourceAce(s, bySource)
@@ -792,7 +794,7 @@ end
 function T.test_staff_cannot_moderate_higher_rank()
   local s = serverSandbox()
   perSourceAce(s, { [17] = { admin = true }, [18] = { owner = true } })
-  for _, action in ipairs({ 'kick', 'ban', 'warn', 'freeze', 'bring' }) do
+  for _, action in ipairs({ 'kick', 'ban', 'warn', 'freeze', 'unfreeze', 'bring' }) do
     s.event('modAction', action, 18, 'abuso', 60)
     assert(s.sent['staff_suite:notify'] == s.env.Locale.es.mod_target_protected, action)
   end
@@ -800,6 +802,78 @@ function T.test_staff_cannot_moderate_higher_rank()
   s.env.source = 18
   s.event('modAction', 'kick', 17, 'regla')
   assert(s.kicked == 17)
+end
+
+function T.test_unfreeze_uses_freeze_capability_target_and_audit()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { mod = true }, [18] = {}, [19] = {} })
+  local target = 'license:account18'
+  s.event('modAction', 'freeze', target, 'Revisión')
+  assert(s.env.IsEntityPositionFrozen(180))
+  local update = s.recipients[17]['staff_suite:freezeState']
+  assert(update.target == target and update.frozen and not s.recipients[18])
+  s.event('getState')
+  assert(s.recipients[17]['staff_suite:state'].frozenPlayers[target])
+
+  s.env.source = 19
+  s.event('modAction', 'unfreeze', target)
+  assert(s.env.IsEntityPositionFrozen(180) and #s.api.GetChain() == 1)
+  s.env.source = 17
+  s.event('modAction', 'unfreeze', target, 'Fin de revisión')
+  assert(not s.env.IsEntityPositionFrozen(180))
+  assert(s.recipients[17]['staff_suite:freezeState'].frozen == false)
+  s.event('getState')
+  assert(not s.recipients[17]['staff_suite:state'].frozenPlayers[target])
+  local entries = s.api.GetChain()
+  assert(#entries == 2 and entries[1].action == 'mod_freeze' and entries[2].action == 'mod_unfreeze')
+  assert(entries[2].target == target and entries[2].reason == 'Fin de revisión' and s.api.Verify())
+end
+
+function T.test_reporter_chat_filters_data_notifies_and_enforces_ownership()
+  local s = serverSandbox()
+  s.env.Config.RateLimit['staff_suite:ticketMessage'] = { burst = 2, per_second = 0 }
+  perSourceAce(s, { [17] = { support = true }, [18] = {}, [19] = {} })
+  s.env.source = 18
+  s.event('ticketCreate', 'bug', 'high', 'Mi reporte')
+  s.api.CreateTicket({ reporter = 'license:account19', category = 'bug', description = 'Otro reporte' })
+  s.event('ticketReply', 2, 'No es mío', 1)
+  assert(not s.recipients[18]['staff_suite:ticketMessageResult'].ok)
+  s.recipients[18]['staff_suite:notify'] = nil
+  s.env.source = 17
+  s.event('ticketMessage', 1, 'Nota privada', true, 2)
+  assert(s.recipients[18]['staff_suite:notify'] == nil)
+  s.event('ticketMessage', 1, 'Respuesta de staff', false, 3)
+  assert(s.recipients[17]['staff_suite:ticketMessageResult'].ok)
+  assert(s.recipients[18]['staff_suite:notify'] == s.env.StaffSuiteTranslate('ticket_staff_reply', { id = 1 }))
+  assert(not s.recipients[19])
+
+  s.env.source = 18
+  s.event('getState')
+  local public = s.recipients[18]['staff_suite:state']
+  assert(not next(public.tickets) and not next(public.audit) and not next(public.frozenPlayers))
+  assert(#public.myTickets == 1)
+  local ticket = public.myTickets[1]
+  assert(ticket.id == 1 and ticket.description == 'Mi reporte' and not ticket.claimer and not ticket.evidence)
+  assert(#ticket.messages == 1 and ticket.messages[1].body == 'Respuesta de staff')
+  assert(ticket.messages[1].mine == false and not ticket.messages[1].author and not ticket.messages[1].internal)
+  s.event('ticketReply', 1, '  Gracias\0  ', 4, true)
+  assert(s.recipients[18]['staff_suite:ticketMessageResult'].ok)
+  assert(s.recipients[18]['staff_suite:state'].myTickets[1].messages[2].mine)
+  local staffTicket = s.recipients[17]['staff_suite:state'].ticket
+  assert(#staffTicket.messages == 3 and staffTicket.messages[3].body == 'Gracias' and not staffTicket.messages[3].internal)
+
+  s.event('ticketReply', 1, 'Rate', 5)
+  assert(s.recipients[18]['staff_suite:ticketMessageResult'].error == s.env.Locale.es.rate_limited)
+  s.env.Config.RateLimit['staff_suite:ticketMessage'] = { burst = 10, per_second = 1 }
+  s.now = s.now + 20
+  s.event('ticketReply', 1, string.rep('é', 501), 6)
+  assert(not s.recipients[18]['staff_suite:ticketMessageResult'].ok and #staffTicket.messages == 3)
+
+  s.api.TicketAction(1, 'close', 'license:account17')
+  assert(not next(s.recipients[18]['staff_suite:state'].myTickets))
+  s.event('ticketReply', 1, 'Cerrado', 7)
+  assert(not s.recipients[18]['staff_suite:ticketMessageResult'].ok and #staffTicket.messages == 3)
+  assert(s.api.Verify())
 end
 
 function T.test_ban_covers_alternate_identifiers_and_extends_on_evasion()

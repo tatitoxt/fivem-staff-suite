@@ -112,6 +112,14 @@ export class MockBackend {
 
   emitTickets() {
     this.emit({ type: 'tickets', payload: { tickets: this.tickets.map((t) => ({ ...t, messages: [...t.messages] })) } });
+    const tickets = this.tickets
+      .filter((ticket) => ticket.reporter === ME && ticket.state !== 'resolved' && ticket.state !== 'closed')
+      .map(({ id, category, state, description, messages }) => ({
+        id, category, state, description,
+        messages: messages.filter((msg) => !msg.internal)
+          .map(({ author, body, ts }) => ({ mine: author === ME, body, ts })),
+      }));
+    this.emit({ type: 'myTickets', payload: { tickets } });
   }
 
   emitDuty() {
@@ -227,10 +235,12 @@ export class MockBackend {
         this.transition(id, 'resolve', { resolution });
         return;
       }
+      case 'ticket_reply':
       case 'ticket_message': {
-        const { id, body, internal } = p as OutgoingPayloads['ticket_message'];
+        const { id, body, internal = false } = p as OutgoingPayloads['ticket_message'];
         const t = this.tickets.find((x) => x.id === id);
         if (!t || !body.trim()) return;
+        if (action === 'ticket_reply' && t.reporter !== ME) return;
         const ts = Math.round(Date.now() / 1000);
         t.messages.push({ author: ME, body: body.trim(), ts, internal });
         t.updated_ts = ts;
@@ -295,6 +305,9 @@ export class MockBackend {
       case 'mod_action': {
         const { action: mod, target, reason, duration } = p as OutgoingPayloads['mod_action'];
         if (REASON_REQUIRED.has(mod) && !reason.trim()) return this.toast('error', this.s('reason_required'));
+        if (mod === 'freeze' || mod === 'unfreeze') {
+          this.emit({ type: 'freezeState', payload: { target, frozen: mod === 'freeze' } });
+        }
         this.record(ME, `mod_${mod}`, target, reason.trim(), {
           action: mod,
           ...(mod === 'ban' && { expires_at: duration === 0 ? 0 : Math.round(Date.now() / 1000) + (duration ?? 86400) }),
