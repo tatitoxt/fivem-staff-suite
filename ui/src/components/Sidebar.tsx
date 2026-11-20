@@ -1,10 +1,10 @@
-import { ArrowUpRight, Clock3, Inbox, LayoutDashboard, Link2, MessageSquare, Settings, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Search, Clock3, Inbox, LayoutDashboard, Link2, MessageSquare, Settings, ShieldCheck } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { isLite } from '../edition';
 import { rankLabel } from '../labels';
 import { useApp } from '../store';
 import type { ViewId } from '../types';
-import { Button, cx, Dialog } from './ui';
+import { Button, cx, Dialog, ui } from './ui';
 import s from './layout.module.css';
 
 export interface NavDef { id: ViewId; label: string; icon: ReactNode; cap?: string }
@@ -12,14 +12,14 @@ export interface NavDef { id: ViewId; label: string; icon: ReactNode; cap?: stri
 export function useNav(): NavDef[] {
   const { t, can } = useApp();
   const all: NavDef[] = [
-    { id: 'audit', label: t('tab_audit'), icon: <ShieldCheck size={20} />, cap: 'audit.view' },
-    { id: 'tickets', label: t('tab_tickets'), icon: <Inbox size={20} />, cap: 'report.view' },
+    { id: 'audit', label: t('tab_audit'), icon: <ShieldCheck size={16} />, cap: 'audit.view' },
+    { id: 'tickets', label: t('tab_tickets'), icon: <Inbox size={16} />, cap: 'report.view' },
     ...(isLite ? [] : [
-      { id: 'dashboard', label: t('ui_nav_dashboard'), icon: <LayoutDashboard size={20} />, cap: 'staff.analytics' } as const,
-      { id: 'duty', label: t('ui_nav_duty'), icon: <Clock3 size={20} />, cap: 'staff.duty' } as const,
+      { id: 'dashboard', label: t('ui_nav_dashboard'), icon: <LayoutDashboard size={16} />, cap: 'staff.analytics' } as const,
+      { id: 'duty', label: t('ui_nav_duty'), icon: <Clock3 size={16} />, cap: 'staff.duty' } as const,
     ]),
-    { id: 'myReports', label: t('ui_my_reports'), icon: <MessageSquare size={20} /> },
-    { id: 'settings', label: t('ui_nav_settings'), icon: <Settings size={20} /> },
+    { id: 'myReports', label: t('ui_my_reports'), icon: <MessageSquare size={16} /> },
+    { id: 'settings', label: t('ui_nav_settings'), icon: <Settings size={16} /> },
   ];
   return all.filter((n) => !n.cap || can(n.cap));
 }
@@ -35,25 +35,32 @@ export function Sidebar() {
   return (
     <aside className={s.sidebar}>
       <div className={s.brand}>
-        <div className={s.logo}><Link2 size={22} strokeWidth={2.4} /></div>
+        <div className={s.logo}><Link2 size={16} strokeWidth={2.4} /></div>
         <div>
           <div className={s.brandName}>{t('panel_title')}</div>
           <div className={s.brandTag}>{isLite ? 'Free Lite' : t('ui_brand_tag')}</div>
         </div>
       </div>
+      <button type="button" className={s.cmdk} onClick={() => dispatch({ type: 'palette', open: true })} aria-keyshortcuts="Control+K">
+        <Search size={14} />
+        <span>{t('ui_cmd_open')}</span>
+        <span className={ui.kbd}>Ctrl K</span>
+      </button>
       <nav className={s.nav} aria-label={t('panel_title')}>
-        {nav.map((n) => (
+        {nav.map((n, i) => (
           <button
             key={n.id}
             type="button"
             className={cx(s.navItem, state.view === n.id && s.navOn)}
             aria-current={state.view === n.id ? 'page' : undefined}
+            aria-keyshortcuts={String(i + 1)}
             onClick={() => dispatch({ type: 'view', view: n.id })}
           >
             {n.icon}
             <span className={s.navLabel}>{n.label}</span>
             {n.id === 'tickets' && openTickets > 0 && <span className={s.navCount}>{openTickets}</span>}
             {n.id === 'audit' && broken && <span className={cx(s.navCount, s.navAlert)} aria-label={t('ui_chain_broken_short')}>!</span>}
+            {!(n.id === 'tickets' && openTickets > 0) && !(n.id === 'audit' && broken) && <span className={s.navKey} aria-hidden>{i + 1}</span>}
           </button>
         ))}
       </nav>
