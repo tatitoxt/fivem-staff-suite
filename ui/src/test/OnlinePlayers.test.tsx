@@ -88,3 +88,18 @@ it('uses the audited export response to prepare a CSV and neutralizes spreadshee
     body: JSON.stringify({ export: true }),
   }));
 });
+
+it('only exposes staff movement modes authorized by the server in Ctrl+K', () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn().mockResolvedValue({ json: async () => ({ ok: true }) });
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile(['staff.noclip']);
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  expect(screen.queryByRole('option', { name: new RegExp(strings.staff_mode_invisible) })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('option', { name: new RegExp(strings.staff_mode_noclip) }));
+  expect(transport).toHaveBeenLastCalledWith('https://staff_suite/staff_mode', expect.objectContaining({
+    body: JSON.stringify({ mode: 'noclip' }),
+  }));
+});

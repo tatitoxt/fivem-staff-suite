@@ -30,6 +30,8 @@ local limiter = ratelimit.new()
 local verifyCache = {}
 local waypointRequests = {}
 local spectators, pendingSpectators, spectateSequence = {}, {}, 0
+local staffModes, staffModeSeq = {}, 0
+local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
 local onlineRefs, onlineViewedAt, onlineRefSeq = {}, {}, 0
 local profileHistory = {}
 local profileAuditIntact = true
@@ -1365,6 +1367,38 @@ net('staff_suite:spectateEnded', function(key)
   if session and session.key == key then spectators[src] = nil end
 end)
 
+net('staff_suite:staffMode', function(mode)
+  local src = tonumber(source)
+  local cap = staffModeCaps[mode]
+  local player = getPlayer(src)
+  if not cap or not player.identifier or not can(player, cap) then
+    return TriggerClientEvent('staff_suite:notify', src, t('no_permission'))
+  end
+  local modes = staffModes[src] or {}
+  staffModes[src] = modes
+  local previous = modes[mode]
+  if previous and previous.pending then return end
+  staffModeSeq = staffModeSeq + 1
+  local state = { key = staffModeSeq, enabled = not (previous and previous.enabled), pending = true }
+  modes[mode] = state
+  record('staff_' .. mode, player.identifier, player.identifier, '', { enabled = state.enabled }, function(saved)
+    if staffModes[src] ~= modes or modes[mode] ~= state then return end
+    if not saved or not GetPlayerName(src) or getPlayer(src).identifier ~= player.identifier then
+      modes[mode] = previous
+      return TriggerClientEvent('staff_suite:notify', src, t('mod_save_failed'))
+    end
+    state.pending = false
+    TriggerClientEvent('staff_suite:staffMode', src, mode, state.enabled, state.key)
+  end)
+end)
+
+net('staff_suite:staffModeEnded', function(mode, key)
+  local src = tonumber(source)
+  local modes = staffModes[src]
+  local state = modes and modes[mode]
+  if state and not state.pending and state.key == key then modes[mode] = nil end
+end)
+
 local waypointMessages = { ok = 'waypoint_ok', no_marker = 'waypoint_no_marker',
   unavailable = 'waypoint_unavailable', save_failed = 'waypoint_save_failed' }
 
@@ -1515,6 +1549,7 @@ end)
 
 AddEventHandler('playerDropped', function()
   local src = tonumber(source)
+  staffModes[src] = nil
   spectators[src] = nil
   pendingSpectators[src] = nil
   for observer, session in pairs(pendingSpectators) do

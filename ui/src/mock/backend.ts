@@ -386,6 +386,8 @@ export class MockBackend {
         return;
       case 'spectate_stop':
         return { ok: true };
+      case 'staff_mode':
+        return { ok: true };
       case 'mod_action': {
         const { action: mod, target: destination, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
         const target = typeof destination === 'string' ? destination : `src:${destination.id}`;

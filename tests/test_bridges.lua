@@ -852,6 +852,22 @@ function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result(
   assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
+function T.test_staff_modes_require_capability_and_audit_before_dispatch()
+  local s = serverSandbox()
+  s.event('staffMode', 'invisible')
+  assert(not s.sent['staff_suite:staffMode'] and #s.api.GetChain() == 0)
+  s.ace.admin = true
+  s.event('staffMode', 'no_such_mode')
+  assert(#s.api.GetChain() == 0)
+  s.event('staffMode', 'invisible')
+  local sent = s.lastClientEvent
+  assert(sent[1] == 'staff_suite:staffMode' and sent[2] == 17 and sent[3] == 'invisible' and sent[4] == true)
+  assert(s.api.GetChain()[1].action == 'staff_invisible')
+  s.now = s.now + 1
+  s.event('staffMode', 'invisible')
+  assert(s.lastClientEvent[4] == false and #s.api.GetChain() == 2 and s.api.Verify())
+end
+
 function T.test_spectate_only_dispatches_to_authorized_observer()
   local s = serverSandbox()
   s.event('modAction', 'spectate', 18)

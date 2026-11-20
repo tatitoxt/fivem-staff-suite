@@ -20,6 +20,7 @@ RegisterNetEvent('staff_suite:revive', function()
 end)
 
 local observing
+local modes = {}
 local streamingWaypoint = false
 
 local function waypointDestination(coords)
@@ -35,7 +36,7 @@ local function waypointDestination(coords)
 end
 
 local function canUseWaypoint(ped)
-  return not observing and DoesEntityExist(ped) and not IsEntityDead(ped)
+  return not observing and not modes.noclip and DoesEntityExist(ped) and not IsEntityDead(ped)
     and not IsEntityPositionFrozen(ped) and not IsPedInAnyVehicle(ped, false)
 end
 
@@ -95,7 +96,7 @@ RegisterNetEvent('staff_suite:spectate', function(target, coords, key)
   if source ~= 65535 then return end
   if observing then stopSpectating(observing) end
   local ped = PlayerPedId()
-  if streamingWaypoint or IsEntityDead(ped) or IsPedInAnyVehicle(ped, false) or IsEntityPositionFrozen(ped) then
+  if streamingWaypoint or next(modes) or IsEntityDead(ped) or IsPedInAnyVehicle(ped, false) or IsEntityPositionFrozen(ped) then
     if key then TriggerServerEvent('staff_suite:spectateEnded', key) end
     TriggerEvent('chat:addMessage', { args = { t('notify_title'), t('spectate_unavailable') } })
     return
@@ -135,8 +136,86 @@ RegisterNetEvent('staff_suite:spectate', function(target, coords, key)
   end)
 end)
 
+local function stopMode(mode, state)
+  if modes[mode] ~= state then return end
+  modes[mode] = nil
+  if DoesEntityExist(state.ped) then
+    if mode == 'invisible' then
+      SetEntityVisible(state.ped, state.visible, false)
+    else
+      SetEntityCollision(state.ped, not state.noCollision, false)
+    end
+  end
+  TriggerServerEvent('staff_suite:staffModeEnded', mode, state.key)
+end
+
+local function fly(ped)
+  local move = GetDisabledControlNormal(0, 31)
+  local strafe = GetDisabledControlNormal(0, 30)
+  local vertical = GetDisabledControlNormal(0, 22) - GetDisabledControlNormal(0, 36)
+  local rotation, pos = GetGameplayCamRot(2), GetEntityCoords(ped)
+  local yaw, pitch = math.rad(rotation.z), math.rad(rotation.x)
+  local speed = math.min(GetFrameTime(), 0.05) * (IsControlPressed(0, 21) and 24 or 8)
+  SetEntityVelocity(ped, 0.0, 0.0, 0.0)
+  SetEntityCoordsNoOffset(ped,
+    pos.x + speed * (move * math.sin(yaw) * math.cos(pitch) + strafe * math.cos(yaw)),
+    pos.y + speed * (-move * math.cos(yaw) * math.cos(pitch) + strafe * math.sin(yaw)),
+    pos.z + speed * (-move * math.sin(pitch) + vertical), false, false, false)
+end
+
+local function canStartMode(ped)
+  return DoesEntityExist(ped) and not IsEntityDead(ped) and not IsPedInAnyVehicle(ped, false)
+    and not IsEntityPositionFrozen(ped)
+end
+
+RegisterNetEvent('staff_suite:staffMode', function(mode, enabled, key)
+  if source ~= 65535 or mode ~= 'noclip' and mode ~= 'invisible' then return end
+  if modes[mode] then stopMode(mode, modes[mode]) end
+  if not enabled then return end
+  local ped = PlayerPedId()
+  if observing or streamingWaypoint or not canStartMode(ped) then
+    TriggerServerEvent('staff_suite:staffModeEnded', mode, key)
+    TriggerEvent('chat:addMessage', { args = { t('notify_title'), t('staff_mode_unavailable') } })
+    return
+  end
+  local state = { ped = ped, key = key }
+  modes[mode] = state
+  if mode == 'invisible' then
+    state.visible = IsEntityVisible(ped)
+    SetEntityVisible(ped, false, false)
+  else
+    state.noCollision = GetEntityCollisionDisabled(ped)
+    SetEntityCollision(ped, false, false)
+  end
+  CreateThread(function()
+    while modes[mode] == state and PlayerPedId() == ped and canStartMode(ped) do
+      if mode == 'invisible' then
+        Wait(250)
+      else
+        DisableControlAction(0, 30, true)
+        DisableControlAction(0, 31, true)
+        DisableControlAction(0, 22, true)
+        DisableControlAction(0, 36, true)
+        fly(ped)
+        Wait(0)
+      end
+    end
+    stopMode(mode, state)
+  end)
+end)
+
+for mode, binding in pairs({
+  noclip = { key = 'F9', label = t('staff_mode_noclip') },
+  invisible = { key = 'F10', label = t('staff_mode_invisible') },
+}) do
+  local command = 'staffsuite' .. mode
+  RegisterCommand(command, function() TriggerServerEvent('staff_suite:staffMode', mode) end, false)
+  RegisterKeyMapping(command, binding.label, 'keyboard', binding.key)
+end
+
 AddEventHandler('onClientResourceStop', function(resource)
   if resource ~= GetCurrentResourceName() then return end
   if observing then stopSpectating(observing) end
+  for mode, state in pairs(modes) do stopMode(mode, state) end
   if streamingWaypoint then NewLoadSceneStop() end
 end)

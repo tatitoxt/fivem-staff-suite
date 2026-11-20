@@ -106,6 +106,24 @@ function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect
   assert(c.pos.x == 1 and c.visible and c.collision and not c.frozen)
 end
 
+function T.test_invisible_restores_state_on_death_or_resource_stop()
+  local c, env, events, _, hooks = sandbox()
+  local change = events['staff_suite:staffMode']
+  change('invisible', true, 1)
+  assert(c.visible)
+  env.source = 65535
+  change('invisible', true, 2)
+  assert(not c.visible)
+  assert(coroutine.resume(c.thread))
+  c.dead = true
+  assert(coroutine.resume(c.thread))
+  assert(c.visible and c.args[1] == 'staff_suite:staffModeEnded' and c.args[3] == 2)
+  c.dead = false
+  change('invisible', true, 3)
+  hooks.onClientResourceStop('staff_suite')
+  assert(c.visible)
+end
+
 function T.test_standalone_revive_and_nui_ban_duration()
   local c, env, events, callbacks = sandbox()
   c.dead = true

@@ -17,6 +17,7 @@ export const ALL_CAPS = [
   'audit.view', 'audit.verify', 'audit.export',
   'staff.duty', 'staff.analytics', 'staff.announce', 'admin.config', 'admin.permissions',
   'staff.waypoint',
+  'staff.noclip', 'staff.invisible',
   'staff.analytics.export',
 ];
 
