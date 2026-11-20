@@ -21,6 +21,7 @@ import { MyReportsView } from './views/MyReportsView';
 import { OnlinePlayersView } from './views/OnlinePlayersView';
 import { WeeklyStaffView } from './views/WeeklyStaffView';
 import { EmergencyFreezeDialog } from './views/EmergencyFreezeDialog';
+import { OwnerPermissionsDialog } from './views/OwnerPermissionsDialog';
 
 function CurrentView() {
   const { state, dispatch, t, send } = useApp();
@@ -121,6 +122,7 @@ function Shell() {
             {!isLite && state.staffDialog === 'ban.view' && <BanReview onClose={closeStaffDialog} />}
             {!isLite && state.staffDialog === 'staff.chat' && <StaffChatComposer onClose={closeStaffDialog} />}
             {!isLite && state.staffDialog === 'mod.emergency_freeze' && <EmergencyFreezeDialog onClose={closeStaffDialog} />}
+            {!isLite && state.staffDialog === 'admin.permissions' && <OwnerPermissionsDialog onClose={closeStaffDialog} />}
             <Toasts />
           </div>
         </div>

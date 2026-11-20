@@ -64,7 +64,7 @@ local RANK_CAPS = {
 }
 
 function M.new()
-  return { overrides = {} } -- overrides[identifier] = {grant={cap:true}, revoke={cap:true}}
+  return { overrides = {}, ranks = {} } -- overrides[identifier] = {grant={cap:true}, revoke={cap:true}}
 end
 
 local function rank_has(rank, cap)
@@ -76,13 +76,14 @@ local function rank_has(rank, cap)
 end
 
 -- can(model, identifier, rank, cap): override revoke > override grant > rank.
-function M.can(model, identifier, rank, cap)
+function M.can(model, identifier, rank, cap, ace)
+  if cap == 'admin.permissions' then return rank == 'owner' end
   local ov = model.overrides[identifier]
   if ov then
     if ov.revoke and ov.revoke[cap] then return false end
     if ov.grant and ov.grant[cap] then return true end
   end
-  return rank_has(rank, cap)
+  return rank_has(rank, cap) or ace and ace(cap) or false
 end
 
 function M.grant(model, identifier, cap)
@@ -100,6 +101,36 @@ function M.revoke(model, identifier, cap)
 end
 
 local RANK_LEVEL = { helper = 1, moderator = 2, admin = 3, senior_admin = 4, owner = 5 }
+
+M.EDITABLE_RANKS = { 'helper', 'moderator', 'admin', 'senior_admin' }
+
+function M.editableRank(rank)
+  return rank == 'inherit' or (RANK_LEVEL[rank] or 0) > 0 and rank ~= 'owner'
+end
+
+function M.override(model, identifier, cap)
+  local row = model.overrides[identifier]
+  if row and row.revoke and row.revoke[cap] then return 'deny' end
+  if row and row.grant and row.grant[cap] then return 'allow' end
+  return 'inherit'
+end
+
+function M.edit(model, identifier, field, value)
+  local nextModel = M.new()
+  for id, rank in pairs(model.ranks or {}) do nextModel.ranks[id] = rank end
+  for id, row in pairs(model.overrides) do nextModel.overrides[id] = row end
+  if field == 'rank' then
+    nextModel.ranks[identifier] = value ~= 'inherit' and value or nil
+    return nextModel
+  end
+  local previous = model.overrides[identifier]
+  local row = { grant = {}, revoke = {} }
+  for cap, setting in pairs(previous and previous.grant or {}) do row.grant[cap] = setting end
+  for cap, setting in pairs(previous and previous.revoke or {}) do row.revoke[cap] = setting end
+  row.grant[field], row.revoke[field] = value == 'allow' or nil, value == 'deny' or nil
+  nextModel.overrides[identifier] = (next(row.grant) or next(row.revoke)) and row or nil
+  return nextModel
+end
 
 -- true si target tiene un rango estrictamente mayor que actor (los jugadores no tienen rango).
 function M.outranks(target_rank, actor_rank)

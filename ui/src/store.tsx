@@ -8,7 +8,7 @@ import type {
 
 export interface Toast { id: number; kind: ToastKind; text: string; outside?: boolean }
 
-type StaffDialog = 'ban.view' | 'staff.chat' | 'mod.emergency_freeze';
+type StaffDialog = 'ban.view' | 'staff.chat' | 'mod.emergency_freeze' | 'admin.permissions';
 export interface Notice extends NoticePayload { id: number }
 
 export interface AppState {

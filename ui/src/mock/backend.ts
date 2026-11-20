@@ -49,6 +49,8 @@ function demoScreenshot(id: number, n: number): string {
 
 export class MockBackend {
   private evidenceData = new Map<string, string>();
+  private ownerAccess = { id: 18, identifier: 'license:demo18', baseRank: 'helper',
+    rank: 'inherit', rules: {} as Record<string, string> };
   locale = 'es';
   now = Date.now() / 1000;
   entries: AuditEntry[] = buildAudit(this.now);
@@ -388,6 +390,21 @@ export class MockBackend {
         return { ok: true };
       case 'staff_mode':
         return { ok: true };
+      case 'owner_permissions': {
+        const { target, field, value, reason } = p as OutgoingPayloads['owner_permissions'];
+        const capabilities = ALL_CAPS.filter((cap) => cap !== 'admin.permissions');
+        if (target === undefined) return { ok: true, data: { players: [{ id: 18, name: 'Dani' }],
+          ranks: ['helper', 'moderator', 'admin', 'senior_admin'], capabilities } };
+        const access = this.ownerAccess;
+        if (field && value) {
+          const previous = field === 'rank' ? access.rank : access.rules[field] ?? 'inherit';
+          if (field === 'rank') access.rank = value;
+          else access.rules[field] = value;
+          this.record(ME, 'admin_permissions_change', access.identifier, reason, { field, previous, value });
+          this.emitAudit(false);
+        }
+        return { ok: true, data: { ...access, rules: { ...access.rules } } };
+      }
       case 'emergency_freeze': {
         const { enabled, reason } = p as OutgoingPayloads['emergency_freeze'];
         const last = [...this.entries].reverse().find((entry) => entry.action === 'mod_emergency_freeze');

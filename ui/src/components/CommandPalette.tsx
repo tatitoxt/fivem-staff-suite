@@ -42,6 +42,10 @@ export function useCommands(): Cmd[] {
       list.push({ id: 'emergency-freeze', group: act, label: t('ui_emergency_title'), icon: <ShieldCheck size={16} />,
         run: () => dispatch({ type: 'staffDialog', dialog: 'mod.emergency_freeze' }) });
     }
+    if (!isLite && can('admin.permissions')) {
+      list.push({ id: 'owner-permissions', group: act, label: t('ui_permissions_title'), icon: <ShieldCheck size={16} />,
+        run: () => dispatch({ type: 'staffDialog', dialog: 'admin.permissions' }) });
+    }
     if (!isLite && can('mod.spectate')) {
       list.push({ id: 'spectate-stop', group: act, label: t('spectate_stop'), icon: <X size={16} />,
         run: () => void send('spectate_stop') });

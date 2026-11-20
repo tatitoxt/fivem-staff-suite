@@ -852,6 +852,52 @@ function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result(
   assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
+function T.test_owner_acl_is_scoped_and_only_takes_effect_when_saved()
+  local s = serverSandbox()
+  local event, result = 'ownerPermissions', 'staff_suite:ownerPermissionsResult'
+  local id = 'license:account18'
+  local function saved() return s.sent[result].ok end
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 18 and object == 'staff_suite.cap.report.view') or ace(src, object)
+  end
+  local function bootProfile(server)
+    server.now = server.now + 10
+    server.env.source = 18
+    server.event('getState')
+    server.env.source = 17
+    return server.recipients[18]['staff_suite:state'].player
+  end
+  local function has(player, cap)
+    for _, value in ipairs(player.capabilities) do if value == cap then return true end end
+    return false
+  end
+  s.ace.superadmin = true
+  s.event(event, 1)
+  assert(not saved() and has(bootProfile(s), 'report.view'))
+  s.ace.superadmin = false
+  local root = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object) return (src == 17 and object == 'god') or root(src, object) end
+  s.event(event, 2)
+  assert(saved() and #s.sent[result].data.players == 2)
+  s.event(event, 3, 18, id, 'admin.permissions', 'allow', 'invalid')
+  assert(not saved())
+  s.event(event, 4, 18, id, 'rank', 'owner', 'invalid')
+  assert(not saved())
+  s.event(event, 5, 18, 'license:old', 'rank', 'helper', 'otro jugador')
+  assert(not saved())
+  s.failWrites = true
+  s.event(event, 6, 18, id, 'report.view', 'deny', 'revocar')
+  assert(not saved() and has(bootProfile(s), 'report.view'))
+  s.failWrites, s.now = false, s.now + 10
+  s.event(event, 7, 18, id, 'rank', 'helper', 'dar rango')
+  assert(saved() and bootProfile(s).rank == 'helper')
+  s.event(event, 8, 18, id, 'report.view', 'deny', 'revocar')
+  assert(saved() and not has(bootProfile(s), 'report.view') and s.api.Verify())
+  local restarted = serverSandbox({ files = s.files })
+  assert(bootProfile(restarted).rank == 'helper' and not has(bootProfile(restarted), 'report.view'))
+end
+
 function T.test_emergency_freeze_preserves_previous_state_and_catches_new_peds()
   local s = serverSandbox()
   s.env.DoesEntityExist = function(entity) return entity > 0 end

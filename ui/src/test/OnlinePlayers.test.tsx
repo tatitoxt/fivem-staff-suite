@@ -148,3 +148,33 @@ it('loads emergency state and asks for a reason before a server-wide freeze', as
     body: JSON.stringify({ enabled: true, reason: 'alerta' }),
   }));
 });
+
+it('restricts the permissions editor to owners and sends a scoped ACE rule with a reason', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn().mockImplementation(async (_url: string, options: RequestInit) => {
+    const request = JSON.parse(String(options.body));
+    const data = request.target ? {
+      id: 18, identifier: 'license:alex', rank: 'inherit', rules: { 'mod.kick': request.value ?? 'inherit' },
+    } : { players: [{ id: 18, name: 'Alex' }], ranks: ['helper'], capabilities: ['mod.kick'] };
+    return { json: async () => ({ ok: true, data }) };
+  });
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile(['admin.config']);
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  expect(screen.queryByRole('button', { name: strings.ui_permissions_title })).not.toBeInTheDocument();
+  profile(['admin.permissions']);
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  fireEvent.click(screen.getByRole('option', { name: new RegExp(strings.ui_permissions_title) }));
+  const dialog = within(screen.getByRole('dialog', { name: strings.ui_permissions_title }));
+  fireEvent.change(await dialog.findByRole('combobox', { name: strings.ui_permissions_player }), { target: { value: '18' } });
+  fireEvent.change(await dialog.findByRole('combobox', { name: strings.ui_permissions_field }), { target: { value: 'mod.kick' } });
+  fireEvent.change(dialog.getByRole('combobox', { name: strings.ui_permissions_value }), { target: { value: 'deny' } });
+  const save = dialog.getByRole('button', { name: strings.ui_permissions_save });
+  expect(save).toBeDisabled();
+  fireEvent.change(dialog.getByRole('textbox', { name: strings.ui_vehicle_reason }), { target: { value: 'ajuste' } });
+  fireEvent.click(save);
+  expect(transport).toHaveBeenLastCalledWith('https://staff_suite/owner_permissions', expect.objectContaining({
+    body: JSON.stringify({ target: 18, identifier: 'license:alex', field: 'mod.kick', value: 'deny', reason: 'ajuste' }),
+  }));
+});

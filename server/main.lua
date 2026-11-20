@@ -33,6 +33,14 @@ local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local staffModes, staffModeSeq = {}, 0
 local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
 local emergency, emergencyChange
+local pendingPermissions
+local editableCaps, editableCap = {}, {}
+for _, cap in ipairs(perms.CAPS) do
+  if cap ~= 'admin.permissions' then
+    editableCaps[#editableCaps + 1] = cap
+    editableCap[cap] = true
+  end
+end
 local onlineRefs, onlineViewedAt, onlineRefSeq = {}, {}, 0
 local profileHistory = {}
 local profileAuditIntact = true
@@ -101,6 +109,7 @@ end
 
 local storage = persist.new(Config, function()
   local state = snapshot()
+  state.perms = pendingPermissions or pmodel
   if next(pendingBans) or next(pendingRevocations) then
     state.bans = {}
     for id, ban in pairs(bans) do state.bans[id] = ban end
@@ -246,7 +255,16 @@ end
 
 -- ===== Permisos / rangos =====
 local function getPlayer(src)
-  return bridges.resolve(src, Config)
+  local player = bridges.resolve(src, Config)
+  player.baseRank = player.rank
+  if player.rank ~= 'owner' then
+    local override = (pmodel.ranks or {})[player.identifier]
+    if override and override ~= 'inherit' and perms.editableRank(override) then player.rank = override end
+    if player.identifier then
+      player.ace = function(cap) return IsPlayerAceAllowed(src, 'staff_suite.cap.' .. cap) end
+    end
+  end
+  return player
 end
 
 local function accountPlaytime(identifier, session, now)
@@ -314,7 +332,7 @@ local function getIdentifier(src)
 end
 
 local function can(player, cap)
-  return perms.can(pmodel, player.identifier, player.rank, cap)
+  return perms.can(pmodel, player.identifier, player.rank, cap, player.ace)
 end
 
 local function findPlayerByIdentifier(identifier)
@@ -1046,6 +1064,71 @@ RegisterNetEvent('staff_suite:emergencyFreeze', function(req, enabled, reason)
     TriggerClientEvent('staff_suite:notify', -1, t(enabled and 'emergency_started' or 'emergency_released'), { kind = 'announce' })
     reply(true)
   end)
+end)
+
+RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected, field, value, reason)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, errorText, data)
+    TriggerClientEvent('staff_suite:ownerPermissionsResult', src, { req = req, ok = ok, error = errorText, data = data })
+  end
+  if not allowRate(src, 'staff_suite:ownerPermissions') then return reply(false, t('rate_limited')) end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local owner = getPlayer(src)
+  if not owner.identifier or not can(owner, 'admin.permissions') then return reply(false, t('no_permission')) end
+  if target == nil then
+    local players = {}
+    for _, candidate in ipairs(GetPlayers()) do
+      local id = tonumber(candidate)
+      local player = getPlayer(id)
+      if player.identifier and player.baseRank ~= 'owner' then
+        players[#players + 1] = { id = id, name = player.name }
+      end
+    end
+    table.sort(players, function(a, b) return a.id < b.id end)
+    return reply(true, nil, { players = players, ranks = perms.EDITABLE_RANKS, capabilities = editableCaps })
+  end
+  local id = positiveInteger(target)
+  if not id or not GetPlayerName(id) then return reply(false, t('online_player_changed')) end
+  local player = getPlayer(id)
+  if not player.identifier or player.baseRank == 'owner' then return reply(false, t('no_permission')) end
+  local function details()
+    local state = { id = id, identifier = player.identifier, baseRank = player.baseRank,
+      rank = (pmodel.ranks or {})[player.identifier] or 'inherit', rules = {} }
+    for _, cap in ipairs(editableCaps) do state.rules[cap] = perms.override(pmodel, player.identifier, cap) end
+    return state
+  end
+  if field == nil then return reply(true, nil, details()) end
+  if expected ~= player.identifier then return reply(false, t('online_player_changed')) end
+  if pendingPermissions then return reply(false, t('permissions_pending')) end
+  if field == 'rank' then
+    if not perms.editableRank(value) then return reply(false, t('permissions_invalid')) end
+  elseif type(field) ~= 'string' or not editableCap[field]
+      or (value ~= 'allow' and value ~= 'deny' and value ~= 'inherit') then
+    return reply(false, t('permissions_invalid'))
+  end
+  local cleaned, err = cleanText(reason, limit('reason') or 300)
+  if err then return reply(false, err) end
+  if not cleaned or cleaned == '' then return reply(false, t('reason_required')) end
+  local previous = field == 'rank' and ((pmodel.ranks or {})[player.identifier] or 'inherit')
+    or perms.override(pmodel, player.identifier, field)
+  if previous == value then return reply(true, nil, details()) end
+  pendingPermissions = perms.edit(pmodel, player.identifier, field, value)
+  record('admin_permissions_change', owner.identifier, player.identifier, cleaned,
+    { field = field, previous = previous, value = value }, function(saved)
+      if saved then pmodel = pendingPermissions end
+      pendingPermissions = nil
+      if not saved then
+        record('admin_permissions_failed', owner.identifier, player.identifier, '', { field = field, value = value })
+      end
+      if not GetPlayerName(src) or getPlayer(src).identifier ~= owner.identifier then return end
+      if saved and can(getPlayer(src), 'admin.permissions') then
+        reply(true, nil, details())
+      else
+        reply(false, t(saved and 'no_permission' or 'mod_save_failed'))
+      end
+    end)
 end)
 
 local function net(name, fn)
