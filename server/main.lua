@@ -75,7 +75,16 @@ local function restore(data)
     local verified, ok, at = pcall(audit.verify, chain)
     profileAuditIntact = verified and ok
     if profileAuditIntact then
-      for _, entry in ipairs(chain.entries) do indexProfileEntry(entry) end
+      local failedNotes = {}
+      for _, entry in ipairs(chain.entries) do
+        if entry.action == 'player_profile_note_failed' then
+          local seq = tonumber(entry.reason)
+          if seq then failedNotes[seq] = true end
+        end
+      end
+      for _, entry in ipairs(chain.entries) do
+        if entry.action ~= 'player_profile_note' or not failedNotes[entry.seq] then indexProfileEntry(entry) end
+      end
     else
       print(t('console_chain_broken', { at = at or '?' }))
     end
@@ -514,7 +523,11 @@ profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResu
     if not text or text == '' then return reply(false, err or t('player_profile_note_empty')) end
     local sequence = #chain.entries + 1
     record('player_profile_note', player.identifier, identifier, text, nil, function(saved)
-      if saved then indexProfileEntry(chain.entries[sequence]) end
+      if saved then
+        indexProfileEntry(chain.entries[sequence])
+      else
+        record('player_profile_note_failed', player.identifier, identifier, tostring(sequence))
+      end
       reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
     end)
   end)

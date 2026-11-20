@@ -39,6 +39,7 @@ Locale['es'] = {
   ui_player_profile_ban_failed = 'No se pudo guardar el baneo',
   ui_act_player_profile_view = 'Consulta de perfil',
   ui_act_player_profile_note = 'Nota de jugador',
+  ui_act_player_profile_note_failed = 'No se pudo guardar la nota de jugador',
   ticket_message_failed = 'No se pudo enviar el mensaje. Probá de nuevo.',
   ticket_staff_reply = 'El staff respondió al reporte #%{id}. Abrí Mis reportes para leerlo.',
   report_too_many_open = 'Ya tenés %{max} reportes abiertos. Esperá a que el staff los atienda.',

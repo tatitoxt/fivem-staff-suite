@@ -330,12 +330,16 @@ function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_au
   s.event('playerProfileNote', id, 6, 'ñññññ')
   assert(s.sent[note].error == s.env.StaffSuiteTranslate('input_too_long', { max = 8 }))
   s.now = s.now + 10
+  s.failWrites = true
   s.event('playerProfileNote', id, 7, ' Revisar ')
-  assert(s.sent[note].ok and s.sent[note].data.notes[1].text == 'Revisar')
+  assert(not s.sent[note].ok and not s.sent[note].data)
+  s.failWrites = false
+  s.event('playerProfileNote', id, 8, ' Revisar ')
+  assert(s.sent[note].ok and s.sent[note].data.notes[1].text == 'Revisar' and #s.sent[note].data.notes == 1)
   local reboot = serverSandbox({ files = s.files })
   reboot.ace.mod = true
   reboot.event('playerProfile', id, 1)
-  assert(reboot.sent[view].data.notes[1].text == 'Revisar' and reboot.api.Verify())
+  assert(reboot.sent[view].data.notes[1].text == 'Revisar' and #reboot.sent[view].data.notes == 1 and reboot.api.Verify())
 end
 
 function T.test_server_enforces_mapped_capabilities_and_overrides()

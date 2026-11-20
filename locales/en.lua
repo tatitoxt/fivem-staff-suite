@@ -39,6 +39,7 @@ Locale['en'] = {
   ui_player_profile_ban_failed = 'The ban could not be saved',
   ui_act_player_profile_view = 'Player profile opened',
   ui_act_player_profile_note = 'Player note added',
+  ui_act_player_profile_note_failed = 'Player note save failed',
   ticket_message_failed = 'The message could not be sent. Please try again.',
   ticket_staff_reply = 'Staff replied to report #%{id}. Open My reports to read it.',
   report_too_many_open = 'You already have %{max} open reports. Wait for staff to handle them.',
