@@ -113,6 +113,38 @@ function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect
   assert(c.pos.x == 1 and c.visible and c.collision and not c.frozen)
 end
 
+function T.test_noclip_moves_forward_and_up_with_the_camera()
+  local c, env, events = sandbox()
+  env.source = 65535
+  env.GetDisabledControlNormal = function(_, control) return control == 31 and -1 or 0 end
+  env.GetGameplayCamRot = function() return { x = 20, z = 0 } end
+  env.GetFrameTime = function() return 1 / 60 end
+  env.IsControlPressed = function() return false end
+  env.DisableControlAction = function() end
+  env.SetEntityVelocity = function() end
+  events['staff_suite:staffMode']('noclip', true, 1)
+  assert(coroutine.resume(c.thread))
+  assert(c.pos.x == 1 and c.pos.y > 2 and c.pos.z > 3)
+end
+
+function T.test_invisible_restores_state_on_death_or_resource_stop()
+  local c, env, events, _, hooks = sandbox()
+  local change = events['staff_suite:staffMode']
+  change('invisible', true, 1)
+  assert(c.visible)
+  env.source = 65535
+  change('invisible', true, 2)
+  assert(not c.visible)
+  assert(coroutine.resume(c.thread))
+  c.dead = true
+  assert(coroutine.resume(c.thread))
+  assert(c.visible and c.args[1] == 'staff_suite:staffModeEnded' and c.args[3] == 2)
+  c.dead = false
+  change('invisible', true, 3)
+  hooks.onClientResourceStop('staff_suite')
+  assert(c.visible)
+end
+
 function T.test_standalone_revive_and_nui_ban_duration()
   local c, env, events, callbacks = sandbox()
   c.dead = true

@@ -22,6 +22,8 @@ files['server/**/*.lua'].read_globals = runtime_with({
   'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',
 })
 files['client/**/*.lua'].read_globals = runtime_with({
+  'DisableControlAction', 'GetDisabledControlNormal', 'GetFrameTime', 'GetGameplayCamRot',
+  'IsControlPressed', 'SetEntityVelocity',
   'DoesBlipExist', 'GetBlipInfoIdCoord', 'GetFirstBlipInfoId', 'GetGroundZFor_3dCoord',
   'IsNewLoadSceneLoaded', 'NewLoadSceneStartSphere', 'NewLoadSceneStop',
   'DoesEntityExist', 'FreezeEntityPosition', 'GetEntityCollisionDisabled', 'GetEntityCoords', 'GetEntityHeading', 'GetEntityMaxHealth',

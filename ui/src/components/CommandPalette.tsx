@@ -43,6 +43,14 @@ export function useCommands(): Cmd[] {
       list.push({ id: 'spectate-stop', group: act, label: t('spectate_stop'), icon: <X size={16} />,
         run: () => void send('spectate_stop') });
     }
+    if (!isLite) {
+      for (const mode of ['noclip', 'invisible'] as const) {
+        if (can(`staff.${mode}`)) {
+          list.push({ id: mode, group: act, label: t(`staff_mode_${mode}`), icon: <Power size={16} />,
+            run: () => void send('staff_mode', { mode }) });
+        }
+      }
+    }
     if (other) list.push({ id: 'lang', group: act, label: t('ui_cmd_lang', { lang: t(`ui_lang_${other}`) }), icon: <Languages size={16} />, run: () => void send('set_locale', { locale: other }) });
     const nextTheme = resolveTheme(state.theme) === 'dark' ? 'light' : 'dark';
     list.push({
