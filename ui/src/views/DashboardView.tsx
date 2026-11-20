@@ -27,9 +27,11 @@ export function DashboardView() {
   const loc = state.locale;
   const week = t('ui_kpi_7d');
   const created = useMemo(() => dailySeries(state.tickets.map((x) => x.created_ts)), [state.tickets]);
+  // updated_ts cambia con notas o al cerrar: la fecha real de resolución sale de la auditoría.
+  const hasAudit = state.audit.entries.length > 0;
   const resolved = useMemo(
-    () => dailySeries(state.tickets.filter((x) => x.state === 'resolved' || x.state === 'closed').map((x) => x.updated_ts)),
-    [state.tickets],
+    () => dailySeries(state.audit.entries.filter((e) => e.action === 'ticket_resolve').map((e) => e.ts)),
+    [state.audit.entries],
   );
   const days = useMemo(() => {
     const f = new Intl.DateTimeFormat(intlLocale(loc), { weekday: 'short' });
@@ -44,7 +46,7 @@ export function DashboardView() {
       <div className={lay.viewBody}>
         <div className={cx(ui.card, v.kpis)}>
           <Kpi label={t('ui_kpi_open')} value={d ? String(d.kpis.open) : '—'} series={created} hint={week} />
-          <Kpi label={t('ui_kpi_resolved')} value={d ? String(d.kpis.resolved) : '—'} series={resolved} hint={week} />
+          <Kpi label={t('ui_kpi_resolved')} value={d ? String(d.kpis.resolved) : '—'} series={hasAudit ? resolved : undefined} hint={hasAudit ? week : undefined} />
           <Kpi label={t('ui_kpi_response')} value={formatDuration(d?.kpis.avg_response)} />
           <Kpi label={t('ui_kpi_rating')} value={formatNumber(d?.kpis.avg_rating, loc)} />
           <Kpi label={t('ui_kpi_on_duty')} value={d ? String(d.kpis.on_duty) : '—'} />
@@ -96,7 +98,7 @@ export function DashboardView() {
                 <h2>{t('ui_activity')}</h2>
                 <span className={v.legend}>
                   <span><i className={v.legendCreated} />{t('ui_activity_created')}</span>
-                  <span><i className={v.legendResolved} />{t('ui_activity_resolved')}</span>
+                  {hasAudit && <span><i className={v.legendResolved} />{t('ui_activity_resolved')}</span>}
                 </span>
               </div>
               <div className={v.bars} role="list" aria-label={t('ui_activity')}>
@@ -104,7 +106,7 @@ export function DashboardView() {
                   <div key={i} className={v.barCol} role="listitem" aria-label={t('ui_activity_label', { day: days[i], created: c, resolved: resolved[i] })}>
                     <div className={v.barPair} aria-hidden>
                       <span className={v.barCreated} style={{ height: `${(c / peak) * 100}%` }} />
-                      <span className={v.barResolved} style={{ height: `${(resolved[i] / peak) * 100}%` }} />
+                      {hasAudit && <span className={v.barResolved} style={{ height: `${(resolved[i] / peak) * 100}%` }} />}
                     </div>
                     <span className={v.barDay} aria-hidden>{days[i]}</span>
                   </div>

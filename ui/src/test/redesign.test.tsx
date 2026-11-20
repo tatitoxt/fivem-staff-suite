@@ -77,6 +77,16 @@ describe('NUI rediseño', () => {
     spy.mockRestore();
   });
 
+  it('la actividad cuenta resoluciones por la auditoría, no por updated_ts', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    fireEvent.keyDown(window, { key: '3' });
+    const bars = await screen.findByRole('list', { name: 'Actividad de tickets' });
+    const total = within(bars).getAllByRole('listitem')
+      .reduce((n, el) => n + Number(/(\d+) resueltos/.exec(el.getAttribute('aria-label') ?? '')?.[1] ?? 0), 0);
+    expect(total).toBe(2);
+  });
+
   it('dailySeries agrupa por día terminando hoy', () => {
     const now = 10 * 86400 + 3600;
     expect(dailySeries([now, now - 60, now - 86400, now - 8 * 86400], 7, now)).toEqual([0, 0, 0, 0, 0, 1, 2]);
