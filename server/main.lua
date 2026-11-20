@@ -31,11 +31,11 @@ local escalate = rule.enabled == true and math.type(rule.threshold) == 'integer'
   and math.type(rule.window_seconds) == 'integer' and rule.window_seconds >= 60 and rule.window_seconds <= 2592000
 local warnings, escalations, pendingEscalations = {}, {}, {}
 
-local function indexWarning(target, ts)
+local function indexWarning(target, ts, now)
   local history = warnings[target] or {}
   warnings[target] = history
   history[#history + 1] = ts
-  while #history > rule.threshold or history[1] <= ts - rule.window_seconds do
+  while history[1] and (#history > rule.threshold or history[1] <= now - rule.window_seconds) do
     table.remove(history, 1)
   end
   return #history
@@ -50,7 +50,7 @@ local function restoreEscalation(now)
   end
   for _, e in ipairs(chain.entries) do
     if e.ts > cutoff and not failures[e.seq] then
-      if e.action == 'mod_warn' then indexWarning(e.target, e.ts) end
+      if e.action == 'mod_warn' then indexWarning(e.target, e.ts, now) end
       if e.action == 'mod_warn_escalation' then escalations[e.target] = e.ts end
     end
   end
@@ -358,7 +358,7 @@ local function warnSaved(ctx, sequence, saved)
   end
   if not escalate then return end
   local now = os.time()
-  local count = indexWarning(ctx.target, now)
+  local count = indexWarning(ctx.target, chain.entries[sequence].ts, now)
   if count < rule.threshold or pendingEscalations[ctx.target]
     or (escalations[ctx.target] or -math.huge) > now - rule.window_seconds then return end
   if not canKickEscalation(ctx) then return end
@@ -371,7 +371,7 @@ local function warnSaved(ctx, sequence, saved)
       record('mod_warn_escalation_failed', ctx.actor, ctx.target, tostring(attempt))
       return
     end
-    escalations[ctx.target] = now
+    escalations[ctx.target] = chain.entries[attempt].ts
     modActions.kick.run({ tgt = ctx.tgt, reason = reason })
   end)
 end

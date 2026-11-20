@@ -451,6 +451,33 @@ function T.test_warn_escalation_restores_window_ignores_failed_writes_and_checks
   assert(not s.kicked)
 end
 
+function T.test_warn_escalation_uses_the_same_audit_timestamp_before_and_after_restart()
+  local deferred
+  local s = serverSandbox({ setup = function(server)
+    server.env.Config.WarnEscalation = { enabled = true, threshold = 2, window_seconds = 60 }
+    local persist = server.env.StaffSuiteModules['server.persist']
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb)
+        if not deferred and cb then
+          deferred = cb
+          return save()
+        end
+        return save(cb)
+      end
+      return storage
+    end
+  end })
+  s.ace.admin = true
+  s.event('modAction', 'warn', 18, 'Primera')
+  s.now = s.now + 60
+  deferred(true)
+  s.event('modAction', 'warn', 18, 'Segunda')
+  assert(not s.kicked)
+end
+
 function T.test_ban_persists_before_drop_and_checks_expiration_on_reconnect()
   local s = serverSandbox()
   s.ace.mod = true
