@@ -12,6 +12,12 @@ Capturas del panel real (mock del navegador, `npm run dev` en `ui/`, 1920×1080,
 | `shot-command-palette-{es,en}.png` | 1920×1080 | Command palette (Ctrl+K) |
 | `shot-player-report-{es,en}.png` | 1920×1080 | Reporte rápido del jugador con categoría y captura adjunta |
 | `shot-player-profile-{es,en}.png` | 1920×1080 | Perfil del jugador desde el ticket |
+| `shot-dashboard-dark-{es,en}.png` | 1920×1080 | Dashboard en tema oscuro |
+| `shot-tickets-dark-{es,en}.png` | 1920×1080 | Reportes con evidencia en tema oscuro |
+| `shot-audit-verified-dark-{es,en}.png` | 1920×1080 | Auditoría verificada en tema oscuro |
+| `shot-command-palette-dark-{es,en}.png` | 1920×1080 | Ctrl+K en tema oscuro (incluye cambiar tema) |
+| `shot-settings-theme-dark-{es,en}.png` | 1920×1080 | Ajustes con el selector Claro / Oscuro / Automático |
+| `shot-brand-light-es.png` / `shot-brand-dark-es.png` | 1920×1080 | `Config.Brand` con nombre del server y acento propio |
 | `flow-report-claim-resolve-es.gif` | 960×540, 11 s | Reporte → claim → resolve → "Resuelto" en Mis reportes (README) |
 
 Las capturas in-game de un server de QA que pide `tebex-listing.md` siguen pendientes; estas sirven hasta tenerlas.

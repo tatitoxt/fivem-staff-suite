@@ -27,6 +27,21 @@
   --red-ink: #991b1b;
   --blue-soft: #e9f0fd;
   --blue-ink: #1e40af;
+  --on-accent: #ffffff;
+  --focus-ring: rgba(21, 128, 61, 0.15);
+  --ok-line: #c7e8d2;
+  --bad-line: #f3c3c3;
+  --bad-bg: #fff8f8;
+  --warn-line: #f6d9b0;
+  --warn-field-line: #f2c48a;
+  --warn-field-bg: #fffaf2;
+  --dot-idle: #8a93a1;
+  --bar-created: #c7ccd4;
+  --gray-ink: #3f4854;
+  --knob: #ffffff;
+  --toast-bg: #0f1419;
+  --scrim: rgba(15, 20, 25, 0.28);
+  color-scheme: light;
 
   --s1: 4px;
   --s2: 8px;
@@ -53,6 +68,56 @@
   --font-head: 'Manrope', system-ui, sans-serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+/* Tema oscuro: mismos tokens, neutros fríos y el acento verde aclarado para AA sobre superficies oscuras. */
+:root[data-theme='dark'] {
+  --bg: #0e1116;
+  --surface: #161a21;
+  --surface-2: #1b2029;
+  --surface-3: #232a34;
+  --line: #2a313c;
+  --line-strong: #3a4350;
+  --ink: #f1f4f8;
+  --text: #cfd6df;
+  --muted: #98a2b0;
+
+  --accent: #4ade80;
+  --accent-hover: #86efac;
+  --accent-soft: #16301f;
+  --accent-ink: #86efac;
+  --on-accent: #0b1f12;
+
+  --green: #4ade80;
+  --green-soft: #15291c;
+  --green-ink: #86efac;
+  --orange: #f59e0b;
+  --orange-soft: #2d2110;
+  --orange-ink: #fbbf24;
+  --red: #f87171;
+  --red-strong: #dc2626;
+  --red-soft: #2e1517;
+  --red-ink: #fca5a5;
+  --blue-soft: #172036;
+  --blue-ink: #93c5fd;
+
+  --focus-ring: rgba(74, 222, 128, 0.22);
+  --ok-line: #23503a;
+  --bad-line: #5c2a2d;
+  --bad-bg: #22151a;
+  --warn-line: #5a4220;
+  --warn-field-line: #6b4d1f;
+  --warn-field-bg: #221b10;
+  --dot-idle: #6b7482;
+  --bar-created: #4a5361;
+  --gray-ink: #cfd6df;
+  --knob: #e6e9ee;
+  --toast-bg: #2a313c;
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
 }
 
 *,

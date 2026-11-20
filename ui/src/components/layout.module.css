@@ -42,7 +42,7 @@
   display: grid;
   place-items: center;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   flex-shrink: 0;
 }
 .brandName { font-family: var(--font-head); font-weight: 700; font-size: 15px; color: var(--ink); line-height: 1.2; }
@@ -139,7 +139,7 @@
   height: 28px;
   border-radius: var(--pill);
   background: var(--ink);
-  color: #fff;
+  color: var(--surface);
   display: grid;
   place-items: center;
   font-family: var(--font-head);
@@ -156,7 +156,7 @@
   height: 10px;
   border-radius: var(--pill);
   border: 2px solid var(--surface);
-  background: #8a93a1;
+  background: var(--dot-idle);
 }
 .avatarDotOn { background: var(--green); }
 .who { min-width: 0; }
@@ -198,7 +198,7 @@
   gap: 10px;
   padding: var(--s2) 14px;
   border-radius: var(--r-md);
-  background: var(--ink);
+  background: var(--toast-bg);
   color: #fff;
   font-size: 14px;
   font-weight: 500;
@@ -226,7 +226,7 @@
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(15, 20, 25, 0.28);
+  background: var(--scrim);
   display: grid;
   place-items: center;
   z-index: 20;
@@ -410,3 +410,5 @@
 @media (min-width: 2400px) and (min-height: 1350px) { .notices { zoom: 1.333; } }
 @media (min-width: 3600px) and (min-height: 2000px) { .notices { zoom: 2; } }
 @media (prefers-reduced-motion: reduce) { .notice { animation: none; } }
+
+.logoImg { width: 28px; height: 28px; border-radius: var(--r-md); object-fit: cover; flex-shrink: 0; }
