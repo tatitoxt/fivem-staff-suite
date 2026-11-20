@@ -4,6 +4,8 @@
 
 Free Lite incluye reportes, una cola de tickets básicos y un visor de auditoría con verificación SHA-256. Guarda los tickets y la cadena en un archivo JSON. El contenido de este paquete se distribuye bajo la licencia MIT.
 
+El archivo `CHANGELOG.md` del paquete incluye los cambios y la guía de actualización.
+
 1. Extraé la carpeta `staff_suite/` en `resources/`.
 2. Agregá `add_ace group.admin staff_suite.lite allow` y `ensure staff_suite` a `server.cfg`. Ajustá el grupo al que usa tu staff.
 3. Los jugadores pueden enviar `/report <categoría> <descripción>`. El staff abre la cola con `/reports`, el visor con `/audit` o el panel con F6.
@@ -13,6 +15,8 @@ Staff Suite Core suma prioridades, notas y flujos avanzados de tickets, moderaci
 ## English
 
 Free Lite includes reports, a basic ticket queue and an audit viewer with SHA-256 verification. It stores tickets and the audit chain in a JSON file. The contents of this package are distributed under the MIT license.
+
+See `CHANGELOG.md` in the package for changes and upgrade instructions.
 
 1. Extract the `staff_suite/` folder into `resources/`.
 2. Add `add_ace group.admin staff_suite.lite allow` and `ensure staff_suite` to `server.cfg`. Adjust the group to match your staff setup.

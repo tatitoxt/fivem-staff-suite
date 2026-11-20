@@ -1,6 +1,6 @@
 # Configuration reference
 
-Documented version: **0.1.0**. There are two files:
+Documented version: **0.2.0**. There are two files:
 
 | File | Loaded on | Purpose |
 |---|---|---|
@@ -25,7 +25,7 @@ Do not put secrets in `config.lua`: every player downloads it.
 | `report` | `'report'` | Player command to create a report. |
 | `duty` | `'duty'` | Staff command to clock in/out. |
 | `audit` | `'audit'` | Command to verify the chain (console or in game). |
-| `reports` | `'reports'` | Ticket queue command **(coming soon)**: not registered yet. |
+| `reports` | `'reports'` | Command to open the ticket queue in Lite. In Core, open it from the panel. |
 
 ### Reports
 

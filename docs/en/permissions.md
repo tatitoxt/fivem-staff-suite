@@ -86,11 +86,11 @@ A transfer is only accepted if the recipient is online and has `report.claim` an
 
 Every action goes through: capability check → online target (by server id or identifier) → mandatory reason for `ban` and `warn`, and for `kick` if `Config.Moderation.require_reason` → execution → audit entry (`mod_<action>`).
 
-| Action | Status in 0.1.0 |
+| Action | Status in 0.2.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Working. |
 | `ban`, `warn`, `spectate`, `revive` | Available in the panel to staff with the corresponding capability. |
-| Unfreeze | **(coming soon)** |
+| Unfreeze (`unfreeze`) | Available when the target is frozen. Uses `mod.freeze`. |
 
 Noclip, god mode and spawning remain in txAdmin or your framework.
 

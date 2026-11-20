@@ -55,9 +55,7 @@ Ver la tabla de ediciones en el [README](../../README.md#ediciones).
 | "El jugador seleccionado no está conectado." | El objetivo se desconectó o el id no existe. | Elegí un jugador conectado. |
 | La transferencia de un ticket falla | El destinatario no está conectado o no tiene `report.claim` + `report.view`. | Transferí a un staff conectado con ese rango. |
 
-## Limitaciones conocidas de 0.1.0
+## Limitaciones conocidas de 0.2.0
 
-- `unfreeze` no está disponible **(próximamente)**.
-- Calificar la atención de un ticket todavía no tiene comando ni evento **(próximamente)**.
-- `/reports` todavía no hace nada **(próximamente)**.
+- En Core, la cola de tickets se abre desde el panel. Lite también registra `/reports`.
 - `audit_export.log` queda en la misma máquina: copialo afuera para que sirva como prueba independiente.

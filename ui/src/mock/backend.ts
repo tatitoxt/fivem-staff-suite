@@ -1,4 +1,5 @@
 import { fmt } from '../format';
+import { version } from '../../package.json';
 import { sha256Hex } from './sha256';
 import type {
   AuditEntry, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
@@ -81,7 +82,7 @@ export class MockBackend {
       payload: {
         locale: this.locale,
         strings: LOCALES[this.locale],
-        version: '0.1.0',
+        version,
         player: { name: ME, rank: 'owner', capabilities: ALL_CAPS },
         config: {
           panel_key: 'F6', locales: ['es', 'en'],

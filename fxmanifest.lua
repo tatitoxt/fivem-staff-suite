@@ -5,7 +5,7 @@ lua54 'yes'
 name 'staff_suite'
 author 'Orkelya Studio'
 description 'Staff Suite — reports, moderación y auditoría verificable (hash-chain). Español-first.'
-version '0.1.0'
+version '0.2.0'
 
 shared_scripts {
   'config.lua',

@@ -1,6 +1,8 @@
 # Instalación
 
-> Versión documentada: **0.1.0**. Lo marcado como **(próximamente)** está planeado pero todavía no está implementado.
+> Versión documentada: **0.2.0**. Lo marcado como **(próximamente)** está planeado pero todavía no está implementado.
+
+Si ya tenés el recurso instalado, seguí la [guía para actualizar de 0.1.0 a 0.2.0](../../CHANGELOG.md#actualizar-de-010-a-020).
 
 ## Requisitos
 
@@ -10,7 +12,7 @@
 | [oxmysql](https://github.com/overextended/oxmysql) + MySQL/MariaDB | No | Solo si querés guardar los datos en base de datos. Sin oxmysql se usa un archivo JSON. |
 | Framework (ESX / QBCore / Qbox) | No | Se detecta solo. Sin framework funciona en modo standalone con ACE. Ver [Frameworks](#frameworks). |
 | Node.js 18+ | Solo desde el código fuente | Para compilar el panel (`ui/dist/`). Los paquetes de release ya lo traen compilado. |
-| ox_lib | No | No se usa en 0.1.0. |
+| ox_lib | No | No se usa en 0.2.0. |
 
 ## 1. Copiar el resource
 

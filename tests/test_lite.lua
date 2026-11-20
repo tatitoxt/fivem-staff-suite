@@ -123,7 +123,7 @@ function T.test_client_opens_basic_panel_and_registers_basic_actions()
     RegisterNUICallback = function(name, handler) callbacks[name] = handler end,
     AddEventHandler = function() end,
     GetCurrentResourceName = function() return 'staff_suite' end,
-    GetResourceMetadata = function() return '0.1.0' end,
+    GetResourceMetadata = function() return '0.2.0' end,
     GetPlayerName = function() return 'Lite player' end,
     PlayerId = function() return 1 end,
     SetNuiFocus = function() end,

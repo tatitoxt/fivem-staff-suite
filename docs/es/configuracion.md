@@ -1,6 +1,6 @@
 # Referencia de configuración
 
-Versión documentada: **0.1.0**. Hay dos archivos:
+Versión documentada: **0.2.0**. Hay dos archivos:
 
 | Archivo | Se carga en | Para qué |
 |---|---|---|
@@ -25,7 +25,7 @@ No pongas secretos en `config.lua`: lo descarga cada jugador.
 | `report` | `'report'` | Comando del jugador para crear un reporte. |
 | `duty` | `'duty'` | Comando de staff para entrar/salir de servicio. |
 | `audit` | `'audit'` | Comando para verificar la cadena (consola o juego). |
-| `reports` | `'reports'` | Cola de tickets por comando **(próximamente)**: todavía no se registra. |
+| `reports` | `'reports'` | Comando para abrir la cola de tickets en Lite. En Core, abrila desde el panel. |
 
 ### Reportes
 

@@ -75,6 +75,7 @@ else
     if [[ -f "$license" ]]; then cp -- "$license" "$resource"; fi
   done
 fi
+cp -- CHANGELOG.md "$resource"
 cp -R --parents -- ui/dist "$resource"
 mkdir -p "$resource/third-party-licenses"
 for dependency in react react-dom scheduler lucide-react @fontsource/dm-sans @fontsource/manrope; do

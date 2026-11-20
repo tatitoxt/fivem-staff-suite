@@ -13,7 +13,7 @@ hash = SHA-256( seq ␟ ts ␟ actor ␟ action ␟ target ␟ reason ␟ payloa
 
 If someone edits a field, deletes an entry in the middle or reorders entries, the hashes stop matching and verification reports the first broken entry.
 
-## What gets recorded (0.1.0)
+## What gets recorded (0.2.0)
 
 | Action | Source |
 |---|---|
