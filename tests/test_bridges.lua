@@ -1570,7 +1570,8 @@ end
 function T.test_vehicle_cleanup_audits_countdown_cancel_and_keeps_occupied_vehicles()
   local s = serverSandbox()
   perSourceAce(s, { [17] = { admin = true }, [18] = { mod = true } })
-  local vehicles, deleted = { 501, 502, 503, 504 }, {}
+  local vehicles, deleted = { 501, 502, 503, 504, 505 }, {}
+  s.env.GetVehicleType = function(vehicle) return vehicle == 505 and 'train' or 'automobile' end
   s.env.GetAllVehicles = function() return vehicles end
   s.env.DoesEntityExist = function(entity) return not deleted[entity] end
   s.env.DeleteEntity = function(entity) deleted[entity] = true end
@@ -1594,7 +1595,8 @@ function T.test_vehicle_cleanup_audits_countdown_cancel_and_keeps_occupied_vehic
   assert(s.recipients[-1]['staff_suite:announcement'] == s.env.StaffSuiteTranslate('cleanup_countdown', { seconds = 30 }))
   s.now = s.now + 10
   s.event('vehicleCleanup', 10, 5)
-  assert(s.sent['staff_suite:vehicleCleanupResult'].error == s.env.StaffSuiteTranslate('cleanup_pending'))
+  local pending = s.sent['staff_suite:vehicleCleanupResult']
+  assert(pending.error == s.env.StaffSuiteTranslate('cleanup_pending') and pending.data.remaining == 20)
 
   s.event('vehicleCleanupCancel', 6)
   assert(s.sent['staff_suite:vehicleCleanupCancelResult'].ok)
@@ -1604,7 +1606,7 @@ function T.test_vehicle_cleanup_audits_countdown_cancel_and_keeps_occupied_vehic
   s.now = s.now + 10
   s.event('vehicleCleanup', 10, 7)
   s.timers[#s.timers]()
-  assert(not deleted[501] and not deleted[502] and deleted[503] and deleted[504])
+  assert(not deleted[501] and not deleted[502] and deleted[503] and deleted[504] and not deleted[505])
   assert(s.recipients[-1]['staff_suite:announcement'] == s.env.StaffSuiteTranslate('cleanup_done', { count = 2 }))
   local entries = s.api.GetState().chain.entries
   local actions = {}

@@ -15,7 +15,7 @@ local function runtime_with(globals)
 end
 
 files['server/**/*.lua'].read_globals = runtime_with({
-  'CancelEvent', 'DeleteEntity', 'DoesEntityExist', 'DropPlayer', 'GetAllVehicles', 'GetPedInVehicleSeat', 'GetVehiclePedIsIn', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
+  'CancelEvent', 'DeleteEntity', 'DoesEntityExist', 'DropPlayer', 'GetAllVehicles', 'GetPedInVehicleSeat', 'GetVehiclePedIsIn', 'GetVehicleType', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
   'GetGameTimer', 'GetInvokingResource', 'GetNumPlayerTokens', 'GetPlayerToken', 'GetResourcePath',
   'GetPlayerName', 'GetPlayerPed', 'GetPlayerRoutingBucket', 'GetPlayers', 'IsEntityPositionFrozen', 'IsPlayerAceAllowed', 'PerformHttpRequest',
   'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',

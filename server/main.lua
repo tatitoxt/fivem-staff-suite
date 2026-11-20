@@ -890,7 +890,8 @@ RegisterNetEvent('staff_suite:announce', function(body, req)
 end)
 
 -- ===== Limpieza de vehículos =====
--- Borra los vehículos sin jugadores adentro ni conductor. La solicitud queda en la cadena
+-- Borra los vehículos sin jugadores adentro ni conductor. Los trenes se saltean: borrar la
+-- locomotora borra los vagones aunque tengan jugadores. La solicitud queda en la cadena
 -- antes del aviso y el resultado se registra con la cantidad borrada.
 local function cleanupCountdowns()
   local cfg = Config.VehicleCleanup or {}
@@ -906,7 +907,8 @@ local function deleteEmptyVehicles()
   end
   local deleted = 0
   for _, vehicle in ipairs(GetAllVehicles()) do
-    if DoesEntityExist(vehicle) and not occupied[vehicle] and GetPedInVehicleSeat(vehicle, -1) == 0 then
+    if DoesEntityExist(vehicle) and not occupied[vehicle] and GetPedInVehicleSeat(vehicle, -1) == 0
+      and GetVehicleType(vehicle) ~= 'train' then
       DeleteEntity(vehicle)
       deleted = deleted + 1
     end
@@ -915,7 +917,10 @@ local function deleteEmptyVehicles()
 end
 
 local function scheduleCleanup(actor, seconds, done)
-  if cleanupRequest then return done(false, t('cleanup_pending')) end
+  if cleanupRequest then
+    local remaining = cleanupRequest.ends_at and math.max(0, cleanupRequest.ends_at - os.time())
+    return done(false, t('cleanup_pending'), remaining and { remaining = remaining } or nil)
+  end
   local request = { actor = actor, seconds = seconds }
   cleanupRequest = request
   local entry = record('world_cleanup_request', actor, 'server', '', { seconds = seconds }, function(saved)
