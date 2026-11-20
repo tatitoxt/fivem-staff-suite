@@ -104,6 +104,11 @@ function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect
   spectate(42, { x = 300, y = 100, z = 10 })
   hooks.onClientResourceStop('staff_suite')
   assert(c.pos.x == 1 and c.visible and c.collision and not c.frozen)
+
+  spectate(42, { x = 500, y = 100, z = 10 })
+  c.dead = true
+  assert(coroutine.resume(c.thread))
+  assert(c.pos.x == 1 and c.visible and c.collision and not c.frozen)
 end
 
 function T.test_standalone_revive_and_nui_ban_duration()

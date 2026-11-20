@@ -64,7 +64,7 @@ local function stopSpectating(session)
     ClearFocus()
   end
   if DoesEntityExist(ped) then
-    if ped == PlayerPedId() and not IsEntityDead(ped) then
+    if ped == PlayerPedId() then
       local pos = session.origin
       SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
       SetEntityHeading(ped, session.heading)
