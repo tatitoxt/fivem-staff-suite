@@ -177,6 +177,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
                   variant={m === 'ban' ? 'danger' : 'secondary'}
                   className={m === 'ban' ? v.railWide : undefined}
                   disabled={!can(`mod.${m}`) || ((NEEDS_REASON.has(m) || (m === 'kick' && requireReason)) && !reason.trim())}
+                  aria-pressed={m === 'freeze' ? frozen : undefined}
                   onClick={() => mod(m === 'freeze' && frozen ? 'unfreeze' : m)}
                 >
                   {t(m === 'freeze' && frozen ? 'mod_unfreeze' : `mod_${m}`)}
