@@ -1,5 +1,5 @@
-import { Info, Keyboard, Languages, Send } from 'lucide-react';
-import { Badge, Segmented, ViewHeader, cx, ui } from '../components/ui';
+import { Info, Keyboard, Languages, MapPin, Send } from 'lucide-react';
+import { Badge, Button, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
 import { isLite } from '../edition';
 import { rankLabel } from '../labels';
@@ -7,7 +7,7 @@ import { useApp } from '../store';
 import v from './views.module.css';
 
 export function SettingsView() {
-  const { state, t, send } = useApp();
+  const { state, t, send, can } = useApp();
   const cfg = state.config;
   const locales = cfg.locales?.length ? cfg.locales : ['es', 'en'];
   const exp = cfg.export;
@@ -16,6 +16,10 @@ export function SettingsView() {
       <ViewHeader title={t('ui_nav_settings')} subtitle={t('ui_settings_sub')} />
       <div className={cx(lay.viewBody, ui.scroll)}>
         <div className={v.settings}>
+          {!isLite && can('staff.waypoint') && <section className={cx(ui.card, v.setCard)}>
+            <div className={v.setHead}><span className={v.setIcon}><MapPin size={20} /></span><h2>{t('ui_waypoint_title')}</h2></div>
+            <Button onClick={() => void send('goto_waypoint')}>{t('ui_waypoint_go')}</Button>
+          </section>}
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Languages size={20} /></span><h2>{t('ui_set_language')}</h2></div>
             <Segmented

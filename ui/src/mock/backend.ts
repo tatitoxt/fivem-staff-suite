@@ -303,6 +303,9 @@ export class MockBackend {
         this.emit({ type: 'evidence', payload: { id, n, data, ok: sha256Hex(data) === item.sha256 } });
         return;
       }
+      case 'goto_waypoint':
+        this.toast('info', this.s('waypoint_no_marker'));
+        return;
       case 'mod_action': {
         const { action: mod, target, reason, duration } = p as OutgoingPayloads['mod_action'];
         if (REASON_REQUIRED.has(mod) && !reason.trim()) return this.toast('error', this.s('reason_required'));

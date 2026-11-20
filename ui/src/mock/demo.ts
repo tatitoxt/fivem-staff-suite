@@ -10,6 +10,7 @@ export const ALL_CAPS = [
   'mod.revive', 'mod.kick', 'mod.warn', 'mod.ban',
   'audit.view', 'audit.verify', 'audit.export',
   'staff.duty', 'staff.analytics', 'admin.config', 'admin.permissions',
+  'staff.waypoint',
 ];
 
 const P = {

@@ -48,6 +48,8 @@ The server sends the list of transfer recipients: online staff who can claim rep
 The ticket's moderation rail acts on the player who filed the report. Freeze and Unfreeze share `mod.freeze`. The other buttons need `mod.<action>`. With `Config.Moderation.require_reason = true`, kick requires a reason.
 
 - Ban and warn always require a reason. Bans can be temporary or permanent, and warned players get an in-game notification.
+
+With `staff.waypoint`, set a point on the map and use **Settings → Go to waypoint** to move your own character on foot. The audit log stores the server authorization and the result reported by the client.
 - Spectate requires the target to be in the same instance. Press Backspace to exit.
 - Revive uses the framework's medical integration when available, with a standalone implementation for other setups.
 

@@ -200,6 +200,7 @@ export interface OutgoingPayloads {
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
+  goto_waypoint: Record<string, never>;
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };

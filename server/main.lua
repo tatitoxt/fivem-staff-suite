@@ -25,6 +25,7 @@ local entry_count = 0
 local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
+local waypointRequests = {}
 
 -- ===== Persistencia =====
 local function snapshot()
@@ -692,6 +693,47 @@ net('staff_suite:modAction', function(action, tgt, reason, duration)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end
 end)
 
+local waypointMessages = { ok = 'waypoint_ok', no_marker = 'waypoint_no_marker',
+  unavailable = 'waypoint_unavailable', save_failed = 'waypoint_save_failed' }
+
+local function finishWaypoint(src, request, outcome)
+  waypointRequests[src] = nil
+  record('staff_waypoint_result', request.actor, request.actor, outcome, { request_seq = request.seq })
+  if GetPlayerName(src) and getPlayer(src).identifier == request.actor then
+    TriggerClientEvent('staff_suite:notify', src, t(waypointMessages[outcome]))
+  end
+end
+
+net('staff_suite:waypoint', function()
+  local src = source
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'staff.waypoint') or waypointRequests[src] then return end
+  local request = { actor = player.identifier, seq = #chain.entries + 1 }
+  waypointRequests[src] = request
+  record('staff_waypoint_request', request.actor, request.actor, '', nil, function(saved)
+    if waypointRequests[src] ~= request then return end
+    if not saved then return finishWaypoint(src, request, 'save_failed') end
+    local current = getPlayer(src)
+    if not GetPlayerName(src) or current.identifier ~= request.actor or not can(current, 'staff.waypoint') then
+      return finishWaypoint(src, request, 'unavailable')
+    end
+    request.dispatched = true
+    TriggerClientEvent('staff_suite:waypoint', src, request.seq)
+    SetTimeout(12000, function()
+      if waypointRequests[src] == request then finishWaypoint(src, request, 'unavailable') end
+    end)
+  end)
+end)
+
+net('staff_suite:waypointResult', function(sequence, outcome)
+  local src = source
+  local request = waypointRequests[src]
+  if outcome ~= 'ok' and outcome ~= 'no_marker' and outcome ~= 'unavailable' then return end
+  if request and request.dispatched and sequence == request.seq and getPlayer(src).identifier == request.actor then
+    finishWaypoint(src, request, outcome)
+  end
+end)
+
 net('staff_suite:verify', function()
   local src = source
   local player = getPlayer(src)
@@ -795,6 +837,11 @@ CreateThread(function()
 end)
 
 AddEventHandler('playerDropped', function()
+  local request = waypointRequests[source]
+  if request then
+    waypointRequests[source] = nil
+    record('staff_waypoint_result', request.actor, request.actor, 'disconnected', { request_seq = request.seq })
+  end
   ratelimit.forget(limiter, tonumber(source))
 end)
 

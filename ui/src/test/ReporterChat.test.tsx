@@ -64,6 +64,17 @@ it('shows the public thread and keeps a reply draft until the server accepts it'
   expect(screen.getByText(LOCALES.es.ui_my_reports_empty)).toBeInTheDocument();
 });
 
+it('requests a waypoint teleport with the staff capability and sends no coordinates', async () => {
+  const transport = setup();
+  transport.mockResolvedValue({ json: async () => ({ ok: true }) });
+  dispatch(profile(['report.view']), { type: 'open', payload: { view: 'settings' } });
+  expect(await screen.findByRole('heading', { name: LOCALES.es.ui_nav_settings })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: LOCALES.es.ui_waypoint_go })).not.toBeInTheDocument();
+  dispatch(profile(['report.view', 'staff.waypoint']));
+  fireEvent.click(screen.getByRole('button', { name: LOCALES.es.ui_waypoint_go }));
+  expect(transport).toHaveBeenCalledWith('https://staff_suite/goto_waypoint', expect.objectContaining({ body: '{}' }));
+});
+
 it('changes freeze to unfreeze on server confirmation and uses the same permission', async () => {
   const transport = setup();
   transport.mockResolvedValue({ json: async () => ({ ok: true }) });

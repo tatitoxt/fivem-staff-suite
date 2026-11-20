@@ -48,6 +48,8 @@ La lista de destinatarios de transferencia la manda el server: staff conectado q
 El panel de moderación del ticket actúa sobre quien hizo el reporte. Congelar y Descongelar comparten `mod.freeze`. Los otros botones necesitan `mod.<acción>`. Con `Config.Moderation.require_reason = true`, kick pide una razón.
 
 - Ban y warn siempre piden una razón. El ban puede ser temporal o permanente y el warn se notifica al jugador en el juego.
+
+Con `staff.waypoint`, marcá un punto en el mapa y usá **Ajustes → Ir al marcador** para mover a tu personaje a pie. La auditoría guarda la autorización del servidor y el resultado que informa el cliente.
 - Spectate requiere que el objetivo esté en la misma instancia. Usá Retroceso para salir.
 - Revive usa la integración médica del framework si está disponible, con una implementación standalone para los demás casos.
 
