@@ -85,6 +85,7 @@ Los cambios se guardan en lotes y el guardado pendiente se respalda al parar el 
 |---|---|---|
 | `Limits.ticket_body` / `message_body` / `reason` | `1000` / `1000` / `300` | Máximo en bytes que acepta el servidor; se quitan caracteres de control. |
 | `Limits.open_tickets_per_player` | `3` | Reportes abiertos simultáneos por jugador. `nil` desactiva el tope. |
+| `Limits.evidence_bytes` | `3 MiB` | Tamaño máximo de una captura de `screenshot-basic`. Se rechazan las que no sean un data URI JPEG. |
 | `RateLimit[evento]` | ver `config.lua` | Token bucket por jugador: `burst` acciones seguidas y `per_second` después. `default` aplica a los eventos sin regla propia y a los comandos. |
 
 ## `server/config.lua`

@@ -1199,7 +1199,9 @@ end)
 function captureEvidence(ticket, targetSrc, by, notifySrc)
   local id = ticket.id
   exports['screenshot-basic']:requestClientScreenshot(targetSrc, { encoding = 'jpg', quality = 0.6 }, function(err, data)
-    if err or type(data) ~= 'string' or data == '' then
+    -- El data URI lo arma el cliente: se exige JPEG y un tamaño acotado antes de tocar el disco.
+    local maxBytes = limit('evidence_bytes') or 3 * 1024 * 1024
+    if err or type(data) ~= 'string' or #data > maxBytes or data:sub(1, 23) ~= 'data:image/jpeg;base64,' then
       TriggerClientEvent('staff_suite:notify', notifySrc, t('evidence_failed'))
       return
     end

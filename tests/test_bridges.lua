@@ -989,6 +989,12 @@ function T.test_ticket_export_checks_permission_saves_audit_and_omits_private_da
   s.failWrites = false
   s.event('ticketExport', id, 4)
   assert(request and s.sent[result].req == 3)
+  local mentionsOff = false
+  for _, value in ipairs(s.payloads) do
+    if type(value) == 'table' and value.attachments and type(value.allowed_mentions) == 'table'
+      and next(value.allowed_mentions.parse) == nil then mentionsOff = true end
+  end
+  assert(mentionsOff, 'el webhook no debe poder mencionar @everyone ni roles')
   s.event('ticketExport', id, 5)
   assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
   request(200)
@@ -1580,6 +1586,25 @@ function T.test_ban_revoke_respects_rank_of_original_banner()
   s.api.Flush()
   result = s.sent['staff_suite:banRevokeResult']
   assert(result.req == 2 and result.ok, tostring(result.error))
+end
+
+function T.test_attached_screenshot_rejects_oversized_or_non_jpeg_data()
+  local s = serverSandbox()
+  s.env.source = 21
+  local saved, data = 0, nil
+  s.states['screenshot-basic'] = 'started'
+  s.env.exports['screenshot-basic'] = { requestClientScreenshot = function(_, _, _, cb) cb(false, data) end }
+  s.env.SaveResourceFile = function() saved = saved + 1; return true end
+  s.env.Config.Limits.evidence_bytes = 64
+  data = 'data:image/jpeg;base64,' .. string.rep('A', 100)
+  s.event('ticketCreate', 'player', 'normal', 'Captura enorme', 1, true)
+  data = '<script>alert(1)</script>'
+  s.event('ticketCreate', 'player', 'normal', 'Captura falsa', 2, true)
+  assert(saved == 0, 'no se guarda evidencia inválida')
+  for _, tk in pairs(s.api.GetState().tickets.tickets) do assert(tk.evidence == nil) end
+  data = 'data:image/jpeg;base64,CCCC'
+  s.event('ticketCreate', 'player', 'normal', 'Captura válida', 3, true)
+  assert(saved == 1)
 end
 
 return T
