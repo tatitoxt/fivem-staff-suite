@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { loadMock } from '../nui';
+import { isForumDemo, loadMock } from '../nui';
 import { useApp } from '../store';
 import s from './layout.module.css';
 
-// Controles del harness de desarrollo. No se incluye en el build de producción.
+// Controles del simulador del navegador y de la demo para el foro.
 export function DevHarness() {
-  const { state } = useApp();
+  const { state, t } = useApp();
   const [tampered, setTampered] = useState(false);
   const [backend, setBackend] = useState<Awaited<ReturnType<typeof loadMock>>['backend'] | null>(null);
   useEffect(() => {
@@ -13,14 +13,14 @@ export function DevHarness() {
   }, []);
   if (!backend) return null;
   return (
-    <aside className={s.harness} aria-label="Harness dev">
-      <span>Harness dev</span>
-      {!state.visible && <button onClick={() => window.postMessage({ type: 'open' }, '*')}>Abrir panel</button>}
-      <button onClick={() => backend.promptRate()}>Simular valoración del jugador</button>
+    <aside className={s.harness} aria-label={t('ui_demo_title')}>
+      <span>{isForumDemo() ? t('ui_demo_title') : 'Harness dev'}</span>
+      {!state.visible && <button onClick={() => window.postMessage({ type: 'open' }, window.location.origin)}>{t('ui_demo_open')}</button>}
+      <button onClick={() => backend.promptRate()}>{t('ui_demo_rating')}</button>
       {tampered ? (
-        <button onClick={() => { backend.restore(); setTampered(false); }}>Restaurar entrada #27</button>
+        <button onClick={() => { backend.restore(); setTampered(false); }}>{t('ui_demo_restore')}</button>
       ) : (
-        <button onClick={() => { backend.tamper(); setTampered(true); }}>Simular manipulación #27</button>
+        <button onClick={() => { backend.tamper(); setTampered(true); }}>{t('ui_demo_tamper')}</button>
       )}
     </aside>
   );
