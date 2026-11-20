@@ -51,12 +51,15 @@ function VehicleCleanupForm() {
   const [seconds, setSeconds] = useState(String(options[Math.min(1, options.length - 1)]));
   const [sending, setSending] = useState(false);
   const [endsAt, setEndsAtState] = useState(() => (cleanupEndsAt && cleanupEndsAt > Date.now() ? cleanupEndsAt : undefined));
-  const [result, setResult] = useState<{ ok: boolean; text: string }>();
+  const [result, setResult] = useState<{ ok: boolean; text?: string; key?: string; vars?: Record<string, number> }>();
   const setEndsAt = (next?: number) => { cleanupEndsAt = next; setEndsAtState(next); };
 
   useEffect(() => {
     if (endsAt === undefined) return;
-    const timer = window.setTimeout(() => setEndsAt(undefined), Math.max(0, endsAt - Date.now()));
+    const timer = window.setTimeout(() => {
+      setEndsAt(undefined);
+      setResult((current) => (current?.key === 'ui_cleanup_scheduled' ? undefined : current));
+    }, Math.max(0, endsAt - Date.now()));
     return () => window.clearTimeout(timer);
   }, [endsAt]);
 
@@ -74,10 +77,10 @@ function VehicleCleanupForm() {
     }
     if (action === 'vehicle_cleanup') {
       setEndsAt(Date.now() + Number(seconds) * 1000);
-      setResult({ ok: true, text: t('ui_cleanup_scheduled', { n: seconds }) });
+      setResult({ ok: true, key: 'ui_cleanup_scheduled', vars: { n: Number(seconds) } });
     } else {
       setEndsAt(undefined);
-      setResult({ ok: true, text: t('ui_cleanup_cancelled') });
+      setResult({ ok: true, key: 'ui_cleanup_cancelled' });
     }
   }
 
@@ -94,7 +97,7 @@ function VehicleCleanupForm() {
       {endsAt === undefined
         ? <Button variant="primary" disabled={sending} onClick={() => void run('vehicle_cleanup')}>{t('ui_cleanup_start')}</Button>
         : <Button disabled={sending} onClick={() => void run('vehicle_cleanup_cancel')}>{t('ui_cleanup_cancel')}</Button>}
-      {result && <p className={v.setHint} role={result.ok ? 'status' : 'alert'}>{result.text}</p>}
+      {result && <p className={v.setHint} role={result.ok ? 'status' : 'alert'}>{result.key ? t(result.key, result.vars) : result.text}</p>}
     </section>
   );
 }
