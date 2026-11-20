@@ -382,3 +382,11 @@
   .spinner { animation-duration: 2.4s; }
   .panel { animation: none; }
 }
+
+/* Harness de dev en pantallas bajas: el panel usa el alto de producción y la barra queda encima */
+@media (max-height: 800px) {
+  :global(html.dev-harness) .panel {
+    height: min(820px, calc(100vh - 48px));
+    margin-bottom: 0;
+  }
+}
