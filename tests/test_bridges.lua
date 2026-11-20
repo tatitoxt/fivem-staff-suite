@@ -852,6 +852,22 @@ function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result(
   assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
+function T.test_owner_acl_revocation_ends_active_spectate()
+  local s = serverSandbox()
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 17 and object == 'god') or (src == 18 and object == 'moderator') or ace(src, object)
+  end
+  s.env.source = 18
+  s.event('modAction', 'spectate', 19)
+  local enter = s.lastClientEvent
+  assert(enter[1] == 'staff_suite:spectate' and enter[2] == 18)
+  s.env.source = 17
+  s.event('ownerPermissions', 1, 18, 'license:account18', 'mod.spectate', 'deny', 'fin de acceso')
+  assert(s.recipients[18]['staff_suite:spectateStop'] == enter[5])
+  assert(s.sent['staff_suite:ownerPermissionsResult'].ok and s.api.Verify())
+end
+
 function T.test_owner_acl_is_scoped_and_only_takes_effect_when_saved()
   local s = serverSandbox()
   local event, result = 'ownerPermissions', 'staff_suite:ownerPermissionsResult'

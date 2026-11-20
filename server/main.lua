@@ -614,7 +614,9 @@ local modActions = {
       if pendingSpectators[m.src] ~= session then return end
       pendingSpectators[m.src] = nil
       local currentPed = GetPlayerPed(m.tgt)
+      local observer = getPlayer(m.src)
       if not saved or emergency or not GetPlayerName(m.src) or currentPed == 0
+        or observer.identifier ~= m.actor or not can(observer, 'mod.spectate')
         or getIdentifier(m.tgt) ~= m.target
         or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
         TriggerClientEvent('staff_suite:notify', m.src, t(saved and 'spectate_unavailable' or 'mod_save_failed'))
@@ -1151,6 +1153,20 @@ RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected,
     { field = field, previous = previous, value = value }, function(saved)
       if saved then pmodel = pendingPermissions end
       pendingPermissions = nil
+      if saved then
+        for _, candidate in ipairs(GetPlayers()) do
+          local observer = tonumber(candidate)
+          local current = getPlayer(observer)
+          if current.identifier == player.identifier and not can(current, 'mod.spectate') then
+            pendingSpectators[observer] = nil
+            local session = spectators[observer]
+            if session then
+              spectators[observer] = nil
+              TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+            end
+          end
+        end
+      end
       if not saved then
         record('admin_permissions_failed', owner.identifier, player.identifier, '', { field = field, value = value })
       end
