@@ -196,13 +196,30 @@ path, budget = sys.argv[1], float(sys.argv[2])
 data = json.load(open(path))
 events = data.get('traceEvents', data) if isinstance(data, dict) else data
 total_us, n, timed = 0.0, 0, 0
+open_spans = {}
 for ev in events if isinstance(events, list) else []:
-    if not isinstance(ev, dict) or 'dur' not in ev:
+    if not isinstance(ev, dict):
+        continue
+    # FXServer emite pares de inicio/fin además de spans con duración explícita.
+    phase = ev.get('ph')
+    if phase in ('B', 'E'):
+        stack = open_spans.setdefault((ev.get('pid'), ev.get('tid')), [])
+        if phase == 'B':
+            stack.append(ev)
+            continue
+        if not stack:
+            continue
+        begin = stack.pop()
+        duration = ev['ts'] - begin['ts']
+        ev = begin
+    elif 'dur' in ev:
+        duration = ev['dur']
+    else:
         continue
     timed += 1
     blob = json.dumps(ev)
     if 'staff_suite' in blob and 'staff_suite_tests' not in blob:
-        total_us += float(ev['dur']); n += 1
+        total_us += float(duration); n += 1
 if not timed:
     print('[e2e] profiler sin eventos: presupuesto de staff_suite no medido')
     sys.exit(0)
