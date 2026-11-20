@@ -127,3 +127,25 @@ it('requires a reason before requesting deletion of a player vehicle', async () 
     body: JSON.stringify({ action: 'delete_vehicle', target: { id: 18, key: 7 }, reason: 'bloqueo' }),
   }));
 });
+
+it('loads emergency state and asks for a reason before a server-wide freeze', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn().mockImplementation(async (_url: string, opts: RequestInit) => ({
+    json: async () => ({ ok: true, data: { enabled: JSON.parse(String(opts.body)).enabled ?? false } }),
+  }));
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile(['mod.emergency_freeze']);
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  fireEvent.click(screen.getByRole('option', { name: new RegExp(strings.ui_emergency_title) }));
+  const dialog = within(screen.getByRole('dialog', { name: strings.ui_emergency_title }));
+  const freeze = await dialog.findByRole('button', { name: strings.ui_emergency_freeze });
+  expect(freeze).toBeDisabled();
+  fireEvent.change(dialog.getByRole('textbox', { name: strings.ui_vehicle_reason }), { target: { value: 'alerta' } });
+  fireEvent.click(freeze);
+  expect(await dialog.findByRole('button', { name: strings.ui_emergency_release })).toBeDisabled();
+  expect(transport).toHaveBeenLastCalledWith('https://staff_suite/emergency_freeze', expect.objectContaining({
+    body: JSON.stringify({ enabled: true, reason: 'alerta' }),
+  }));
+});
