@@ -176,7 +176,7 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
   local convar_reads = 0
   local webhook = 'https://example.invalid/webhook'
   env.GetConvar = function(name)
-    assert(name == 'staff_suite_webhook')
+    assert(name == 'staff_suite_webhook' or name == 'staff_suite_ticket_webhook')
     convar_reads = convar_reads + 1
     return webhook
   end
@@ -187,7 +187,7 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
   assert(env.Config.Export == nil and env.Config.StandaloneRanks == nil and convar_reads == 0)
   assert(manifest.server[1] == 'server/config.lua')
   assert(loadfile(manifest.server[1], 't', env))()
-  assert(env.Config.Export.webhook == webhook and convar_reads == 1)
+  assert(env.Config.Export.webhook == webhook and env.Config.Export.ticket_webhook == webhook and convar_reads == 2)
 end
 
 local function clone(value)
@@ -298,6 +298,38 @@ function T.test_server_boots_from_manifest_without_reading_lua()
 
   local ok, err = pcall(s.env.StaffSuiteModules.loadmod, 'core.no_registrado')
   assert(not ok and err:find('core.no_registrado', 1, true) and #s.reads == 2)
+end
+
+function T.test_staff_chat_checks_sender_and_recipients_and_saves_before_delivery()
+  local s = serverSandbox()
+  local result, message = 'staff_suite:staffChatResult', 'staff_suite:staffChatMessage'
+  local function send(body, req) s.event('staffChat', body, req) end
+  send('Hola', 1)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('no_permission'))
+  s.ace.support = true
+  local model = s.api.GetState().perms
+  perms.revoke(model, 'license:account19', 'staff.chat')
+  s.env.Config.Limits.message_body = 8
+  send('   ', 2)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('staff_chat_empty'))
+  send(string.rep('ñ', 5), 3)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('input_too_long', { max = 8 }))
+  s.failWrites = true
+  send('Falla', 4)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('mod_save_failed') and not s.sent[message])
+  s.failWrites = false
+  send(' Hola ', 5)
+  assert(s.sent[result].ok and s.recipients[17][message] and s.recipients[18][message] and not s.recipients[19])
+  s.api.Flush()
+  local entries = s.files[s.env.Config.JsonFile].chain.entries
+  local requestEntry, resultEntry = entries[#entries - 1], entries[#entries]
+  local requestData, resultData = s.payloads[tonumber(requestEntry.payload)], s.payloads[tonumber(resultEntry.payload)]
+  assert(requestEntry.action == 'staff_chat_request' and requestData.bytes == 4 and requestData.body == nil)
+  assert(resultEntry.action == 'staff_chat_result' and resultData.request_seq == requestEntry.seq and resultData.recipients == 2)
+  local failed = s.payloads[tonumber(entries[#entries - 2].payload)]
+  assert(entries[#entries - 2].action == 'staff_chat_result' and not failed.ok and failed.recipients == 0)
+  send('Otra', 6)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
 end
 
 function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_audited()
@@ -762,10 +794,50 @@ function T.test_state_reports_export_flags_without_webhook_url()
   state = s.sent['staff_suite:state']
   assert(state.exportStatus.webhook == true and state.exportStatus.file == false)
   for key, value in pairs(state.exportStatus) do
-    assert(((key == 'file' or key == 'webhook') and type(value) == 'boolean')
+    assert(((key == 'file' or key == 'webhook' or key == 'tickets') and type(value) == 'boolean')
       or (key == 'anchor_every' and type(value) == 'number'))
   end
   assert(not state.export and not state.webhook)
+end
+
+function T.test_ticket_export_checks_permission_saves_audit_and_omits_private_data()
+  local s = serverSandbox()
+  local url, result = 'https://discord.com/api/webhooks/123456/demo-token', 'staff_suite:ticketExportResult'
+  s.env.Config.Export.ticket_webhook = url
+  local id = s.api.CreateTicket({ reporter = 'license:account18', description = 'Mi consulta' })
+  s.ace.admin = true
+  s.event('ticketMessage', id, 'Nota interna', true)
+  s.event('ticketMessage', id, 'Respuesta pública', false)
+  local request
+  s.env.PerformHttpRequest = function(uri, cb, method, body, headers, options)
+    local entries = s.files[s.env.Config.JsonFile].chain.entries
+    assert(entries[#entries].action == 'ticket_export_request')
+    assert(uri == url .. '?wait=true' and method == 'POST' and options.followLocation == false)
+    assert(headers['Content-Type']:match('^multipart/form%-data; boundary='))
+    assert(body:find('Mi consulta', 1, true) and body:find('Respuesta pública', 1, true))
+    assert(not body:find('Nota interna', 1, true) and not body:find('license:', 1, true))
+    request = cb
+  end
+  s.ace.admin = false
+  s.event('ticketExport', id, 2)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('no_permission') and not request)
+  s.ace.admin = true
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].exportStatus.tickets == true)
+  s.now = s.now + 30
+  s.failWrites = true
+  s.event('ticketExport', id, 3)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('mod_save_failed') and not request)
+  s.now = s.now + 30
+  s.failWrites = false
+  s.event('ticketExport', id, 4)
+  assert(request and s.sent[result].req == 3)
+  s.event('ticketExport', id, 5)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
+  request(200)
+  assert(s.sent[result].ok and s.sent[result].req == 4)
+  local chain = s.api.GetChain()
+  assert(chain[#chain].action == 'ticket_export_result' and s.api.Verify())
 end
 
 function T.test_ticket_transfer_assigns_eligible_recipient()
@@ -813,6 +885,39 @@ local function perSourceAce(s, bySource)
     if own then return own[label] == true end
     return s.ace[label] == true
   end
+end
+
+function T.test_announcement_requires_permission_and_saved_audit_before_broadcast()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { admin = true }, [18] = { mod = true } })
+  s.env.source = 18
+  s.event('announce', 'Reiniciamos en cinco minutos', 1)
+  assert(s.recipients[18]['staff_suite:announceResult'].error == s.env.StaffSuiteTranslate('no_permission'))
+  assert(not s.recipients[-1] and #s.api.GetState().chain.entries == 0)
+
+  s.env.source = 17
+  s.env.Config.Limits.announcement = 15
+  s.event('announce', string.rep('ñ', 8), 2)
+  assert(not s.sent['staff_suite:announceResult'].ok and not s.recipients[-1])
+  s.event('announce', 'Aviso', 3)
+  assert(s.sent['staff_suite:announceResult'].error == s.env.StaffSuiteTranslate('rate_limited'))
+  assert(#s.api.GetState().chain.entries == 0)
+
+  s.now = s.now + 30
+  s.event('announce', '  Aviso \0ñ  ', 4)
+  assert(s.recipients[-1]['staff_suite:announcement'] == 'Aviso ñ')
+  assert(s.recipients[17]['staff_suite:announceResult'].ok)
+  local disk = s.files[s.env.Config.JsonFile]
+  local entry = disk.chain.entries[1]
+  assert(entry.action == 'staff_announce' and entry.actor == 'license:account17')
+  assert(entry.reason == 'Aviso ñ' and entry.target == 'server')
+  assert(s.env.StaffSuiteModules['core.audit_chain'].verify(disk.chain))
+
+  s.now = s.now + 30
+  s.failWrites = true
+  s.event('announce', 'No enviarlo', 5)
+  assert(s.recipients[-1]['staff_suite:announcement'] == 'Aviso ñ')
+  assert(s.sent['staff_suite:announceResult'].error == s.env.StaffSuiteTranslate('announcement_failed'))
 end
 
 function T.test_malformed_inputs_do_not_crash_or_mutate_state()
@@ -1013,6 +1118,102 @@ function T.test_ban_covers_alternate_identifiers_and_extends_on_evasion()
   assert(s.api.GetChain()[#s.api.GetChain()].action == 'mod_ban_extended' and s.api.Verify())
 end
 
+function T.test_ban_review_loads_legacy_aliases_and_only_revokes_after_persistence()
+  local initial = serverSandbox()
+  initial.env.Config.Framework = 'standalone'
+  initial.ace['staff_suite.senior_admin'] = true
+  local ids = {
+    ['18'] = { 'license:account18', 'discord:18' },
+    ['50'] = { 'license:new50', 'discord:18' },
+  }
+  local function useIdentifiers(s)
+    local base = s.env.GetPlayerIdentifiers
+    s.env.GetPlayerIdentifiers = function(src) return ids[tostring(src)] or base(src) end
+  end
+  useIdentifiers(initial)
+  initial.event('modAction', 'ban', 18, 'primero', 0)
+  initial.event('modAction', 'ban', 19, 'segundo', 0)
+  initial.env.source = 50
+  initial.hook('playerConnecting', '', function() end)
+  initial.api.Flush()
+  local disk = initial.files[initial.env.Config.JsonFile]
+  for _, ban in pairs(disk.bans) do ban.id = nil end
+  for _, entry in ipairs(disk.chain.entries) do initial.files[entry.payload] = initial.payloads[tonumber(entry.payload)] end
+
+  local s = serverSandbox({ files = initial.files })
+  s.env.Config.Framework = 'standalone'
+  useIdentifiers(s)
+  perSourceAce(s, { [17] = { ['staff_suite.senior_admin'] = true }, [18] = { ['staff_suite.admin'] = true } })
+  local listResult, revokeResult = 'staff_suite:banListResult', 'staff_suite:banRevokeResult'
+  s.env.source = 19
+  s.event('banList', 1, 1)
+  assert(not s.sent[listResult].ok and s.sent[listResult].data == nil)
+  s.env.source = 18
+  s.event('banList', 1, 2)
+  local data = s.sent[listResult].data
+  assert(#data.rows == 2 and not data.hasMore)
+  assert(data.rows[1].aliases == 3 and data.rows[1].status == 'active')
+  local ban = data.rows[1].id
+  assert(ban == 1)
+  s.event('banRevoke', ban, 'Apelación', 3)
+  assert(s.sent[revokeResult].error == s.env.StaffSuiteTranslate('no_permission'))
+  s.env.source = 17
+  s.event('banRevoke', ban, string.rep('x', 301), 4)
+  assert(not s.sent[revokeResult].ok)
+  s.failWrites = true
+  s.event('banRevoke', ban, 'Apelación', 5)
+  assert(not s.sent[revokeResult].ok)
+  s.env.source = 50
+  s.hook('playerConnecting', '', function() end)
+  assert(s.cancelled)
+  s.env.source = 17
+  s.failWrites = false
+  s.event('banRevoke', ban, 'Apelación', 6)
+  assert(s.sent[revokeResult].error == s.env.StaffSuiteTranslate('rate_limited'))
+  s.now = s.now + 10
+  s.event('banRevoke', ban, 'Apelación', 7)
+  assert(s.sent[revokeResult].ok)
+  s.event('banList', 1, 8)
+  assert(s.sent[listResult].data.rows[1].status == 'revoked')
+  local chain = s.api.GetChain()
+  assert(chain[#chain - 1].action == 'mod_unban' and chain[#chain - 1].reason == 'Apelación')
+  assert(s.api.Verify())
+
+  local reboot = serverSandbox({ files = s.files })
+  useIdentifiers(reboot)
+  for _, src in ipairs({ 18, 50 }) do
+    reboot.env.source = src
+    reboot.hook('playerConnecting', '', function() error('revocación perdida') end)
+    assert(not reboot.cancelled)
+  end
+  reboot.env.source = 19
+  reboot.hook('playerConnecting', '', function() end)
+  assert(reboot.cancelled, 'el otro baneo sigue activo')
+
+  s.now = s.now + 10
+  s.online['50'] = true
+  s.event('modAction', 'ban', 18, 'Reincidencia', 0)
+  s.event('modAction', 'ban', 50, 'Cuenta secundaria', 0)
+  assert(s.api.GetState().bans['license:new50'].id ~= ban)
+  for _, entry in ipairs(s.api.GetChain()) do
+    if entry.action == 'mod_unban' or entry.action == 'mod_unban_failed' then
+      -- El sandbox usa tokens en vez de JSON real, mantenerlos para el reinicio simulado.
+      local token = entry.payload
+      s.files[token] = s.payloads[tonumber(token)]
+    end
+  end
+  local afterReban = serverSandbox({ files = s.files })
+  afterReban.ace.god = true
+  afterReban.event('banList', 1, 9)
+  for _, row in ipairs(afterReban.sent[listResult].data.rows) do
+    if row.id == ban then
+      assert(row.status == 'revoked' and row.reason == 'primero' and row.aliases == 3)
+      return
+    end
+  end
+  error('Se perdió el baneo revocado del historial')
+end
+
 function T.test_resolve_and_rating_feed_staff_analytics()
   local s = serverSandbox()
   s.ace.admin = true
@@ -1156,6 +1357,34 @@ function T.test_ticket_create_replies_ok_or_error_to_panel()
   for i = 1, cfg.RateLimit['staff_suite:ticketCreate'].burst do s.event('ticketCreate', 'bug', 'low', 'b' .. i) end
   s.event('ticketCreate', 'bug', 'low', 'spam', 10)
   assert(s.sent[result].req == 10 and not s.sent[result].ok and s.sent[result].error == s.env.Locale.es.rate_limited)
+end
+
+function T.test_report_with_attached_screenshot()
+  local s = serverSandbox()
+  s.env.source = 21
+  local shots = 0
+  s.states['screenshot-basic'] = 'started'
+  s.env.exports['screenshot-basic'] = {
+    requestClientScreenshot = function(_, src, _, cb) shots = shots + 1; assert(src == 21); cb(false, 'data:image/jpeg;base64,CCCC') end,
+  }
+  s.env.SaveResourceFile = function() return true end
+  s.event('ticketCreate', 'player', 'normal', 'Me chocaron a propósito', 1, true)
+  s.event('ticketCreate', 'player', 'normal', 'Sin captura', 2, false)
+  local list = s.api.GetState().tickets.tickets
+  local withShot, without
+  for _, tk in pairs(list) do
+    if tk.description == 'Me chocaron a propósito' then withShot = tk end
+    if tk.description == 'Sin captura' then without = tk end
+  end
+  assert(shots == 1, 'solo captura si el reporter lo pidió')
+  assert(withShot and #withShot.evidence == 1 and withShot.evidence[1].by == withShot.reporter)
+  assert(without and without.evidence == nil)
+  local entries = s.api.GetChain()
+  local found = false
+  for _, e in ipairs(entries) do
+    if e.action == 'ticket_evidence' and e.target == 'ticket:' .. withShot.id then found = true end
+  end
+  assert(found, 'la captura del reporter queda auditada')
 end
 
 return T

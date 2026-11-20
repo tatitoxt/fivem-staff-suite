@@ -1,4 +1,4 @@
-import { Camera, Inbox, Plus, Star } from 'lucide-react';
+import { Camera, Inbox, Plus, Send, Star } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
@@ -7,6 +7,7 @@ import { isLite } from '../edition';
 import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone } from '../labels';
 import { useApp } from '../store';
 import type { ModAction, Priority, Ticket, TicketCreateResult, TicketState } from '../types';
+import { ReportDialog } from '../components/ReportDialog';
 import { LimitHint, TicketChat, overLimit } from './TicketChat';
 import { PlayerProfileButton } from './PlayerProfileDialog';
 import v from './views.module.css';
@@ -47,6 +48,23 @@ interface DetailProps {
   openDialog: (d: DialogState) => void;
   reason: string;
   setReason: (r: string) => void;
+}
+
+function TicketExportButton({ id }: { id: number }) {
+  const { dispatch, t, send } = useApp();
+  const [pending, setPending] = useState(false);
+  async function exportTicket() {
+    setPending(true);
+    const result = await send('ticket_export', { id }) as TicketCreateResult | null;
+    setPending(false);
+    dispatch({ type: 'toast', kind: result?.ok ? 'ok' : 'error',
+      text: result?.ok ? t('ticket_export_sent') : result?.error ?? t('ticket_export_unconfirmed') });
+  }
+  return (
+    <Button size="small" disabled={pending} className={v.railWide} onClick={() => void exportTicket()}>
+      <Send size={15} aria-hidden />{t('ui_ticket_export')}
+    </Button>
+  );
 }
 
 function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
@@ -120,6 +138,8 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               <Button disabled={!canResolve} onClick={() => openDialog({ kind: 'resolve' })}>{t('resolve')}</Button>
               <Button disabled={!canClose} onClick={() => void send('ticket_close', { id: tk.id })}>{t('close')}</Button>
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
+              {!isLite && state.config.export?.tickets && state.player?.capabilities?.includes('report.export')
+                && <TicketExportButton key={tk.id} id={tk.id} />}
               {!isLite && can('player.profile.view') && <PlayerProfileButton key={tk.id} id={tk.id} />}
             </div>
           </section>
@@ -196,17 +216,12 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
 export function TicketsView() {
   const { state, t, can, send } = useApp();
   const resolutionMax = state.config.limits?.resolution ?? state.config.limits?.message_body;
-  const reportMax = state.config.limits?.ticket_body;
   const [group, setGroup] = useState<Group>('all');
   const [priority, setPriority] = useState<'' | Priority>('');
   const [selected, setSelected] = useState<number | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [text, setText] = useState('');
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   const [target, setTarget] = useState('');
-  const [category, setCategory] = useState('player');
-  const [newPriority, setNewPriority] = useState<Priority>('normal');
   const [reason, setReason] = useState('');
   const [banDuration, setBanDuration] = useState('');
   useEffect(() => setReason(''), [selected]);
@@ -226,26 +241,17 @@ export function TicketsView() {
     if (selected == null && list.length) setSelected(list[0].id);
   }, [list, selected]);
 
-  const close = () => { setDialog(null); setText(''); setTarget(''); setBanDuration(''); setCreateError(null); };
-  const submitReport = async () => {
-    setCreating(true);
-    setCreateError(null);
-    const res = (await send('ticket_create', { category, priority: isLite ? 'normal' : newPriority, body: text.trim() })) as TicketCreateResult | null;
-    setCreating(false);
-    if (res?.ok) close();
-    else setCreateError(res?.error || t('report_failed'));
-  };
+  const close = () => { setDialog(null); setText(''); setTarget(''); setBanDuration(''); };
   const targets = Array.isArray(state.config.transfer_targets)
     ? state.config.transfer_targets.map((x) => ({ value: x.identifier, label: x.name || shortId(x.identifier) }))
     : (state.duty?.staff ?? []).map((s) => ({ value: s.actor, label: shortId(s.actor) }));
   const staff = targets.filter((x) => x.value !== tk?.claimer);
-  const categories = state.config.categories ?? ['bug', 'player', 'staff', 'question', 'other'];
   const priorities = state.config.priorities ?? ['low', 'normal', 'high', 'urgent'];
 
   return (
     <main className={lay.main}>
       <ViewHeader title={t('tab_tickets')} subtitle={t(isLite ? 'ui_lite_tickets_sub' : 'ui_tickets_sub')}>
-        <Button variant="primary" onClick={() => setDialog({ kind: 'create' })}><Plus size={18} />{t('ui_ticket_new')}</Button>
+        <Button variant="primary" onClick={() => setDialog({ kind: 'create' })}><Plus size={16} />{t('ui_ticket_new')}</Button>
       </ViewHeader>
       <div className={v.tickets}>
         <div className={v.queue}>
@@ -271,11 +277,11 @@ export function TicketsView() {
           <div className={cx(ui.scroll, v.queueList)} aria-label={t('ui_queue')}>
             {list.length ? list.map((x) => (
               <TicketCard key={x.id} tk={x} selected={x.id === selected} onSelect={() => setSelected(x.id)} />
-            )) : <Empty icon={<Inbox size={22} />}>{t('queue_empty')}</Empty>}
+            )) : <Empty icon={<Inbox size={18} />}>{t('queue_empty')}</Empty>}
           </div>
         </div>
         {tk ? <Detail tk={tk} openDialog={setDialog} reason={reason} setReason={setReason} /> : (
-          <section className={ui.card}><Empty icon={<Inbox size={22} />}>{t('ui_ticket_select')}</Empty></section>
+          <section className={ui.card}><Empty icon={<Inbox size={18} />}>{t('ui_ticket_select')}</Empty></section>
         )}
       </div>
 
@@ -348,37 +354,7 @@ export function TicketsView() {
           </label>
         </Dialog>
       )}
-      {dialog?.kind === 'create' && (
-        <Dialog
-          title={t('report_open')}
-          onClose={close}
-          footer={<>
-            <Button onClick={close}>{t('ui_cancel')}</Button>
-            <Button variant="primary" disabled={creating || !text.trim() || overLimit(text, reportMax)} onClick={() => { void submitReport(); }}>{t('report_submit')}</Button>
-          </>}
-        >
-          <div className={v.queueRow}>
-            <label className={ui.field} style={{ flex: 1 }}>
-              <span className={ui.label}>{t('report_category')}</span>
-              <select className={ui.input} value={category} onChange={(e) => setCategory(e.target.value)}>
-                {categories.map((c) => <option key={c} value={c}>{categoryLabel(t, c)}</option>)}
-              </select>
-            </label>
-            {!isLite && <label className={ui.field} style={{ flex: 1 }}>
-              <span className={ui.label}>{t('report_priority')}</span>
-              <select className={ui.input} value={newPriority} onChange={(e) => setNewPriority(e.target.value as Priority)}>
-                {priorities.map((p) => <option key={p} value={p}>{priorityLabel(t, p)}</option>)}
-              </select>
-            </label>}
-          </div>
-          <label className={ui.field}>
-            <span className={ui.label}>{t('report_description')}</span>
-            <textarea className={ui.input} rows={4} value={text} onChange={(e) => setText(e.target.value)} />
-          </label>
-          <LimitHint text={text} max={reportMax} />
-          {createError && <p className={v.setHint} role="alert">{createError}</p>}
-        </Dialog>
-      )}
+      {dialog?.kind === 'create' && <ReportDialog staff onClose={close} />}
     </main>
   );
 }
