@@ -1,5 +1,5 @@
 import { Eye, MapPin, Search, Trash2, Users, Wrench } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import lay from '../components/layout.module.css';
 import { Button, Dialog, Empty, ViewHeader, cx, ui } from '../components/ui';
 import { formatDuration } from '../format';
@@ -17,8 +17,11 @@ export function OnlinePlayersView() {
   const [error, setError] = useState<string>();
   const [deleting, setDeleting] = useState<{ target: OnlinePlayerRef; name: string }>();
   const [reason, setReason] = useState('');
+  const search = useRef<HTMLInputElement>(null);
+  const selected = state.viewAction;
   const maxReason = state.config.limits?.reason ?? 300;
   const seeTickets = can('report.view');
+  useEffect(() => { if (selected) search.current?.focus(); }, [selected]);
 
   useEffect(() => {
     let active = true;
@@ -35,19 +38,26 @@ export function OnlinePlayersView() {
   }, [send, t]);
 
   const term = normalize(query.trim());
-  const visible = (rows ?? []).filter(({ id, name }) => String(id).includes(term) || normalize(name).includes(term))
+  const visible = (rows ?? []).filter(({ id, name, ping, played_seconds, tickets }) => {
+    const values = [`#${id}`, name, `${ping} ms`, formatDuration(played_seconds)];
+    if (seeTickets && tickets !== undefined) values.push(`${tickets} ${t('ui_online_tickets')}`);
+    return values.some((value) => normalize(value).includes(term));
+  })
     .sort((a, b) => a.id - b.id);
   const title = t('ui_nav_players');
-  const canRepair = can('mod.repair_vehicle');
-  const canDelete = can('mod.delete_vehicle');
-  const acts = can('mod.goto') || can('mod.spectate') || canRepair || canDelete;
+  const actionAllowed = (action: string) => (!selected || selected === action) && can(`mod.${action}`);
+  const canRepair = actionAllowed('repair_vehicle');
+  const canDelete = actionAllowed('delete_vehicle');
+  const canGoto = actionAllowed('goto');
+  const canSpectate = actionAllowed('spectate');
+  const acts = canGoto || canSpectate || canRepair || canDelete;
   return (
     <main className={lay.main}>
-      <ViewHeader title={title} />
+      <ViewHeader title={title} subtitle={selected ? t(`mod_${selected}`) : undefined} />
       <div className={lay.viewBody}>
         <label className={v.playerSearch}>
           <Search size={16} aria-hidden />
-          <input className={ui.input} aria-label={t('ui_online_search')} placeholder={t('ui_online_search')}
+          <input ref={search} className={ui.input} aria-label={t('ui_online_search')} placeholder={t('ui_online_search')}
             value={query} onChange={(event) => setQuery(event.target.value)} maxLength={80} />
         </label>
         {error && <p role="alert">{error}</p>}
@@ -69,12 +79,12 @@ export function OnlinePlayersView() {
                   <td>#{id}</td><td>{name}</td><td>{ping} ms</td><td>{formatDuration(played_seconds)}</td>
                   {seeTickets && <td>{tickets ?? '—'}</td>}
                   {acts && <td><div className={v.playerActions}>
-                    {key !== undefined && !self && can('mod.goto') && (
+                    {key !== undefined && !self && canGoto && (
                       <Button size="small" onClick={() => void send('mod_action', { action: 'goto', target: { id, key }, reason: '' })}>
                         <MapPin size={14} aria-hidden />{t('mod_goto')}
                       </Button>
                     )}
-                    {key !== undefined && !self && can('mod.spectate') && (
+                    {key !== undefined && !self && canSpectate && (
                       <Button size="small" onClick={() => void send('mod_action', { action: 'spectate', target: { id, key }, reason: '' })}>
                         <Eye size={14} aria-hidden />{t('mod_spectate')}
                       </Button>

@@ -43,6 +43,11 @@ it('opens Players from Ctrl+K, searches by name and ID, and sends the active pla
   const search = screen.getByRole('textbox', { name: strings.ui_online_search });
   fireEvent.change(search, { target: { value: 'jose' } });
   expect(screen.queryByText('Meli')).not.toBeInTheDocument();
+  for (const value of ['39 ms', '5 min', `2 ${strings.ui_online_tickets}`]) {
+    fireEvent.change(search, { target: { value } });
+    expect(screen.getByText('José')).toBeInTheDocument();
+    expect(screen.queryByText('Meli')).not.toBeInTheDocument();
+  }
   fireEvent.change(search, { target: { value: '24' } });
   const row = screen.getByRole('row', { name: /#24 Meli/ });
   expect(within(row).queryByRole('button', { name: strings.mod_spectate })).not.toBeInTheDocument();
@@ -114,8 +119,10 @@ it('requires a reason before requesting deletion of a player vehicle', async () 
   vi.stubGlobal('fetch', transport);
   render(<App />);
   profile(['player.online.view', 'mod.delete_vehicle']);
-  dispatch({ type: 'open', payload: { view: 'players' } });
+  dispatch({ type: 'open', payload: { view: 'settings' } });
   dispatch({ type: 'myTickets', payload: { tickets: [] } });
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  fireEvent.click(screen.getByRole('option', { name: new RegExp(strings.mod_delete_vehicle) }));
   fireEvent.click(await screen.findByRole('button', { name: strings.mod_delete_vehicle }));
   const dialog = within(screen.getByRole('dialog', { name: strings.mod_delete_vehicle }));
   expect(dialog.getByText(/José \(#18\)/)).toBeVisible();
