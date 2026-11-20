@@ -24,6 +24,7 @@ files['server/**/*.lua'].read_globals = runtime_with({
 })
 files['client/**/*.lua'].read_globals = runtime_with({
   'IsEntityAVehicle', 'NetworkGetEntityFromNetworkId', 'NetworkHasControlOfEntity', 'SetVehicleFixed',
+  'SetVehicleEngineHealth', 'SetVehicleUndriveable',
   'DisableControlAction', 'GetDisabledControlNormal', 'GetFrameTime', 'GetGameplayCamRot',
   'IsControlPressed', 'SetEntityVelocity',
   'DoesBlipExist', 'GetBlipInfoIdCoord', 'GetFirstBlipInfoId', 'GetGroundZFor_3dCoord',
