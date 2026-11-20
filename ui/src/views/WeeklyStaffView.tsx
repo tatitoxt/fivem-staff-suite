@@ -49,7 +49,9 @@ export function WeeklyStaffView() {
     setExporting(true);
     const result = await request(true);
     if (result?.ok && result.data) {
-      setCsv(toCsv({ ...result.data, staff: Array.isArray(result.data.staff) ? result.data.staff : [] }));
+      const snapshot = { ...result.data, staff: Array.isArray(result.data.staff) ? result.data.staff : [] };
+      setReport(snapshot);
+      setCsv(toCsv(snapshot));
     } else setError(result?.error ?? t('staff_weekly_failed'));
     setExporting(false);
   };
