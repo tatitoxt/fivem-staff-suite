@@ -254,12 +254,19 @@ local function record(action, actor, target, reason, payload, onSaved)
 end
 
 -- ===== Permisos / rangos =====
+local function effectiveRank(identifier, baseRank)
+  local override = (pmodel.ranks or {})[identifier]
+  if baseRank ~= 'owner' and override and override ~= 'inherit' and perms.editableRank(override) then
+    return override
+  end
+  return baseRank
+end
+
 local function getPlayer(src)
   local player = bridges.resolve(src, Config)
   player.baseRank = player.rank
   if player.rank ~= 'owner' then
-    local override = (pmodel.ranks or {})[player.identifier]
-    if override and override ~= 'inherit' and perms.editableRank(override) then player.rank = override end
+    player.rank = effectiveRank(player.identifier, player.baseRank)
     if player.identifier then
       player.ace = function(cap) return IsPlayerAceAllowed(src, 'staff_suite.cap.' .. cap) end
     end
@@ -1148,23 +1155,37 @@ RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected,
   local previous = field == 'rank' and ((pmodel.ranks or {})[player.identifier] or 'inherit')
     or perms.override(pmodel, player.identifier, field)
   if previous == value then return reply(true, nil, details()) end
+  local dutyAce = player.ace and player.ace('staff.duty')
   pendingPermissions = perms.edit(pmodel, player.identifier, field, value)
   record('admin_permissions_change', owner.identifier, player.identifier, cleaned,
     { field = field, previous = previous, value = value }, function(saved)
       if saved then pmodel = pendingPermissions end
       pendingPermissions = nil
       if saved then
+        local canDuty
         for _, candidate in ipairs(GetPlayers()) do
           local observer = tonumber(candidate)
           local current = getPlayer(observer)
-          if current.identifier == player.identifier and not can(current, 'mod.spectate') then
-            pendingSpectators[observer] = nil
-            local session = spectators[observer]
-            if session then
-              spectators[observer] = nil
-              TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+          if current.identifier == player.identifier then
+            canDuty = canDuty or can(current, 'staff.duty')
+            if not can(current, 'mod.spectate') then
+              pendingSpectators[observer] = nil
+              local session = spectators[observer]
+              if session then
+                spectators[observer] = nil
+                TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+              end
             end
           end
+        end
+        if canDuty == nil then
+          canDuty = perms.can(pmodel, player.identifier, effectiveRank(player.identifier, player.baseRank),
+            'staff.duty', function() return dutyAce end)
+        end
+        local shift = dreg.staff[player.identifier]
+        if shift and shift.on_duty and not canDuty then
+          local ev = duty.clock_out(dreg, player.identifier, os.time())
+          record(ev.event, player.identifier, player.identifier, 'permission_revoked', { owner = owner.identifier })
         end
       end
       if not saved then

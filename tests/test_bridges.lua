@@ -868,6 +868,33 @@ function T.test_owner_acl_revocation_ends_active_spectate()
   assert(s.sent['staff_suite:ownerPermissionsResult'].ok and s.api.Verify())
 end
 
+function T.test_owner_acl_revocation_closes_active_duty_and_persists()
+  local s = serverSandbox()
+  local id = 'license:account18'
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 17 and object == 'god') or (src == 18 and object == 'moderator') or ace(src, object)
+  end
+  s.commands.duty(18)
+  local shift = s.api.GetState().duty.staff[id]
+  assert(shift.on_duty)
+  s.failWrites = true
+  s.now = s.now + 30
+  s.event('ownerPermissions', 1, 18, id, 'staff.duty', 'deny', 'fin de acceso')
+  assert(shift.on_duty and not s.sent['staff_suite:ownerPermissionsResult'].ok)
+  s.failWrites = false
+  s.now = s.now + 30
+  s.event('ownerPermissions', 2, 18, id, 'staff.duty', 'deny', 'fin de acceso')
+  assert(not shift.on_duty and shift.total_seconds == 60)
+  s.api.Flush()
+  local restarted = serverSandbox({ files = s.files })
+  local state = restarted.api.GetState()
+  assert(not state.duty.staff[id].on_duty and state.duty.staff[id].total_seconds == 60)
+  local entry = state.chain.entries[#state.chain.entries]
+  assert(entry.action == 'duty.out' and entry.actor == id and entry.reason == 'permission_revoked')
+  assert(restarted.api.Verify())
+end
+
 function T.test_owner_acl_is_scoped_and_only_takes_effect_when_saved()
   local s = serverSandbox()
   local event, result = 'ownerPermissions', 'staff_suite:ownerPermissionsResult'
