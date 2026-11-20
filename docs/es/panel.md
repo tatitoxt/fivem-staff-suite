@@ -55,6 +55,8 @@ El panel de moderación del ticket actúa sobre quien hizo el reporte. Congelar 
 
 El idioma inicial es `Config.Locale`. Desde Ajustes cada jugador lo cambia solo para su panel; no se guarda entre sesiones. Los textos salen de `locales/es.lua` y `locales/en.lua` (claves `ui_*`), así que se pueden editar sin recompilar.
 
+En Core, **Perfil del jugador** en las acciones del ticket muestra hasta 20 entradas recientes de cada tipo para el reportante: advertencias, baneos, reportes y notas. Requiere `report.view` y `player.profile.view`. `player.profile.note` habilita agregar notas de hasta `Config.Limits.message_body` bytes. Las consultas y notas quedan en la cadena de auditoría.
+
 ## Desarrollo
 
 `cd ui && npm run dev` levanta el panel en el navegador con datos de prueba y un backend simulado. Ver `ui/README.md`.

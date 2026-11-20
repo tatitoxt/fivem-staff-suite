@@ -440,6 +440,70 @@ command(Config.Commands.audit, function(src)
 end)
 
 -- ===== NUI / eventos de panel =====
+local function recentPlayerProfile(identifier)
+  local result = { warns = {}, bans = {}, notes = {}, tickets = {} }
+  local actions = { mod_warn = result.warns, mod_ban = result.bans, mod_ban_failed = result.bans,
+    player_profile_note = result.notes }
+  for i = #chain.entries, 1, -1 do
+    local entry = chain.entries[i]
+    local rows = actions[entry.action]
+    if rows and entry.target == identifier and #rows < 20 then
+      rows[#rows + 1] = { seq = entry.seq, ts = entry.ts, actor = entry.actor, text = entry.reason,
+        failed = entry.action == 'mod_ban_failed' or nil }
+    end
+    if #result.warns == 20 and #result.bans == 20 and #result.notes == 20 then break end
+  end
+  -- Los IDs de ticket son monotónicos y el almacenamiento puede tener huecos.
+  for _, ticket in pairs(store.tickets) do
+    if ticket.reporter == identifier then
+      result.tickets[#result.tickets + 1] = { id = ticket.id, state = ticket.state, ts = ticket.created_ts }
+    end
+  end
+  table.sort(result.tickets, function(a, b) return a.id > b.id end)
+  for i = #result.tickets, 21, -1 do result.tickets[i] = nil end
+  return result
+end
+
+local function profileEvent(name, action, cap, fn)
+  RegisterNetEvent(name, function(id, req, body)
+    local src = source
+    req = positiveInteger(req)
+    if not req then return end
+    local function reply(ok, err, data)
+      TriggerClientEvent(action, src, { req = req, ok = ok, error = err, data = data })
+    end
+    if not allowRate(src, name) then return reply(false, t('rate_limited')) end
+    if not ready then return reply(false, t('persistence_starting')) end
+    local player = getPlayer(src)
+    if not player.identifier or not can(player, 'report.view') or not can(player, 'player.profile.view')
+      or not can(player, cap) then return reply(false, t('no_permission')) end
+    id = positiveInteger(id)
+    local ticket = id and store.tickets[id]
+    if not ticket then return reply(false, t('player_profile_missing')) end
+    if not verifyCached()[1] then return reply(false, t('player_profile_audit_broken')) end
+    fn(ticket.reporter, player, body, function(ok, err, data)
+      if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then reply(ok, err, data) end
+    end)
+  end)
+end
+
+profileEvent('staff_suite:playerProfile', 'staff_suite:playerProfileResult', 'player.profile.view',
+  function(identifier, player, _, reply)
+    local profile = recentPlayerProfile(identifier)
+    record('player_profile_view', player.identifier, identifier, '', nil, function(saved)
+      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and profile or nil)
+    end)
+  end)
+
+profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResult', 'player.profile.note',
+  function(identifier, player, body, reply)
+    local text, err = cleanText(body, limit('message_body') or 1000)
+    if not text or text == '' then return reply(false, err or t('player_profile_note_empty')) end
+    record('player_profile_note', player.identifier, identifier, text, nil, function(saved)
+      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
+    end)
+  end)
+
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
     if not allowRate(source, name) then return end

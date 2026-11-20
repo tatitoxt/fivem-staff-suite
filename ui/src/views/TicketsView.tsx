@@ -8,6 +8,7 @@ import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel
 import { useApp } from '../store';
 import type { ModAction, Priority, Ticket, TicketCreateResult, TicketState } from '../types';
 import { LimitHint, TicketChat, overLimit } from './TicketChat';
+import { PlayerProfileButton } from './PlayerProfileDialog';
 import v from './views.module.css';
 
 type Group = 'all' | 'open' | 'active' | 'done';
@@ -119,6 +120,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               <Button disabled={!canResolve} onClick={() => openDialog({ kind: 'resolve' })}>{t('resolve')}</Button>
               <Button disabled={!canClose} onClick={() => void send('ticket_close', { id: tk.id })}>{t('close')}</Button>
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
+              {!isLite && can('player.profile.view') && <PlayerProfileButton key={tk.id} id={tk.id} />}
             </div>
           </section>
           {!isLite && (state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (

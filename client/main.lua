@@ -203,7 +203,7 @@ local function ticketResult(result)
     local pending = pendingRequests[res.req]
     if not pending or pending.result ~= result then return end
     pendingRequests[res.req] = nil
-    pending.cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil })
+    pending.cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil, data = res.data })
     if res.ok == true and pending.afterSuccess then pending.afterSuccess() end
   end)
 end
@@ -219,6 +219,14 @@ ticketRequest('ticket_reply', 'staff_suite:ticketMessageResult', 'ticket_message
   TriggerServerEvent('staff_suite:ticketReply', d.id, d.body, req)
 end)
 if not lite then
+  ticketResult('staff_suite:playerProfileResult')
+  ticketResult('staff_suite:playerProfileNoteResult')
+  ticketRequest('player_profile', 'staff_suite:playerProfileResult', 'player_profile_failed', function(d, req)
+    TriggerServerEvent('staff_suite:playerProfile', d.id, req)
+  end)
+  ticketRequest('player_profile_note', 'staff_suite:playerProfileNoteResult', 'player_profile_note_failed', function(d, req)
+    TriggerServerEvent('staff_suite:playerProfileNote', d.id, req, d.body)
+  end)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
     if not panelOpen then SetNuiFocus(false, false) end
