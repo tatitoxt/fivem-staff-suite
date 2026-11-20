@@ -896,6 +896,37 @@ function T.test_owner_acl_revocation_closes_active_duty_and_persists()
   assert(restarted.api.Verify())
 end
 
+function T.test_owner_acl_blocks_duty_clock_in_during_an_async_save()
+  local s = serverSandbox({ setup = function(server)
+    local persist = server.env.StaffSuiteModules.loadmod('server.persist')
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb, retry)
+        if not cb then return save(cb, retry) end
+        save(function(ok) server.completeSave = function() cb(ok) end end, retry)
+      end
+      return storage
+    end
+  end })
+  local id = 'license:account18'
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 17 and object == 'god') or (src == 18 and object == 'moderator') or ace(src, object)
+  end
+  s.event('ownerPermissions', 1, 18, id, 'staff.duty', 'deny', 'fin de acceso')
+  assert(s.completeSave and not s.sent['staff_suite:ownerPermissionsResult'])
+  s.commands.duty(18)
+  assert(not s.api.SetDuty(id, true))
+  assert(not s.api.GetState().duty.staff[id])
+  s.completeSave()
+  assert(s.sent['staff_suite:ownerPermissionsResult'].ok)
+  s.now = s.now + 10
+  s.commands.duty(18)
+  assert(not s.api.GetState().duty.staff[id])
+end
+
 function T.test_owner_acl_is_scoped_and_only_takes_effect_when_saved()
   local s = serverSandbox()
   local event, result = 'ownerPermissions', 'staff_suite:ownerPermissionsResult'

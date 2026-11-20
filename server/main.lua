@@ -33,7 +33,7 @@ local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local staffModes, staffModeSeq = {}, 0
 local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
 local emergency, emergencyChange
-local pendingPermissions, pendingDutyClose
+local pendingPermissions, pendingDuty
 local editableCaps, editableCap = {}, {}
 for _, cap in ipairs(perms.CAPS) do
   if cap ~= 'admin.permissions' then
@@ -110,15 +110,15 @@ end
 local storage = persist.new(Config, function()
   local state = snapshot()
   state.perms = pendingPermissions or pmodel
-  if pendingDutyClose then
+  if pendingDuty and pendingDuty.entry then
     -- El snapshot cierra el turno junto con el permiso. El estado en memoria espera la confirmación.
-    local actor = pendingDutyClose.actor
+    local actor = pendingDuty.actor
     state.duty = { staff = {} }
     for id, shift in pairs(dreg.staff) do state.duty.staff[id] = shift end
     local closed = {}
     for key, value in pairs(dreg.staff[actor]) do closed[key] = value end
     state.duty.staff[actor] = closed
-    duty.clock_out(state.duty, actor, pendingDutyClose.ts)
+    duty.clock_out(state.duty, actor, pendingDuty.entry.ts)
   end
   if next(pendingBans) or next(pendingRevocations) then
     state.bans = {}
@@ -896,7 +896,7 @@ command(Config.Commands.duty, function(src)
   local player = getPlayer(src)
   if not can(player, 'staff.duty') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
   local id = actorId(player, src)
-  if pendingDutyClose and pendingDutyClose.actor == id then
+  if pendingDuty and pendingDuty.actor == id then
     return TriggerClientEvent('staff_suite:notify', src, t('permissions_pending'))
   end
   local s = dreg.staff[id]
@@ -1177,16 +1177,18 @@ RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected,
   local shift = dreg.staff[player.identifier]
   local rank = effectiveRank(pendingPermissions, player.identifier, player.baseRank)
   local dutyEntry
-  if shift and shift.on_duty and not perms.can(pendingPermissions, player.identifier, rank, 'staff.duty', player.ace) then
-    dutyEntry = appendAudit('duty.out', player.identifier, player.identifier, 'permission_revoked', {
-      owner = owner.identifier,
-    })
-    pendingDutyClose = dutyEntry
+  if not perms.can(pendingPermissions, player.identifier, rank, 'staff.duty', player.ace) then
+    if shift and shift.on_duty then
+      dutyEntry = appendAudit('duty.out', player.identifier, player.identifier, 'permission_revoked', {
+        owner = owner.identifier,
+      })
+    end
+    pendingDuty = { actor = player.identifier, entry = dutyEntry }
   end
   record('admin_permissions_change', owner.identifier, player.identifier, cleaned,
     { field = field, previous = previous, value = value }, function(saved)
       if saved then pmodel = pendingPermissions end
-      pendingPermissions, pendingDutyClose = nil, nil
+      pendingPermissions, pendingDuty = nil, nil
       if saved then
         if dutyEntry then duty.clock_out(dreg, player.identifier, dutyEntry.ts) end
         for _, candidate in ipairs(GetPlayers()) do
@@ -1826,7 +1828,7 @@ expose('GetState', snapshot)
 expose('SetDuty', function(actor, onDuty)
   actor = idText(actor)
   if not actor or type(onDuty) ~= 'boolean' then return nil, 'invalid_input' end
-  if pendingDutyClose and pendingDutyClose.actor == actor then return false, 'permissions_pending' end
+  if pendingDuty and pendingDuty.actor == actor then return false, 'permissions_pending' end
   local ev, err
   if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
   if not ev then return false, err end
