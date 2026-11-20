@@ -910,6 +910,31 @@ RegisterNetEvent('staff_suite:onlinePlayers', function(req)
   reply(true, nil, rows)
 end)
 
+RegisterNetEvent('staff_suite:staffWeekly', function(req, exporting)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, errorKey, data)
+    TriggerClientEvent('staff_suite:staffWeeklyResult', src, { req = req, ok = ok,
+      error = errorKey and t(errorKey), data = data })
+  end
+  if not allowRate(src, 'staff_suite:staffWeekly') then return reply(false, 'rate_limited') end
+  if not ready then return reply(false, 'persistence_starting') end
+  local player = getPlayer(src)
+  local cap = exporting == true and 'staff.analytics.export' or 'staff.analytics'
+  if not player.identifier or not can(player, cap) or not can(player, 'staff.analytics') then
+    return reply(false, 'no_permission')
+  end
+  if not verifyCached()[1] then return reply(false, 'staff_weekly_unverified') end
+  local data = duty.weekly(chain.entries, os.time(), json.decode)
+  local action = exporting == true and 'staff_weekly_export' or 'staff_weekly_view'
+  record(action, player.identifier, 'staff', '', { from = data.from, to = data.to, rows = #data.staff }, function(saved)
+    if not GetPlayerName(src) or getPlayer(src).identifier ~= player.identifier then return end
+    if not saved then return reply(false, 'mod_save_failed') end
+    return reply(true, nil, data)
+  end)
+end)
+
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
     if not allowRate(source, name) then return end

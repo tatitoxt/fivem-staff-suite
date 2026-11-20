@@ -66,3 +66,24 @@ it('offers a spectator exit command only with the spectate capability', () => {
   fireEvent.click(screen.getByRole('option', command));
   expect(transport).toHaveBeenLastCalledWith('https://staff_suite/spectate_stop', expect.anything());
 });
+
+it('uses the audited export response to prepare a CSV and neutralizes spreadsheet formulas', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn().mockResolvedValue({ json: async () => ({
+    ok: true, data: { from: 1700000000, to: 1700604800, staff: [
+      { actor: '=HYPERLINK("a","b")', duty_seconds: 60, sessions: 1, resolved: 2, ratings: 0 },
+    ] },
+  }) });
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile(['staff.analytics', 'staff.analytics.export']);
+  dispatch({ type: 'open', payload: { view: 'weekly' } });
+  dispatch({ type: 'dashboard', payload: { leaderboard: [], alerts: [], kpis: {} } } as IncomingMessage);
+  fireEvent.click(await screen.findByRole('button', { name: strings.ui_weekly_export }));
+  expect(await screen.findByRole('textbox', { name: strings.ui_weekly_csv })).toHaveValue(
+    expect.stringContaining(`"'=HYPERLINK(""a"",""b"")",60,1,2,0,`),
+  );
+  expect(transport).toHaveBeenLastCalledWith('https://staff_suite/staff_weekly', expect.objectContaining({
+    body: JSON.stringify({ export: true }),
+  }));
+});

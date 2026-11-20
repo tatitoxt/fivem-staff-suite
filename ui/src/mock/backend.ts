@@ -263,6 +263,12 @@ export class MockBackend {
           { id: 37, key: 2, name: 'Meli', ping: 61, played_seconds: 3410, tickets: 1 },
           { id: 42, key: 3, name: 'Vale', ping: 29, played_seconds: 1580, tickets: 0 },
         ] };
+      case 'staff_weekly': {
+        const now = Math.floor(Date.now() / 1000);
+        return { ok: true, data: { from: now - 604800, to: now, staff: [
+          { actor: ME, duty_seconds: 7200, sessions: 2, resolved: 5, ratings: 4, avg_rating: 4.5 },
+        ] } };
+      }
       case 'player_profile':
       case 'player_profile_note': {
         const { id, body } = p as { id: number; body?: string };

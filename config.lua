@@ -90,6 +90,7 @@ Config.RateLimit = {
   ['staff_suite:playerProfile'] = { burst = 3, per_second = 0.5 },
   ['staff_suite:playerProfileNote'] = { burst = 2, per_second = 0.2 },
   ['staff_suite:onlinePlayers'] = { burst = 2, per_second = 0.2 },
+  ['staff_suite:staffWeekly'] = { burst = 2, per_second = 0.1 },
   ['staff_suite:modTemplate'] = { burst = 3, per_second = 0.5 },
   ['staff_suite:modWarn'] = { burst = 3, per_second = 0.2 },
   ['staff_suite:waypoint'] = { burst = 2, per_second = 0.2 },

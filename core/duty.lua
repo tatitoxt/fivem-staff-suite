@@ -56,5 +56,55 @@ function M.snapshot(reg, now)
   return out
 end
 
+function M.weekly(entries, now, decode)
+  local from = now - 7 * 86400
+  local byActor, shifts, rows = {}, {}, {}
+  local function row(actor)
+    if not byActor[actor] then
+      byActor[actor] = { actor = actor, duty_seconds = 0, sessions = 0, resolved = 0, ratings = 0, rating_sum = 0 }
+      rows[#rows + 1] = byActor[actor]
+    end
+    return byActor[actor]
+  end
+  local function addShift(actor, start, finish)
+    if start and finish > math.max(start, from) then
+      local staff = row(actor)
+      staff.duty_seconds = staff.duty_seconds + finish - math.max(start, from)
+    end
+  end
+  for _, entry in ipairs(entries) do
+    local actor, action, ts = entry.actor, entry.action, entry.ts
+    if ts <= now then
+      if action == 'duty.in' then
+        shifts[actor] = ts
+        if ts >= from then row(actor).sessions = row(actor).sessions + 1 end
+      elseif action == 'duty.out' then
+        addShift(actor, shifts[actor], ts)
+        shifts[actor] = nil
+      elseif ts >= from and action == 'ticket_resolve' then
+        row(actor).resolved = row(actor).resolved + 1
+      elseif ts >= from and action == 'ticket_rate' then
+        local ok, payload = pcall(decode, entry.payload)
+        if ok and type(payload) == 'table' and type(payload.staff) == 'string' and
+          type(payload.score) == 'number' and payload.score >= 1 and payload.score <= 5 then
+          local staff = row(payload.staff)
+          staff.ratings = staff.ratings + 1
+          staff.rating_sum = staff.rating_sum + payload.score
+        end
+      end
+    end
+  end
+  for actor, start in pairs(shifts) do addShift(actor, start, now) end
+  table.sort(rows, function(a, b)
+    if a.resolved ~= b.resolved then return a.resolved > b.resolved end
+    return a.actor < b.actor
+  end)
+  for _, staff in ipairs(rows) do
+    staff.avg_rating = staff.ratings > 0 and staff.rating_sum / staff.ratings or nil
+    staff.rating_sum = nil
+  end
+  return { from = from, to = now, staff = rows }
+end
+
 if StaffSuiteModules then StaffSuiteModules['core.duty'] = M end
 return M

@@ -33,4 +33,25 @@ function T.test_analytics()
   assert(snap[1].avg_rating == 4, "avg rating (5+3)/2")
 end
 
+function T.test_weekly_clips_shifts_and_counts_only_activity_in_the_window()
+  local now, week = 700000, 604800
+  local start = now - week
+  local result = D.weekly({
+    { actor = 'staff:A', action = 'duty.in', ts = start - 100 },
+    { actor = 'staff:A', action = 'ticket_resolve', ts = start - 1 },
+    { actor = 'staff:A', action = 'duty.out', ts = start + 200 },
+    { actor = 'staff:A', action = 'duty.in', ts = now - 100 },
+    { actor = 'staff:A', action = 'ticket_resolve', ts = now },
+    { actor = 'player', action = 'ticket_rate', ts = now, payload = 'rating' },
+    { actor = 'other', action = 'ticket_resolve', ts = now + 1 },
+  }, now, function(value)
+    assert(value == 'rating')
+    return { score = 4, staff = 'staff:A' }
+  end)
+  assert(result.from == start and result.to == now and #result.staff == 1)
+  local row = result.staff[1]
+  assert(row.actor == 'staff:A' and row.duty_seconds == 300 and row.sessions == 1)
+  assert(row.resolved == 1 and row.ratings == 1 and row.avg_rating == 4)
+end
+
 return T
