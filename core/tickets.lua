@@ -23,11 +23,12 @@ function M.is_open(ticket)
 end
 
 -- La vista del reportante lleva solo los campos públicos y roles, sin IDs del staff.
+-- Incluye los resueltos para que el jugador vea el cierre; los cerrados ya no aparecen.
 function M.reporter_view(store, reporter)
   local result = {}
   if not reporter then return result end
   for _, ticket in pairs(store.tickets) do
-    if ticket.reporter == reporter and M.is_open(ticket) then
+    if ticket.reporter == reporter and ticket.state ~= 'closed' then
       local messages = {}
       for _, msg in ipairs(ticket.messages or {}) do
         if not msg.internal then

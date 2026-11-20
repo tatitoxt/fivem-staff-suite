@@ -1,5 +1,5 @@
 import { Bug, CircleHelp, Ellipsis, ShieldAlert, UserX } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { isLite } from '../edition';
 import { categoryLabel, priorityLabel } from '../labels';
 import { useApp } from '../store';
@@ -41,6 +41,16 @@ export function ReportDialog({ onClose, staff = false }: { onClose: () => void; 
     else setError(res?.error || t('report_failed'));
   };
 
+  const submitRef = useRef(submit);
+  submitRef.current = submit;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void submitRef.current(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const cur = Math.max(0, categories.indexOf(category));
   const onTileKey = (e: React.KeyboardEvent) => {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
@@ -61,7 +71,7 @@ export function ReportDialog({ onClose, staff = false }: { onClose: () => void; 
         <Button variant="primary" disabled={!ok} onClick={() => void submit()}>{t('report_submit')}</Button>
       </>}
     >
-      <div className={v.reportBody} onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void submit(); } }}>
+      <div className={v.reportBody}>
         <div className={ui.field}>
           <span className={ui.label} id="report-cat">{t('report_category')}</span>
           <div className={v.tiles} role="radiogroup" aria-labelledby="report-cat" onKeyDown={onTileKey}>
