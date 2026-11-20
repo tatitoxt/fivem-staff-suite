@@ -56,9 +56,13 @@ local function publicTranscript(ticket)
   local maxBytes = 64 * 1024
   local heading = t('ticket_export_heading', { id = ticket.id })
   -- La longitud de los datos anteriores puede superar los límites de la config actual.
-  local description = (ticket.description or ''):sub(1, 4096)
+  local description = ticket.description or ''
+  local truncated = #description > 4096
+  if truncated then
+    description = description:sub(1, utf8.offset(description, 0, 4097) - 1)
+  end
   local header = heading .. '\n\n' .. description .. '\n'
-  local size, messages, truncated = #header + 256, {}, #(ticket.description or '') > #description
+  local size, messages = #header + 256, {}
   for i = #(ticket.messages or {}), 1, -1 do
     local msg = ticket.messages[i]
     if not msg.internal then
