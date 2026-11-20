@@ -1367,6 +1367,16 @@ net('staff_suite:spectateEnded', function(key)
   if session and session.key == key then spectators[src] = nil end
 end)
 
+local function monitorStaffMode(src, mode, modes, state)
+  SetTimeout(5000, function()
+    if staffModes[src] ~= modes or modes[mode] ~= state then return end
+    if can(getPlayer(src), staffModeCaps[mode]) then return monitorStaffMode(src, mode, modes, state) end
+    modes[mode] = nil
+    TriggerClientEvent('staff_suite:staffMode', src, mode, false, state.key)
+    record('staff_' .. mode, state.actor, state.actor, 'permission_revoked', { enabled = false })
+  end)
+end
+
 net('staff_suite:staffMode', function(mode)
   local src = tonumber(source)
   local cap = staffModeCaps[mode]
@@ -1379,7 +1389,7 @@ net('staff_suite:staffMode', function(mode)
   local previous = modes[mode]
   if previous and previous.pending then return end
   staffModeSeq = staffModeSeq + 1
-  local state = { key = staffModeSeq, enabled = not (previous and previous.enabled), pending = true }
+  local state = { key = staffModeSeq, enabled = not (previous and previous.enabled), pending = true, actor = player.identifier }
   modes[mode] = state
   record('staff_' .. mode, player.identifier, player.identifier, '', { enabled = state.enabled }, function(saved)
     if staffModes[src] ~= modes or modes[mode] ~= state then return end
@@ -1388,7 +1398,12 @@ net('staff_suite:staffMode', function(mode)
       return TriggerClientEvent('staff_suite:notify', src, t('mod_save_failed'))
     end
     state.pending = false
+    if state.enabled and not can(getPlayer(src), cap) then
+      modes[mode] = nil
+      return record('staff_' .. mode, state.actor, state.actor, 'permission_revoked', { enabled = false })
+    end
     TriggerClientEvent('staff_suite:staffMode', src, mode, state.enabled, state.key)
+    if state.enabled then monitorStaffMode(src, mode, modes, state) end
   end)
 end)
 
