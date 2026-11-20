@@ -2,7 +2,8 @@ import { fmt } from '../format';
 import { version } from '../../package.json';
 import { sha256Hex } from './sha256';
 import type {
-  AuditEntry, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
+  AuditEntry, BanRow, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
+  SanctionTemplate,
 } from '../types';
 import { append, verify } from './chain';
 import { ALL_CAPS, ME, STAFF, TAMPER_SEQ, buildAlerts, buildAudit, buildStaff, buildTickets } from './demo';
@@ -51,6 +52,7 @@ export class MockBackend {
   locale = 'es';
   now = Date.now() / 1000;
   entries: AuditEntry[] = buildAudit(this.now);
+  bans: BanRow[] = [];
   tickets: Ticket[] = buildTickets(this.now);
   staff: StaffStat[] = buildStaff();
   alerts = buildAlerts(this.now);
@@ -89,7 +91,8 @@ export class MockBackend {
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
-          export: { webhook: true, file: true, anchor_every: 20 },
+          export: { webhook: true, file: true, anchor_every: 20, tickets: true },
+          sanction_templates: this.sanctionTemplates(),
           canned: ['greeting', 'investigating', 'need_info', 'resolved']
             .map((id) => ({ id, title: this.s(`canned_${id}_title`), text: this.s(`canned_${id}`) })),
           evidence: true,
@@ -98,6 +101,13 @@ export class MockBackend {
         },
       },
     });
+  }
+
+  private sanctionTemplates(): SanctionTemplate[] {
+    return [
+      { id: 'rp_warning', action: 'warn', reason: this.s('sanction_reason_rp') },
+      { id: 'evasion_day', action: 'ban', reason: this.s('sanction_reason_evasion'), duration: 86400 },
+    ];
   }
 
   emitAudit(withVerify: boolean) {
@@ -192,8 +202,7 @@ export class MockBackend {
   handle<A extends OutgoingAction>(action: A, payload: OutgoingPayloads[A]): Promise<unknown> {
     return new Promise((resolve) => {
       setTimeout(() => {
-        this.dispatch(action, payload);
-        resolve({ ok: true });
+        resolve(this.dispatch(action, payload) ?? { ok: true });
       }, action === 'audit_verify' ? this.latency * 4 : this.latency);
     });
   }
@@ -214,6 +223,57 @@ export class MockBackend {
         return;
       case 'audit_filter':
         return;
+      case 'announce': {
+        const { body } = p as OutgoingPayloads['announce'];
+        this.record(ME, 'staff_announce', 'server', body);
+        this.emitAudit(false);
+        this.toast('info', `${this.s('announcement_title')} · ${body}`);
+        return { ok: true };
+      }
+      case 'ban_list': {
+        const { page } = p as OutgoingPayloads['ban_list'];
+        return { ok: true, data: { rows: this.bans.slice((page - 1) * 20, page * 20), hasMore: this.bans.length > page * 20 } };
+      }
+      case 'ban_revoke': {
+        const { id, reason } = p as OutgoingPayloads['ban_revoke'];
+        const ban = this.bans.find((row) => row.id === id && row.status === 'active');
+        if (!ban) return { ok: false, error: this.s('ban_not_active') };
+        ban.status = 'revoked';
+        this.record(ME, 'mod_unban', ban.identifier, reason, { ban_id: id });
+        this.emitAudit(false);
+        return { ok: true };
+      }
+      case 'ticket_export': {
+        const { id } = p as OutgoingPayloads['ticket_export'];
+        this.record(ME, 'ticket_export_request', `ticket:${id}`);
+        this.record(ME, 'ticket_export_result', `ticket:${id}`, '', { ok: true, status: 200 });
+        this.emitAudit(false);
+        return { ok: true };
+      }
+      case 'staff_chat': {
+        const { body } = p as OutgoingPayloads['staff_chat'];
+        this.record(ME, 'staff_chat_request', 'staff', '', { bytes: new TextEncoder().encode(body).length });
+        this.record(ME, 'staff_chat_result', 'staff', '', { request_seq: this.entries.length, ok: true, recipients: 1 });
+        this.emitAudit(false);
+        return;
+      }
+      case 'player_profile':
+      case 'player_profile_note': {
+        const { id, body } = p as { id: number; body?: string };
+        const ticket = this.tickets.find((item) => item.id === id);
+        if (!ticket) return { ok: false, error: this.s('player_profile_missing') };
+        const player = ticket.reporter;
+        this.record(ME, action === 'player_profile' ? 'player_profile_view' : 'player_profile_note', player, body);
+        this.emitAudit(false);
+        const recent = (event: string) => this.entries.filter((entry) => entry.action === event && entry.target === player)
+          .slice(-20).reverse().map(({ seq, ts, actor, reason }) => ({ seq, ts, actor, text: reason }));
+        return { ok: true, data: {
+          played_seconds: 7230,
+          warns: recent('mod_warn'), bans: recent('mod_ban'), notes: recent('player_profile_note'),
+          tickets: this.tickets.filter((item) => item.reporter === player).slice(0, 20)
+            .map(({ id, state, created_ts: ts }) => ({ id, state, ts })),
+        } };
+      }
       case 'audit_verify': {
         const res = verify(this.entries);
         this.record(ME, 'audit_verify', '', res.ok ? 'ok' : `broken:${res.broken_at}`);
@@ -251,7 +311,7 @@ export class MockBackend {
         return;
       }
       case 'ticket_create': {
-        const { category, priority, body } = p as OutgoingPayloads['ticket_create'];
+        const { category, priority, body, attach } = p as OutgoingPayloads['ticket_create'];
         const ts = Math.round(Date.now() / 1000);
         const id = Math.max(0, ...this.tickets.map((t) => t.id)) + 1;
         this.tickets.push({
@@ -259,6 +319,12 @@ export class MockBackend {
           description: body, messages: [], resolution: null, rating: null,
         });
         this.record(ME, 'ticket_create', ME, '', { ticket: id, category });
+        if (attach) {
+          const data = demoScreenshot(id, 1);
+          this.evidenceData.set(`${id}:1`, data);
+          this.tickets[this.tickets.length - 1].evidence = [{ n: 1, ts, by: ME, sha256: sha256Hex(data), size: data.length }];
+          this.record(ME, 'ticket_evidence', `ticket:${id}`, '', { n: 1 });
+        }
         this.emitTickets();
         this.emitAudit(false);
         this.emitDuty();
@@ -304,15 +370,25 @@ export class MockBackend {
         return;
       }
       case 'mod_action': {
-        const { action: mod, target, reason, duration } = p as OutgoingPayloads['mod_action'];
+        const { action: mod, target, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
+        const preset = template ? this.sanctionTemplates().find((item) => item.id === template && item.action === mod) : undefined;
+        if (template && !preset) return this.toast('error', this.s('sanction_template_invalid'));
+        const reason = preset?.reason ?? customReason;
+        const duration = preset?.duration ?? customDuration;
         if (REASON_REQUIRED.has(mod) && !reason.trim()) return this.toast('error', this.s('reason_required'));
         if (mod === 'freeze' || mod === 'unfreeze') {
           this.emit({ type: 'freezeState', payload: { target, frozen: mod === 'freeze' } });
         }
         this.record(ME, `mod_${mod}`, target, reason.trim(), {
           action: mod,
+          template,
           ...(mod === 'ban' && { expires_at: duration === 0 ? 0 : Math.round(Date.now() / 1000) + (duration ?? 86400) }),
         });
+        if (mod === 'ban') {
+          const now = Math.round(Date.now() / 1000);
+          this.bans.unshift({ id: this.entries.length, identifier: target, actor: ME, reason: reason.trim(),
+            created_at: now, expires_at: duration === 0 ? 0 : now + (duration ?? 86400), status: 'active', aliases: 1 });
+        }
         this.emitAudit(false);
         this.toast('ok', this.s('ui_toast_mod_done', { action: this.s(`mod_${mod}`) }));
         return;

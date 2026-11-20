@@ -3,7 +3,7 @@ local T = {}
 local function load(env)
   env = setmetatable(env, { __index = _G })
   env.StaffSuiteTranslate = env.StaffSuiteTranslate or function(key, vars)
-    return key .. (vars and vars.seq and (':' .. vars.seq) or '')
+    return key .. (vars and (vars.seq or vars.id) and (':' .. (vars.seq or vars.id)) or '')
   end
   env.GetCurrentResourceName = function() return 'staff_suite' end
   env.json = { encode = function(v) return v.content end }
@@ -78,6 +78,42 @@ function T.test_webhook_retries_with_bounded_backoff_without_blocking()
   export.anchor(entry(60), cfg)
   env.requests[6].cb(400)
   assert(#env.timers == 3 and #env.printed == 2, '2xx termina y 4xx no se reintenta')
+end
+
+function T.test_public_transcript_has_a_size_limit_and_only_completes_once()
+  local env = webhookEnv()
+  local export = load(env)
+  local cfg = { ticket_webhook = 'https://discord.com/api/webhooks/123/token' }
+  assert(export.ticketEnabled(cfg))
+  assert(not export.ticketEnabled({ ticket_webhook = 'http://discord.com/api/webhooks/123/token' }))
+  local reporter = 'license:player'
+  local item = { id = 42, reporter = reporter, description = 'Hola', messages = {} }
+  for i = 1, 100 do item.messages[i] = { author = reporter, body = string.rep('X', 1000) } end
+  item.messages[101] = { author = reporter, body = 'Último mensaje público' }
+  item.messages[102] = { author = 'staff', body = 'Secreto', internal = true }
+  local outcomes = {}
+  export.ticket(item, cfg, function(ok, status) outcomes[#outcomes + 1] = { ok, status } end)
+  local body = env.requests[1].body
+  assert(#body <= 64 * 1024 + 512 and body:find('ticket_export_truncated', 1, true))
+  assert(body:find('Último mensaje público', 1, true) and not body:find('Secreto', 1, true))
+  env.timers[1].fn()
+  env.requests[1].cb(200)
+  assert(#outcomes == 1 and not outcomes[1][1] and outcomes[1][2] == 0)
+end
+
+function T.test_public_transcript_truncates_description_at_utf8_boundary()
+  local env = webhookEnv()
+  local export = load(env)
+  local cfg = { ticket_webhook = 'https://discord.com/api/webhooks/123/token' }
+  local prefix = string.rep('a', 4092) .. 'ñ'
+  export.ticket({ id = 42, description = prefix .. '🙂' }, cfg, function() end)
+  local body = env.requests[1].body
+  assert(utf8.len(body) and body:find(prefix .. '\n', 1, true))
+  assert(body:find('ticket_export_truncated', 1, true))
+
+  export.ticket({ id = 43, description = prefix .. 'é' .. 'X' }, cfg, function() end)
+  body = env.requests[2].body
+  assert(utf8.len(body) and body:find(prefix .. 'é\n', 1, true))
 end
 
 return T

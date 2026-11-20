@@ -94,6 +94,7 @@ Los cambios se guardan en lotes y el guardado pendiente se respalda al parar el 
 | Clave | Default | Descripción |
 |---|---|---|
 | `webhook` | `GetConvar('staff_suite_webhook', '')` | URL de un webhook de Discord. Se configura en `server.cfg` con `set staff_suite_webhook "URL"`. Vacío = desactivado. |
+| `ticket_webhook` | `GetConvar('staff_suite_ticket_webhook', '')` | URL de un webhook de canal de texto en `https://discord.com/api/webhooks/…`. Configurá `set staff_suite_ticket_webhook "URL"` en `server.cfg`. Habilita **Exportar hilo a Discord** para quienes tengan `report.export`. El archivo de hasta 64 KiB contiene la descripción y los mensajes públicos del ticket. |
 | `file` | `true` | Escribe cada ancla en `audit_export.log` (carpeta del resource). |
 | `anchor_every` | `20` | Cada cuántas entradas se ancla el hash actual. |
 | `webhook_retries` | `5` | Intentos del webhook por ancla ante 429, 5xx o sin respuesta. |
