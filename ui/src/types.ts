@@ -32,6 +32,7 @@ export interface PlayerProfileEntry {
 }
 
 export interface PlayerProfile {
+  played_seconds?: number;
   warns: PlayerProfileEntry[];
   bans: PlayerProfileEntry[];
   notes: PlayerProfileEntry[];

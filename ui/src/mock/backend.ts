@@ -224,6 +224,7 @@ export class MockBackend {
         const recent = (event: string) => this.entries.filter((entry) => entry.action === event && entry.target === player)
           .slice(-20).reverse().map(({ seq, ts, actor, reason }) => ({ seq, ts, actor, text: reason }));
         return { ok: true, data: {
+          played_seconds: 7230,
           warns: recent('mod_warn'), bans: recent('mod_ban'), notes: recent('player_profile_note'),
           tickets: this.tickets.filter((item) => item.reporter === player).slice(0, 20)
             .map(({ id, state, created_ts: ts }) => ({ id, state, ts })),

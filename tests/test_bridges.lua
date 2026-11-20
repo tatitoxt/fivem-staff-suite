@@ -256,6 +256,7 @@ local function serverSandbox(options)
   env.DropPlayer = function(src, reason) server.kicked, server.kickReason = src, reason end
   env.CancelEvent = function() server.cancelled = true end
   env.os = setmetatable({ time = function() return server.now end }, { __index = os })
+  env.GetGameTimer = function() return server.now * 1000 end
   env.GetCurrentResourceName = function() return 'staff_suite' end
   env.LoadResourceFile = function(_, path)
     assert(not path:lower():match('%.lua$'), 'LoadResourceFile intentó leer código Lua: ' .. path)
@@ -350,6 +351,36 @@ function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_au
   reboot.now = reboot.now + 2
   reboot.event('playerProfile', id, 3)
   assert(reboot.sent[view].data.notes[1].text == 'Nota con reintento' and #reboot.sent[view].data.notes == 3)
+end
+
+function T.test_profile_playtime_counts_live_and_restored_sessions_without_offline_time()
+  local s = serverSandbox()
+  local target, view = 'license:account18', 'staff_suite:playerProfileResult'
+  local id = s.api.CreateTicket({ reporter = target, description = 'Consulta' })
+  s.ace.mod = true
+  s.now = s.now + 70
+  s.event('playerProfile', id, 1)
+  assert(s.sent[view].data.played_seconds == 70)
+  s.env.source = 18
+  s.hook('playerDropped')
+  s.online['18'] = nil
+  s.now = s.now + 300
+  s.env.source = 17
+  s.event('playerProfile', id, 2)
+  assert(s.sent[view].data.played_seconds == 70)
+  s = serverSandbox({ files = s.files })
+  s.ace.mod = true
+  s.identifiers['19'] = target
+  s.env.source = 19
+  s.hook('playerJoining')
+  s.now = s.now + 10
+  s.hook('playerDropped')
+  s.env.source = 17
+  s.now = s.now + 5
+  s.event('playerProfile', id, 1)
+  assert(s.sent[view].data.played_seconds == 85)
+  s.hook('onResourceStop', 'staff_suite')
+  assert(s.files[s.env.Config.JsonFile].playtime[target] == 85000 and s.api.Verify())
 end
 
 function T.test_profile_notes_keep_audit_order_when_callbacks_complete_out_of_order()

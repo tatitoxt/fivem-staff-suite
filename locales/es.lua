@@ -33,6 +33,7 @@ Locale['es'] = {
   ui_player_profile_bans = 'Baneos recientes',
   ui_player_profile_tickets = 'Reportes recientes',
   ui_player_profile_notes = 'Notas recientes',
+  ui_player_profile_playtime = 'Tiempo conectado',
   ui_player_profile_note = 'Nota del jugador',
   ui_player_profile_save = 'Guardar nota',
   ui_player_profile_empty = 'Sin registros',
