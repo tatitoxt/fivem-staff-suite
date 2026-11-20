@@ -352,6 +352,35 @@ function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_au
   assert(reboot.sent[view].data.notes[1].text == 'Nota con reintento' and #reboot.sent[view].data.notes == 3)
 end
 
+function T.test_profile_notes_keep_audit_order_when_callbacks_complete_out_of_order()
+  local callbacks = {}
+  local s = serverSandbox({ setup = function(server)
+    local persist = server.env.StaffSuiteModules['server.persist']
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb, retry)
+        if cb and #callbacks < 2 then
+          callbacks[#callbacks + 1] = cb
+          return save()
+        end
+        return save(cb, retry)
+      end
+      return storage
+    end
+  end })
+  s.ace.mod = true
+  local id = s.api.CreateTicket({ reporter = 'license:account18', description = 'Caso' })
+  s.event('playerProfileNote', id, 1, 'Primera')
+  s.api.Record('player_profile_note', 'resource', 'license:account18', 'Segunda')
+  callbacks[2](true)
+  callbacks[1](true)
+  s.event('playerProfile', id, 2)
+  local notes = s.sent['staff_suite:playerProfileResult'].data.notes
+  assert(notes[1].text == 'Segunda' and notes[2].text == 'Primera')
+end
+
 function T.test_server_enforces_mapped_capabilities_and_overrides()
   local server = serverSandbox()
   local ace, commands, api, sent = server.ace, server.commands, server.api, server.sent

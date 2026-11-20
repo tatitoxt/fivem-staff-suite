@@ -39,7 +39,10 @@ local function indexProfileEntry(entry)
     profileHistory[entry.target] = profile
   end
   local rows = profile[kind]
-  table.insert(rows, 1, { seq = entry.seq, ts = entry.ts, actor = entry.actor, text = entry.reason,
+  local position = 1
+  while rows[position] and rows[position].seq > entry.seq do position = position + 1 end
+  if position > 20 then return end
+  table.insert(rows, position, { seq = entry.seq, ts = entry.ts, actor = entry.actor, text = entry.reason,
     failed = entry.action == 'mod_ban_failed' or nil })
   rows[21] = nil
 end
