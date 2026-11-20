@@ -32,16 +32,18 @@ it('exports only the selected ticket ID and shows the confirmed result', async (
     claimer: null, created_ts: 1, updated_ts: 1, description: 'Report', messages: [], resolution: null, rating: null,
   };
   profile(['report.view'], true);
-  dispatch({ type: 'tickets', payload: { tickets: [ticket] } });
+  dispatch({ type: 'tickets', payload: { tickets: [ticket, { ...ticket, id: 43, created_ts: 0 }] } });
   dispatch({ type: 'open', payload: { view: 'tickets' } });
   expect(await screen.findByRole('heading', { name: /#42/ })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: strings.ui_ticket_export })).not.toBeInTheDocument();
   profile(['report.view', 'report.export'], false);
   expect(screen.queryByRole('button', { name: strings.ui_ticket_export })).not.toBeInTheDocument();
-  profile(['report.view', 'report.export'], true);
+  profile(['report.view', 'report.export', 'player.profile.view'], true);
+  fireEvent.click(screen.getByRole('button', { name: /#43/ }));
+  expect(screen.getByRole('button', { name: strings.ui_player_profile })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: strings.ui_ticket_export }));
   expect(await screen.findByText(strings.ticket_export_sent)).toBeInTheDocument();
   expect(transport).toHaveBeenCalledWith('https://staff_suite/ticket_export', expect.objectContaining({
-    body: JSON.stringify({ id: 42 }),
+    body: JSON.stringify({ id: 43 }),
   }));
 });
