@@ -91,4 +91,14 @@ function T.test_first_response_resolver_and_single_rating()
   assert(err == "already_rated" and s.tickets[1].rating == 4)
 end
 
+function T.test_reporter_view_keeps_resolved_until_closed()
+  local s = store_with_ticket()
+  tickets.transition(s, 1, "claim", "license:staff1", { ts = 101 })
+  tickets.transition(s, 1, "resolve", "license:staff1", { resolution = "fixed", ts = 102 })
+  local view = tickets.reporter_view(s, "license:p1")
+  assert(#view == 1 and view[1].state == "resolved", "el reporter ve su ticket resuelto")
+  tickets.transition(s, 1, "close", "license:staff1", { ts = 103 })
+  assert(#tickets.reporter_view(s, "license:p1") == 0, "los cerrados salen de la vista")
+end
+
 return T

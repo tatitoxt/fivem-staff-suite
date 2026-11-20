@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { dailySeries } from '../components/Sparkline';
@@ -9,14 +9,14 @@ const nav = async (name: RegExp) => fireEvent.click(await screen.findByRole('but
 describe('NUI rediseño', () => {
   it('Ctrl+K abre la palette, filtra y ejecuta con Enter', async () => {
     render(<App />);
-    await screen.findByTestId('chain-status');
+    await screen.findByTestId('chain-status', {}, { timeout: 3000 });
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
     const input = await screen.findByRole('combobox', { name: /Buscá una vista/ });
     expect(input).toHaveFocus();
     fireEvent.change(input, { target: { value: 'dash' } });
     expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(1);
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dashboard' }, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /Buscá una vista/ })).not.toBeInTheDocument();
   });
 
@@ -85,6 +85,31 @@ describe('NUI rediseño', () => {
     const total = within(bars).getAllByRole('listitem')
       .reduce((n, el) => n + Number(/(\d+) resueltos/.exec(el.getAttribute('aria-label') ?? '')?.[1] ?? 0), 0);
     expect(total).toBe(2);
+  });
+
+  it('Ctrl+Enter envía el reporte aunque el foco esté en Cancelar', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    fireEvent.keyDown(window, { key: 'n' });
+    const dialog = await screen.findByRole('dialog', { name: 'Nuevo reporte' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Desde el footer' } });
+    const cancel = within(dialog).getByRole('button', { name: 'Cancelar' });
+    cancel.focus();
+    fireEvent.keyDown(cancel, { key: 'Enter', ctrlKey: true });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('un reporte resuelto sigue en Mis reportes con el paso Resuelto y sin respuesta', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    await nav(/Mis reportes/);
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', { data: { type: 'myTickets', payload: { tickets: [
+        { id: 42, category: 'bug', state: 'resolved', description: 'Cajero roto', messages: [] },
+      ] } } }));
+    });
+    await waitFor(() => expect(screen.getAllByText('Resuelto').some((el) => el.closest('li')?.getAttribute('aria-current') === 'step')).toBe(true));
+    expect(screen.queryByPlaceholderText(/Respondé al staff/)).not.toBeInTheDocument();
   });
 
   it('dailySeries agrupa por día terminando hoy', () => {

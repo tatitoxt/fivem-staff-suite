@@ -115,7 +115,7 @@ export class MockBackend {
   emitTickets() {
     this.emit({ type: 'tickets', payload: { tickets: this.tickets.map((t) => ({ ...t, messages: [...t.messages] })) } });
     const tickets = this.tickets
-      .filter((ticket) => ticket.reporter === ME && ticket.state !== 'resolved' && ticket.state !== 'closed')
+      .filter((ticket) => ticket.reporter === ME && ticket.state !== 'closed')
       .map(({ id, category, state, description, messages }) => ({
         id, category, state, description,
         messages: messages.filter((msg) => !msg.internal)

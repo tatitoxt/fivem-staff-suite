@@ -80,6 +80,7 @@ export function MyReportsView() {
               key={active.id}
               id={active.id}
               asReporter
+              allowPublic={active.state !== 'resolved'}
               messages={active.messages.map((msg) => ({ ...msg, label: t(msg.mine ? 'ui_chat_you' : 'ui_chat_staff') }))}
             />
           </div>
