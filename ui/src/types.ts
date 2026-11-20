@@ -166,6 +166,7 @@ export interface UiConfig {
   evidence?: boolean;
   sanction_templates?: SanctionTemplate[];
   limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number; announcement?: number };
+  warn_escalation?: { threshold: number; windowSeconds: number };
 }
 
 export interface InitPayload {

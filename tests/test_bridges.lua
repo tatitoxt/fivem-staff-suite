@@ -579,9 +579,77 @@ function T.test_warn_requires_reason_permission_and_durable_audit()
   assert(chain.entries[1].action == 'mod_warn' and chain.entries[1].reason == 'regla del servidor')
   assert(s.recipients[18]['staff_suite:notify']:find('regla del servidor', 1, true))
   assert(s.api.Verify())
+  s.now = s.now + 5
   s.failWrites = true
   s.event('modAction', 'warn', 19, 'fallo de escritura')
   assert(not s.recipients[19] and s.recipients[17]['staff_suite:notify'] == s.env.Locale.es.mod_save_failed)
+end
+
+function T.test_warn_escalation_restores_window_ignores_failed_writes_and_checks_permissions()
+  local function configure(s)
+    s.env.Config.WarnEscalation = { enabled = true, threshold = 2, window_seconds = 60 }
+  end
+  local s = serverSandbox({ setup = configure })
+  s.ace.mod = true
+  s.failWrites = true
+  s.event('modAction', 'warn', 18, 'Fallo')
+  s.failWrites = false
+  s.event('modAction', 'warn', 18, 'Primera')
+  assert(not s.kicked)
+  s = serverSandbox({ setup = configure, files = s.files })
+  s.ace.mod = true
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].warnEscalation == false)
+  s.event('modAction', 'warn', 18, 'Segunda')
+  assert(not s.kicked)
+  s.ace.admin = true
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].warnEscalation.threshold == 2)
+  perms.revoke(s.api.GetState().perms, 'license:account17', 'mod.kick')
+  s.event('modAction', 'warn', 18, 'Sin permiso de expulsión')
+  assert(not s.kicked)
+  perms.grant(s.api.GetState().perms, 'license:account17', 'mod.kick')
+  s.event('modAction', 'warn', 18, 'Aplica')
+  local chain = s.files[s.env.Config.JsonFile].chain.entries
+  local escalation = chain[#chain]
+  assert(s.kicked == 18 and escalation.action == 'mod_warn_escalation')
+  assert(s.payloads[tonumber(escalation.payload)].warn_seq == escalation.seq - 1)
+  s.event('modAction', 'warn', 18, 'Fuera del límite')
+  assert(#s.api.GetChain() == #chain and s.sent['staff_suite:notify'] == s.env.Locale.es.rate_limited)
+  s = serverSandbox({ setup = configure, files = s.files })
+  s.ace.admin = true
+  s.event('modAction', 'warn', 18, 'Ya escalado')
+  assert(not s.kicked and s.api.GetChain()[#s.api.GetChain()].action == 'mod_warn')
+  s.now = s.now + 60
+  s.event('modAction', 'warn', 18, 'Ventana nueva')
+  assert(not s.kicked)
+end
+
+function T.test_warn_escalation_uses_the_same_audit_timestamp_before_and_after_restart()
+  local deferred
+  local s = serverSandbox({ setup = function(server)
+    server.env.Config.WarnEscalation = { enabled = true, threshold = 2, window_seconds = 60 }
+    local persist = server.env.StaffSuiteModules['server.persist']
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb)
+        if not deferred and cb then
+          deferred = cb
+          return save()
+        end
+        return save(cb)
+      end
+      return storage
+    end
+  end })
+  s.ace.admin = true
+  s.event('modAction', 'warn', 18, 'Primera')
+  s.now = s.now + 60
+  deferred(true)
+  s.event('modAction', 'warn', 18, 'Segunda')
+  assert(not s.kicked)
 end
 
 function T.test_ban_persists_before_drop_and_checks_expiration_on_reconnect()

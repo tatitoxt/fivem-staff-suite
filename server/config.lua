@@ -22,3 +22,6 @@ Config.SanctionTemplates = {
   rp_warning = { action = 'warn', reason_key = 'sanction_reason_rp' },
   evasion_day = { action = 'ban', reason_key = 'sanction_reason_evasion', duration = 86400 },
 }
+
+-- Optativo. Tras este número de advertencias en la ventana, expulsa una vez por ventana.
+Config.WarnEscalation = { enabled = false, threshold = 3, window_seconds = 86400 }

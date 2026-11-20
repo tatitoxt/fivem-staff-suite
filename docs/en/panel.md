@@ -50,6 +50,7 @@ The server sends the list of transfer recipients: online staff who can claim rep
 The ticket's moderation rail acts on the player who filed the report. Freeze and Unfreeze share `mod.freeze`. The other buttons need `mod.<action>`. With `Config.Moderation.require_reason = true`, kick requires a reason.
 
 - Ban and warn always require a reason. Bans can be temporary or permanent, and warned players get an in-game notification.
+- In Core, enable `Config.WarnEscalation` in the server configuration to use automatic kicks. When saved warnings reach the threshold within the window, a warning from staff with `mod.warn_escalate`, `mod.warn` and `mod.kick` can kick the player once per window. The rule is disabled by default. It uses the verifiable audit history and the panel shows when it can apply.
 - Spectate requires the target to be in the same instance. Press Backspace to exit.
 - Revive uses the framework's medical integration when available, with a standalone implementation for other setups.
 

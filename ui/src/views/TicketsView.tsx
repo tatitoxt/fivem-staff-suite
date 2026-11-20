@@ -77,6 +77,7 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
   const closeViewer = () => { setViewing(null); dispatch({ type: 'evidenceClose' }); };
   const me = state.player?.identifier || state.player?.name;
   const requireReason = state.config.require_reason !== false;
+  const escalation = can('mod.warn_escalate') && state.config.warn_escalation;
 
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
@@ -211,6 +212,9 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
               />
             </label>
             <LimitHint text={currentReason} max={reasonMax} />
+            {escalation && <p className={v.setHint}>{t('ui_warn_escalation', {
+              count: escalation.threshold, minutes: escalation.windowSeconds / 60,
+            })}</p>}
             <div className={v.railGrid}>
               {MODS.map((m) => (
                 <Button
