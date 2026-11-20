@@ -254,7 +254,7 @@ local function updateReporter(ticket, notify)
   local src = findPlayerByIdentifier(ticket.reporter)
   if not src then return end
   sendReporterTickets(src, ticket.reporter)
-  if notify then TriggerClientEvent('staff_suite:notify', src, t('ticket_staff_reply', { id = ticket.id })) end
+  if notify then TriggerClientEvent('staff_suite:notify', src, t('ticket_staff_reply', { id = ticket.id }), { kind = 'reply' }) end
 end
 
 -- ===== Tickets: analytics, rating y evidencia =====
@@ -346,7 +346,7 @@ local modActions = {
   end },
   warn = { protected = true, reason = true, run = function(m)
     m.onSaved = afterSanction(m, function()
-      TriggerClientEvent('staff_suite:notify', m.tgt, t('warn_received', { reason = m.reason }))
+      TriggerClientEvent('staff_suite:notify', m.tgt, t('warn_received', { reason = m.reason }), { kind = 'warn' })
     end)
   end },
   ban = { protected = true, reason = true, run = function(m)
@@ -477,6 +477,14 @@ local function createReport(src, category, priority, body)
   })
   record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = category, priority = priority })
   TriggerClientEvent('staff_suite:notify', src, t('report_created', { id = ticket.id }))
+  local catKey, priKey = 'cat_' .. category, 'pri_' .. priority
+  local notice = t('report_new_staff', { id = ticket.id, category = t(catKey), priority = t(priKey) })
+  for _, candidate in ipairs(GetPlayers()) do
+    local staff = tonumber(candidate)
+    if staff ~= src and can(getPlayer(staff), 'report.view') then
+      TriggerClientEvent('staff_suite:notify', staff, notice, { kind = 'report', priority = priority })
+    end
+  end
   sendTickets(src, player)
   sendReporterTickets(src, player.identifier)
   return true, nil, ticket

@@ -3,10 +3,11 @@ import { fmt } from './format';
 import { isNui, send, subscribe, useMock } from './nui';
 import type {
   AuditEntry, DashboardPayload, DutyPayload, IncomingMessage, OutgoingAction, OutgoingPayloads,
-  EvidencePayload, PlayerInfo, ReporterTicket, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
+  EvidencePayload, NoticePayload, PlayerInfo, ReporterTicket, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
 } from './types';
 
 export interface Toast { id: number; kind: ToastKind; text: string }
+export interface Notice extends NoticePayload { id: number }
 
 export interface AppState {
   ready: boolean;
@@ -36,6 +37,7 @@ export interface AppState {
   dataState: 'idle' | 'loading' | 'ready' | 'error';
   palette: boolean;
   reportOpen: boolean;
+  notices: Notice[];
   banReviewOpen: boolean;
 }
 
@@ -52,6 +54,7 @@ type Action =
   | { type: 'retry' }
   | { type: 'palette'; open: boolean }
   | { type: 'report'; open: boolean }
+  | { type: 'dismissNotice'; id: number }
   | { type: 'banReview'; open: boolean };
 
 let toastSeq = 0;
@@ -73,7 +76,7 @@ export function initialState(visible: boolean): AppState {
     dashboard: null,
     duty: null,
     toasts: [],
-    auditActor: '', ratePrompt: null, evidence: null, dataState: 'idle', palette: false, reportOpen: false,
+    auditActor: '', ratePrompt: null, evidence: null, dataState: 'idle', palette: false, reportOpen: false, notices: [],
     banReviewOpen: false,
   };
 }
@@ -100,6 +103,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, view: action.view, auditActor: action.auditActor ?? state.auditActor };
     case 'setAuditActor':
       return { ...state, auditActor: action.actor };
+    case 'dismissNotice':
+      return { ...state, notices: state.notices.filter((n) => n.id !== action.id) };
     case 'palette':
       return { ...state, palette: action.open };
     case 'report':
@@ -170,12 +175,16 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
       return { ...state, duty: { ...msg.payload, staff: arr(msg.payload.staff) } };
     case 'toast':
       return pushToast(state, msg.payload.kind, msg.payload.text);
+    case 'notice': {
+      const max = Math.max(1, Math.min(5, msg.payload.max ?? 3));
+      return { ...state, notices: [...state.notices, { ...msg.payload, id: ++toastSeq }].slice(-max) };
+    }
     case 'rate':
       return { ...state, ratePrompt: msg.payload.id };
     case 'evidence':
       return { ...state, evidence: msg.payload };
     case 'open':
-      return { ...state, visible: true, view: msg.payload?.view ?? state.view, dataState: state.dataState === 'ready' ? 'ready' : 'loading' };
+      return { ...state, visible: true, notices: [], view: msg.payload?.view ?? state.view, dataState: state.dataState === 'ready' ? 'ready' : 'loading' };
     case 'close':
       return { ...state, visible: false, palette: false, banReviewOpen: false };
   }

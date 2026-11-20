@@ -63,6 +63,15 @@ Config.Moderation = {
   ban_tokens = true,                 -- banear también los tokens de hardware del cliente
 }
 
+-- Avisos in-game con el panel cerrado: arriba a la derecha, sin tomar el foco ni bloquear el juego.
+Config.Notifications = {
+  enabled = true,                    -- false: los avisos van al chat, como antes
+  staff_reports = true,              -- avisar al staff de cada reporte nuevo
+  duration = 6000,                   -- milisegundos en pantalla
+  max = 3,                           -- avisos apilados como máximo
+  sound = false,                     -- sonido para reportes nuevos, p. ej. { name = 'Text_Arrive_Tone', set = 'Phone_SoundSet_Default' }
+}
+
 -- Límites de texto (en bytes) y tickets abiertos por jugador. El servidor rechaza lo que exceda.
 Config.Limits = {
   ticket_body = 1000,

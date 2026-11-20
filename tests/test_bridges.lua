@@ -666,7 +666,7 @@ function T.test_ticket_transfer_assigns_eligible_recipient()
   s.event('ticketAction', 1, 'transfer', { to = 'license:offline' })
   s.event('ticketAction', 1, 'transfer', {})
   assert(ticket.claimer == 'license:account17' and #s.api.GetChain() == 2)
-  assert(not s.recipients[18])
+  assert(not (s.recipients[18] or {})['staff_suite:state'])
   s.event('ticketAction', 1, 'transfer', { to = 'license:account18' })
   local entry = s.api.GetChain()[3]
   assert(ticket.claimer == 'license:account18' and entry.actor == 'license:account17')
@@ -1200,6 +1200,22 @@ function T.test_report_with_attached_screenshot()
     if e.action == 'ticket_evidence' and e.target == 'ticket:' .. withShot.id then found = true end
   end
   assert(found, 'la captura del reporter queda auditada')
+end
+
+function T.test_new_report_notifies_staff_with_priority()
+  local s = serverSandbox()
+  s.ace.admin = true
+  local seen = {}
+  local send = s.env.TriggerClientEvent
+  s.env.TriggerClientEvent = function(event, src, data, opts, ...)
+    if event == 'staff_suite:notify' and type(opts) == 'table' then seen[src] = opts end
+    return send(event, src, data, opts, ...)
+  end
+  s.env.source = 19
+  s.event('ticketCreate', 'bug', 'urgent', 'Se cayó el servidor', 1)
+  assert(seen[17] and seen[17].kind == 'report' and seen[17].priority == 'urgent', 'el staff recibe el aviso con prioridad')
+  assert(s.recipients[17]['staff_suite:notify']:find('#1', 1, true))
+  assert(not seen[19], 'el reporter no recibe el aviso de staff')
 end
 
 return T

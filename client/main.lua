@@ -1,7 +1,7 @@
 -- client/main.lua — Puente NUI (React, ui/dist) <-> server. Contrato: NUI_SPEC.md.
 -- Traduce los eventos del adapter (staff_suite:state/auditResult/notify) a los
 -- mensajes tipados de la NUI (init/audit/tickets/dashboard/duty/toast).
--- luacheck: globals GetResourceMetadata GetPlayerName PlayerId SetTimeout GetCloudTimeAsInt ExecuteCommand
+-- luacheck: globals GetResourceMetadata GetPlayerName PlayerId SetTimeout GetCloudTimeAsInt ExecuteCommand PlaySoundFrontend
 local t = StaffSuiteTranslate
 local lite = Config.Edition == 'lite'
 local panelOpen = false
@@ -15,6 +15,7 @@ local playerInfo = nil
 local transferTargets = nil
 local exportStatus = nil
 local evidenceEnabled = false
+local initSent = false
 
 local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
@@ -37,6 +38,7 @@ local function cannedList()
 end
 
 local function sendInit()
+  initSent = true
   local locales = {}
   for code in pairs(Locale or {}) do locales[#locales + 1] = code end
   table.sort(locales)
@@ -319,23 +321,35 @@ RegisterNetEvent('staff_suite:auditResult', function(res)
   nui('audit', { verify = verifyResult(res.ok, res.at) })
 end)
 
-RegisterNetEvent('staff_suite:notify', function(msg)
+-- Avisos: con el panel abierto van como toast; cerrado, como aviso NUI sin foco (o al chat si está desactivado).
+local NOTICE_KINDS = { info = true, reply = true, warn = true, announce = true, report = true }
+local function notice(text, opts)
+  local cfg = Config.Notifications or {}
+  opts = type(opts) == 'table' and opts or {}
+  local kind = NOTICE_KINDS[opts.kind] and opts.kind or 'info'
+  if kind == 'report' and cfg.staff_reports == false then return end
+  text = tostring(text)
   if panelOpen then
-    nui('toast', { kind = 'info', text = tostring(msg) })
+    nui('toast', { kind = 'info', text = opts.title and (opts.title .. ' · ' .. text) or text })
+  elseif cfg.enabled == false then
+    TriggerEvent('chat:addMessage', { args = { opts.title or t('notify_title'), text } })
   else
-    TriggerEvent('chat:addMessage', { args = { t('notify_title'), msg } })
+    if not initSent then sendInit() end
+    nui('notice', { kind = kind, text = text, priority = opts.priority, duration = cfg.duration or 6000, max = cfg.max or 3 })
   end
-end)
+  local sound = cfg.sound
+  if kind == 'report' and type(sound) == 'table' and sound.name then
+    PlaySoundFrontend(-1, sound.name, sound.set or 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+  end
+end
+
+RegisterNetEvent('staff_suite:notify', notice)
 
 if not lite then
   RegisterNetEvent('staff_suite:announcement', function(message)
     if source ~= 65535 or type(message) ~= 'string' then return end
     local title = strings(uiLocale).announcement_title or t('announcement_title')
-    if panelOpen then
-      nui('toast', { kind = 'info', text = title .. ' · ' .. message })
-    else
-      TriggerEvent('chat:addMessage', { args = { title, message } })
-    end
+    notice(message, { kind = 'announce', title = title })
   end)
 
   -- Valoración del reporter al resolverse su ticket (el panel puede estar cerrado).

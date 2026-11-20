@@ -265,4 +265,11 @@ Locale['es'] = {
   ui_activity_label = '%{day}: %{created} creados, %{resolved} resueltos',
   ui_shortcuts = 'Atajos de teclado',
   ui_shortcut_views = 'Cambiar de vista',
+  report_new_staff = 'Reporte nuevo #%{id} · %{category} · prioridad %{priority}',
+  ui_notice_region = 'Avisos',
+  ui_notice_info = 'Aviso',
+  ui_notice_reply = 'Respuesta del staff',
+  ui_notice_warn = 'Advertencia',
+  ui_notice_announce = 'Anuncio',
+  ui_notice_report = 'Reporte nuevo',
 }

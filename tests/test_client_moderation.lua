@@ -145,4 +145,33 @@ function T.test_ticket_create_waits_for_server_result()
   assert(replies[2].ok == false and replies[2].error == 'report_failed')
 end
 
+function T.test_notices_show_without_taking_focus()
+  local _, env, events = sandbox()
+  local msgs, chat, sounds, focus = {}, {}, {}, nil
+  env.SendNUIMessage = function(m) msgs[#msgs + 1] = m end
+  env.TriggerEvent = function(event, data) if event == 'chat:addMessage' then chat[#chat + 1] = data end end
+  env.PlaySoundFrontend = function(_, name) sounds[#sounds + 1] = name end
+  env.SetNuiFocus = function(a) focus = a end
+  env.GetResourceMetadata = function() return '1.0' end
+  env.GetPlayerName = function() return 'Fausto' end
+  env.PlayerId = function() return 1 end
+  events['staff_suite:notify']('Te respondieron el reporte #12', { kind = 'reply' })
+  assert(msgs[1].type == 'init', 'manda init para tener los textos')
+  local last = msgs[#msgs]
+  assert(last.type == 'notice' and last.payload.kind == 'reply' and last.payload.max == 3 and last.payload.duration == 6000)
+  assert(focus == nil, 'el aviso no toma el foco')
+  events['staff_suite:notify']('Reporte nuevo', { kind = 'report', priority = 'urgent' })
+  assert(msgs[#msgs].payload.priority == 'urgent' and #sounds == 0)
+  env.Config.Notifications = { sound = { name = 'Text_Arrive_Tone', set = 'Phone_SoundSet_Default' } }
+  events['staff_suite:notify']('Reporte nuevo', { kind = 'report' })
+  assert(sounds[1] == 'Text_Arrive_Tone', 'sonido opcional en reportes nuevos')
+  env.Config.Notifications = { staff_reports = false }
+  local before = #msgs
+  events['staff_suite:notify']('Reporte nuevo', { kind = 'report' })
+  assert(#msgs == before, 'los avisos de reportes se pueden apagar')
+  env.Config.Notifications = { enabled = false }
+  events['staff_suite:notify']('Al chat')
+  assert(#msgs == before and chat[1].args[2] == 'Al chat', 'desactivados vuelven al chat')
+end
+
 return T

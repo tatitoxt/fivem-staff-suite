@@ -13,7 +13,7 @@ declare global {
 
 const INCOMING = new Set([
   'init', 'audit', 'tickets', 'myTickets', 'frozenPlayers', 'freezeState',
-  'dashboard', 'duty', 'toast', 'rate', 'evidence', 'open', 'close',
+  'dashboard', 'duty', 'toast', 'notice', 'rate', 'evidence', 'open', 'close',
 ]);
 
 export function isNui(): boolean {
