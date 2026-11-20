@@ -200,6 +200,8 @@ export interface OutgoingPayloads {
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
+  ban_list: { page: number };
+  ban_revoke: { id: number; reason: string };
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };
@@ -209,6 +211,17 @@ export interface OutgoingPayloads {
 }
 
 export type OutgoingAction = keyof OutgoingPayloads;
+
+export interface BanRow {
+  id?: number;
+  identifier: string;
+  actor: string;
+  reason: string;
+  created_at: number;
+  expires_at: number;
+  status: 'active' | 'expired' | 'revoked';
+  aliases: number;
+}
 
 export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
 

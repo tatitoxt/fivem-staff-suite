@@ -4,6 +4,7 @@ import lay from '../components/layout.module.css';
 import { isLite } from '../edition';
 import { rankLabel } from '../labels';
 import { useApp } from '../store';
+import { BanReview } from './BanReview';
 import v from './views.module.css';
 
 export function SettingsView() {
@@ -16,6 +17,7 @@ export function SettingsView() {
       <ViewHeader title={t('ui_nav_settings')} subtitle={t('ui_settings_sub')} />
       <div className={cx(lay.viewBody, ui.scroll)}>
         <div className={v.settings}>
+          {!isLite && state.player?.capabilities?.includes('ban.view') && <BanReview />}
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Languages size={20} /></span><h2>{t('ui_set_language')}</h2></div>
             <Segmented

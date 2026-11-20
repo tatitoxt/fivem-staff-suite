@@ -7,6 +7,7 @@ local function t(key, vars) return StaffSuiteTranslate(key, vars) end
 M.MIGRATIONS = {
   { version = 1, file = 'sql/001_staff_suite.sql' },
   { version = 2, file = 'sql/002_tickets_f2.sql' },
+  { version = 3, file = 'sql/003_ban_review.sql' },
 }
 
 local specs = {
@@ -28,8 +29,9 @@ local specs = {
   { name = 'stats', keys = { 'actor' },
     columns = { 'actor', 'resolved', 'response_sum', 'response_n', 'ratings_sum', 'ratings_n' },
     numbers = { 'resolved', 'response_sum', 'response_n', 'ratings_sum', 'ratings_n' } },
-  { name = 'bans', keys = { 'identifier' }, columns = { 'identifier', 'actor', 'reason', 'created_at', 'expires_at' },
-    numbers = { 'created_at', 'expires_at' } },
+  { name = 'bans', keys = { 'identifier' },
+    columns = { 'identifier', 'actor', 'reason', 'created_at', 'expires_at', 'ban_id', 'revoked_at' },
+    numbers = { 'created_at', 'expires_at', 'ban_id', 'revoked_at' } },
 }
 
 local function quoted(columns)
@@ -105,7 +107,7 @@ local function restore(tables, meta)
   end
   for _, row in ipairs(tables.bans) do
     state.bans[row.identifier] = { actor = row.actor, reason = row.reason,
-      created_at = row.created_at, expires_at = row.expires_at }
+      created_at = row.created_at, expires_at = row.expires_at, id = row.ban_id, revoked_at = row.revoked_at }
   end
   return state
 end
@@ -270,7 +272,7 @@ local function rowsFor(state)
   end
   for identifier, ban in pairs(state.bans) do
     rows.bans[#rows.bans + 1] = { identifier = identifier, actor = ban.actor, reason = ban.reason,
-      created_at = ban.created_at, expires_at = ban.expires_at }
+      created_at = ban.created_at, expires_at = ban.expires_at, ban_id = ban.id, revoked_at = ban.revoked_at }
   end
   return rows
 end

@@ -8,6 +8,7 @@ export const ALL_CAPS = [
   'report.view', 'report.claim', 'report.resolve', 'report.message',
   'mod.goto', 'mod.bring', 'mod.spectate', 'mod.freeze', 'mod.heal',
   'mod.revive', 'mod.kick', 'mod.warn', 'mod.ban',
+  'ban.view', 'ban.revoke',
   'audit.view', 'audit.verify', 'audit.export',
   'staff.duty', 'staff.analytics', 'admin.config', 'admin.permissions',
 ];
