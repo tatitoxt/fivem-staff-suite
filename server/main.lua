@@ -164,11 +164,11 @@ local function verifyCached()
 end
 
 -- Cada evento de red y comando de jugador pasa por acá antes de tocar el estado.
-local function allowRate(src, key)
+local function allowRate(src, key, fallback)
   src = tonumber(src)
   if not src or src <= 0 then return true end
   local rules = Config.RateLimit or {}
-  local ok, first = ratelimit.allow(limiter, src, key, rules[key] or rules.default, os.time())
+  local ok, first = ratelimit.allow(limiter, src, key, rules[key] or fallback or rules.default, os.time())
   if not ok and first then TriggerClientEvent('staff_suite:notify', src, t('rate_limited')) end
   return ok
 end
@@ -462,6 +462,30 @@ RegisterNetEvent('staff_suite:ticketCreate', function(category, priority, body, 
   end
   req = positiveInteger(req)
   if req then TriggerClientEvent('staff_suite:ticketCreateResult', src, { req = req, ok = ok == true, error = err }) end
+end)
+
+RegisterNetEvent('staff_suite:announce', function(body, req)
+  local src = source
+  req = positiveInteger(req)
+  local function reply(ok, err)
+    if req then TriggerClientEvent('staff_suite:announceResult', src, { req = req, ok = ok, error = err }) end
+  end
+
+  if not allowRate(src, 'staff_suite:announce', { burst = 1, per_second = 1 / 30 }) then
+    return reply(false, t('rate_limited'))
+  end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'staff.announce') then return reply(false, t('no_permission')) end
+  local message, err = cleanText(body, limit('announcement') or 300)
+  if not message or message == '' then return reply(false, err or t('announcement_empty')) end
+
+  record('staff_announce', player.identifier, 'server', message, nil, function(saved)
+    if saved then TriggerClientEvent('staff_suite:announcement', -1, message) end
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+      reply(saved, not saved and t('announcement_failed') or nil)
+    end
+  end)
 end)
 
 net('staff_suite:getState', function()

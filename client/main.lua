@@ -219,6 +219,10 @@ ticketRequest('ticket_reply', 'staff_suite:ticketMessageResult', 'ticket_message
   TriggerServerEvent('staff_suite:ticketReply', d.id, d.body, req)
 end)
 if not lite then
+  ticketResult('staff_suite:announceResult')
+  ticketRequest('announce', 'staff_suite:announceResult', 'announcement_failed', function(d, req)
+    TriggerServerEvent('staff_suite:announce', d.body, req)
+  end)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
     if not panelOpen then SetNuiFocus(false, false) end
@@ -316,6 +320,16 @@ RegisterNetEvent('staff_suite:notify', function(msg)
 end)
 
 if not lite then
+  RegisterNetEvent('staff_suite:announcement', function(message)
+    if source ~= 65535 or type(message) ~= 'string' then return end
+    local title = strings(uiLocale).announcement_title or t('announcement_title')
+    if panelOpen then
+      nui('toast', { kind = 'info', text = title .. ' · ' .. message })
+    else
+      TriggerEvent('chat:addMessage', { args = { title, message } })
+    end
+  end)
+
   -- Valoración del reporter al resolverse su ticket (el panel puede estar cerrado).
   RegisterNetEvent('staff_suite:ratePrompt', function(p)
     if type(p) ~= 'table' or not p.id then return end

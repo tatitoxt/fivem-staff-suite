@@ -67,6 +67,7 @@ Config.Moderation = {
 Config.Limits = {
   ticket_body = 1000,
   message_body = 1000,
+  announcement = 300,
   reason = 300,
   open_tickets_per_player = 3,
 }
@@ -79,4 +80,5 @@ Config.RateLimit = {
   ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
   ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
   ['staff_suite:ticketEvidence'] = { burst = 3, per_second = 1 / 20 },
+  ['staff_suite:announce'] = { burst = 1, per_second = 1 / 30 },
 }

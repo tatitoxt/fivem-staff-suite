@@ -141,7 +141,7 @@ export interface UiConfig {
   transfer_targets?: TransferTarget[];
   canned?: CannedResponse[];
   evidence?: boolean;
-  limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number };
+  limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number; announcement?: number };
 }
 
 export interface InitPayload {
@@ -200,6 +200,7 @@ export interface OutgoingPayloads {
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
+  announce: { body: string };
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };
