@@ -14,6 +14,7 @@ local modules = {
   "tests.test_persist",
   "tests.test_ratelimit",
   "tests.test_lite",
+  "tests.test_export",
 }
 local pass, fail = 0, 0
 local failed = {}

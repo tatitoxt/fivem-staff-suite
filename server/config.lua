@@ -4,6 +4,10 @@ Config.Export = {
   webhook = GetConvar('staff_suite_webhook', ''),
   file = true,
   anchor_every = 20,
+  -- Reintentos del webhook ante 429/5xx/sin respuesta: backoff exponencial con tope.
+  webhook_retries = 5,
+  webhook_backoff_ms = 2000,
+  webhook_backoff_max_ms = 60000,
 }
 
 -- Mapeo opcional por identificador estable en standalone.

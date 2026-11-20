@@ -6,7 +6,9 @@ import type { IncomingMessage, Ticket } from '../types';
 
 function dispatch(...messages: IncomingMessage[]) {
   act(() => {
-    for (const data of messages) window.dispatchEvent(new MessageEvent('message', { data }));
+    for (const data of messages) {
+      window.dispatchEvent(new MessageEvent('message', { data, origin: 'https://nui-game-internal' }));
+    }
   });
 }
 

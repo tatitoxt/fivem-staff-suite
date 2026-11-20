@@ -59,9 +59,17 @@ export async function send<A extends OutgoingAction>(
   return null;
 }
 
+// SendNUIMessage llega desde la página raíz de NUI (nui://game o https://nui-game-internal);
+// el mock de dev emite desde la propia página (jsdom deja origin vacío). Cualquier otro origen se ignora.
+const TRUSTED_ORIGINS = new Set(['nui://game', 'https://nui-game-internal']);
+
+export function isTrustedOrigin(origin: string): boolean {
+  return TRUSTED_ORIGINS.has(origin) || origin === window.location.origin || (origin === '' && useMock());
+}
+
 export function subscribe(cb: (msg: IncomingMessage) => void): () => void {
   const onMessage = (e: MessageEvent) => {
-    if (isIncoming(e.data)) cb(e.data);
+    if (isTrustedOrigin(e.origin) && isIncoming(e.data)) cb(e.data);
   };
   window.addEventListener('message', onMessage);
   if (useMock()) {
