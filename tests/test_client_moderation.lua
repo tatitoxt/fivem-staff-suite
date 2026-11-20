@@ -51,6 +51,31 @@ local function sandbox()
   return client, env, events, callbacks, hooks
 end
 
+function T.test_waypoint_does_not_move_without_authorization_marker_or_ground()
+  local client, env, events, callbacks = sandbox()
+  local move = events['staff_suite:waypoint']
+  env.GetFirstBlipInfoId = function() return 8 end
+  env.DoesBlipExist = function() return client.marker end
+  env.GetBlipInfoIdCoord = function() return { x = 50, y = 70, z = 0 } end
+  env.NewLoadSceneStartSphere = function() return true end
+  env.IsNewLoadSceneLoaded = function() return true end
+  env.NewLoadSceneStop = function() client.sceneStopped = true end
+  env.GetGroundZFor_3dCoord = function() return client.ground, 30 end
+  callbacks.goto_waypoint({}, function() end)
+  assert(client.args[1] == 'staff_suite:waypoint')
+  move(1)
+  assert(client.pos.x == 1 and client.args[1] == 'staff_suite:waypoint')
+  env.source = 65535
+  move(2)
+  assert(client.args[2] == 2 and client.args[3] == 'no_marker')
+  client.marker = true
+  move(3)
+  assert(client.args[3] == 'unavailable' and client.pos.x == 1 and client.sceneStopped)
+  client.ground = true
+  move(4)
+  assert(client.args[3] == 'ok' and client.pos.x == 50 and client.pos.z == 31)
+end
+
 function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect()
   local c, env, events, _, hooks = sandbox()
   local spectate = events['staff_suite:spectate']

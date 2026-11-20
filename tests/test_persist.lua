@@ -175,6 +175,7 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   perms.grant(state.perms, 'license:staff', 'mod.warn')
   state.bans['license:player'] = { actor = 'license:staff', reason = "O'Brien",
     created_at = 10, expires_at = 20, id = 1, revoked_at = 12 }
+  state.playtime = { ['license:player'] = 15000 }
   storage.save()
   storage.save()
   assert(#db.calls == 0)
@@ -183,6 +184,7 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   local restored = fresh()
   local nextStorage, nextFlush = boot(restored, memory, db)
   assert(restored.chain.head == state.chain.head and audit.verify(restored.chain))
+  assert(restored.playtime['license:player'] == 15000)
   assert(restored.tickets.next_id == 2 and restored.tickets.tickets[1].claimer == nil)
   assert(restored.tickets.tickets[1].messages[1].body == "O'Brien")
   local back = restored.tickets.tickets[1]

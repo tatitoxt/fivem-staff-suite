@@ -176,7 +176,7 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
   local convar_reads = 0
   local webhook = 'https://example.invalid/webhook'
   env.GetConvar = function(name)
-    assert(name == 'staff_suite_webhook')
+    assert(name == 'staff_suite_webhook' or name == 'staff_suite_ticket_webhook')
     convar_reads = convar_reads + 1
     return webhook
   end
@@ -187,7 +187,7 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
   assert(env.Config.Export == nil and env.Config.StandaloneRanks == nil and convar_reads == 0)
   assert(manifest.server[1] == 'server/config.lua')
   assert(loadfile(manifest.server[1], 't', env))()
-  assert(env.Config.Export.webhook == webhook and convar_reads == 1)
+  assert(env.Config.Export.webhook == webhook and env.Config.Export.ticket_webhook == webhook and convar_reads == 2)
 end
 
 local function clone(value)
@@ -256,6 +256,7 @@ local function serverSandbox(options)
   env.DropPlayer = function(src, reason) server.kicked, server.kickReason = src, reason end
   env.CancelEvent = function() server.cancelled = true end
   env.os = setmetatable({ time = function() return server.now end }, { __index = os })
+  env.GetGameTimer = function() return server.now * 1000 end
   env.GetCurrentResourceName = function() return 'staff_suite' end
   env.LoadResourceFile = function(_, path)
     assert(not path:lower():match('%.lua$'), 'LoadResourceFile intentó leer código Lua: ' .. path)
@@ -297,6 +298,179 @@ function T.test_server_boots_from_manifest_without_reading_lua()
 
   local ok, err = pcall(s.env.StaffSuiteModules.loadmod, 'core.no_registrado')
   assert(not ok and err:find('core.no_registrado', 1, true) and #s.reads == 2)
+end
+
+function T.test_staff_chat_checks_sender_and_recipients_and_saves_before_delivery()
+  local s = serverSandbox()
+  local result, message = 'staff_suite:staffChatResult', 'staff_suite:staffChatMessage'
+  local function send(body, req) s.event('staffChat', body, req) end
+  send('Hola', 1)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('no_permission'))
+  s.ace.support = true
+  local model = s.api.GetState().perms
+  perms.revoke(model, 'license:account19', 'staff.chat')
+  s.env.Config.Limits.message_body = 8
+  send('   ', 2)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('staff_chat_empty'))
+  send(string.rep('ñ', 5), 3)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('input_too_long', { max = 8 }))
+  s.failWrites = true
+  send('Falla', 4)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('mod_save_failed') and not s.sent[message])
+  s.failWrites = false
+  send(' Hola ', 5)
+  assert(s.sent[result].ok and s.recipients[17][message] and s.recipients[18][message] and not s.recipients[19])
+  s.api.Flush()
+  local entries = s.files[s.env.Config.JsonFile].chain.entries
+  local requestEntry, resultEntry = entries[#entries - 1], entries[#entries]
+  local requestData, resultData = s.payloads[tonumber(requestEntry.payload)], s.payloads[tonumber(resultEntry.payload)]
+  assert(requestEntry.action == 'staff_chat_request' and requestData.bytes == 4 and requestData.body == nil)
+  assert(resultEntry.action == 'staff_chat_result' and resultData.request_seq == requestEntry.seq and resultData.recipients == 2)
+  local failed = s.payloads[tonumber(entries[#entries - 2].payload)]
+  assert(entries[#entries - 2].action == 'staff_chat_result' and not failed.ok and failed.recipients == 0)
+  send('Otra', 6)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
+end
+
+function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_audited()
+  local s = serverSandbox()
+  local view, note = 'staff_suite:playerProfileResult', 'staff_suite:playerProfileNoteResult'
+  local reporter = 'license:account18'
+  local id = s.api.CreateTicket({ reporter = reporter, description = 'Consulta' })
+  local second = s.api.CreateTicket({ reporter = reporter, description = 'Seguimiento' })
+  s.api.CreateTicket({ reporter = 'license:account19', description = 'Otro jugador' })
+  s.api.Record('mod_warn', 'staff', reporter, 'Advertencia de prueba')
+  s.api.Record('mod_ban', 'staff', reporter, 'Sanción de prueba')
+  s.api.Record('player_profile_note', 'staff', 'license:account19', 'Nota de otro jugador')
+  s.ace.support = true
+  s.event('playerProfile', id, 1)
+  assert(s.sent[view].error == s.env.StaffSuiteTranslate('no_permission'))
+  s.ace.mod = true
+  s.event('playerProfile', 999, 2)
+  assert(s.sent[view].error == s.env.StaffSuiteTranslate('player_profile_missing'))
+  s.event('playerProfile', id, 3)
+  local data = s.sent[view].data
+  assert(data.warns[1].text == 'Advertencia de prueba' and data.bans[1].text == 'Sanción de prueba')
+  assert(data.tickets[1].id == second and #data.tickets == 2 and #data.notes == 0)
+  s.event('playerProfile', id, 4)
+  assert(s.sent[view].error == s.env.StaffSuiteTranslate('rate_limited'))
+  local model = s.api.GetState().perms
+  perms.revoke(model, 'license:account17', 'player.profile.note')
+  s.event('playerProfileNote', id, 5, 'Denegada')
+  assert(s.sent[note].error == s.env.StaffSuiteTranslate('no_permission'))
+  perms.grant(model, 'license:account17', 'player.profile.note')
+  s.env.Config.Limits.message_body = 8
+  s.event('playerProfileNote', id, 6, 'ñññññ')
+  assert(s.sent[note].error == s.env.StaffSuiteTranslate('input_too_long', { max = 8 }))
+  s.now = s.now + 10
+  s.failWrites = true
+  s.event('playerProfileNote', id, 7, ' Revisar ')
+  assert(not s.sent[note].ok and not s.sent[note].data)
+  s.failWrites = false
+  s.event('playerProfileNote', id, 8, ' Revisar ')
+  assert(s.sent[note].ok and s.sent[note].data.notes[1].text == 'Revisar' and #s.sent[note].data.notes == 1)
+  local reboot = serverSandbox({ files = s.files })
+  reboot.ace.mod = true
+  reboot.event('playerProfile', id, 1)
+  assert(reboot.sent[view].data.notes[1].text == 'Revisar' and #reboot.sent[view].data.notes == 1 and reboot.api.Verify())
+  reboot.api.Record('player_profile_note', 'resource', reporter, 'Nota vía API')
+  reboot.event('playerProfile', id, 2)
+  assert(reboot.sent[view].data.notes[1].text == 'Nota vía API' and #reboot.sent[view].data.notes == 2)
+  reboot.failWrites = true
+  reboot.api.Record('player_profile_note', 'resource', reporter, 'Nota con reintento')
+  reboot.failWrites = false
+  reboot.api.Flush()
+  reboot.now = reboot.now + 2
+  reboot.event('playerProfile', id, 3)
+  assert(reboot.sent[view].data.notes[1].text == 'Nota con reintento' and #reboot.sent[view].data.notes == 3)
+end
+
+function T.test_profile_playtime_counts_live_and_restored_sessions_without_offline_time()
+  local s = serverSandbox()
+  local target, view = 'license:account18', 'staff_suite:playerProfileResult'
+  local id = s.api.CreateTicket({ reporter = target, description = 'Consulta' })
+  s.ace.mod = true
+  s.now = s.now + 70
+  s.event('playerProfile', id, 1)
+  assert(s.sent[view].data.played_seconds == 70)
+  s.env.source = 18
+  s.hook('playerDropped')
+  s.online['18'] = nil
+  s.now = s.now + 300
+  s.env.source = 17
+  s.event('playerProfile', id, 2)
+  assert(s.sent[view].data.played_seconds == 70)
+  s = serverSandbox({ files = s.files })
+  s.ace.mod = true
+  s.identifiers['19'] = target
+  s.env.source = 19
+  s.hook('playerJoining')
+  s.now = s.now + 10
+  s.hook('playerDropped')
+  s.env.source = 17
+  s.now = s.now + 5
+  s.event('playerProfile', id, 1)
+  assert(s.sent[view].data.played_seconds == 85)
+  s.hook('onResourceStop', 'staff_suite')
+  assert(s.files[s.env.Config.JsonFile].playtime[target] == 85000 and s.api.Verify())
+end
+
+function T.test_profile_notes_keep_audit_order_when_callbacks_complete_out_of_order()
+  local callbacks = {}
+  local s = serverSandbox({ setup = function(server)
+    local persist = server.env.StaffSuiteModules['server.persist']
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb, retry)
+        if cb and #callbacks < 2 then
+          callbacks[#callbacks + 1] = cb
+          return save()
+        end
+        return save(cb, retry)
+      end
+      return storage
+    end
+  end })
+  s.ace.mod = true
+  local id = s.api.CreateTicket({ reporter = 'license:account18', description = 'Caso' })
+  s.event('playerProfileNote', id, 1, 'Primera')
+  s.api.Record('player_profile_note', 'resource', 'license:account18', 'Segunda')
+  callbacks[2](true)
+  callbacks[1](true)
+  s.event('playerProfile', id, 2)
+  local notes = s.sent['staff_suite:playerProfileResult'].data.notes
+  assert(notes[1].text == 'Segunda' and notes[2].text == 'Primera')
+end
+
+function T.test_sanction_templates_require_both_capabilities_and_fix_the_reason_and_duration()
+  local s = serverSandbox()
+  s.ace.mod = true
+  s.event('getState')
+  local state = s.sent['staff_suite:state']
+  assert(#state.sanctionTemplates == 1 and state.sanctionTemplates[1].id == 'rp_warning')
+  local hasCap
+  for _, cap in ipairs(state.player.capabilities) do if cap == 'mod.template' then hasCap = true end end
+  assert(hasCap)
+  s.event('modAction', 'ban', 18, 'manual', 0, 'rp_warning')
+  assert(#s.api.GetChain() == 0 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('no_permission'))
+  s.ace.admin = true
+  s.event('modAction', 'ban', 18, 'manual', 0, 'rp_warning')
+  assert(#s.api.GetChain() == 0 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('sanction_template_invalid'))
+  s.event('modAction', 'ban', 18, 'manual', 0, 'evasion_day')
+  local chain = s.api.GetChain()
+  assert(#chain == 1 and chain[1].reason == s.env.StaffSuiteTranslate('sanction_reason_evasion'))
+  local auditPayload = s.payloads[tonumber(chain[1].payload)]
+  assert(auditPayload.template == 'evasion_day' and auditPayload.expires_at == s.now + 86400)
+  s.event('modAction', 'warn', 19, 'otro', nil, 'rp_warning')
+  assert(#chain == 1 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('rate_limited'))
+  s.now = s.now + 2
+  perms.revoke(s.api.GetState().perms, 'license:account17', 'mod.template')
+  s.event('modAction', 'warn', 19, 'otro', nil, 'rp_warning')
+  assert(#chain == 1 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('no_permission'))
+  s.event('modAction', 'warn', 19, 'Manual')
+  assert(#chain == 2 and chain[2].reason == 'Manual')
 end
 
 function T.test_server_enforces_mapped_capabilities_and_overrides()
@@ -405,9 +579,77 @@ function T.test_warn_requires_reason_permission_and_durable_audit()
   assert(chain.entries[1].action == 'mod_warn' and chain.entries[1].reason == 'regla del servidor')
   assert(s.recipients[18]['staff_suite:notify']:find('regla del servidor', 1, true))
   assert(s.api.Verify())
+  s.now = s.now + 5
   s.failWrites = true
   s.event('modAction', 'warn', 19, 'fallo de escritura')
   assert(not s.recipients[19] and s.recipients[17]['staff_suite:notify'] == s.env.Locale.es.mod_save_failed)
+end
+
+function T.test_warn_escalation_restores_window_ignores_failed_writes_and_checks_permissions()
+  local function configure(s)
+    s.env.Config.WarnEscalation = { enabled = true, threshold = 2, window_seconds = 60 }
+  end
+  local s = serverSandbox({ setup = configure })
+  s.ace.mod = true
+  s.failWrites = true
+  s.event('modAction', 'warn', 18, 'Fallo')
+  s.failWrites = false
+  s.event('modAction', 'warn', 18, 'Primera')
+  assert(not s.kicked)
+  s = serverSandbox({ setup = configure, files = s.files })
+  s.ace.mod = true
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].warnEscalation == false)
+  s.event('modAction', 'warn', 18, 'Segunda')
+  assert(not s.kicked)
+  s.ace.admin = true
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].warnEscalation.threshold == 2)
+  perms.revoke(s.api.GetState().perms, 'license:account17', 'mod.kick')
+  s.event('modAction', 'warn', 18, 'Sin permiso de expulsión')
+  assert(not s.kicked)
+  perms.grant(s.api.GetState().perms, 'license:account17', 'mod.kick')
+  s.event('modAction', 'warn', 18, 'Aplica')
+  local chain = s.files[s.env.Config.JsonFile].chain.entries
+  local escalation = chain[#chain]
+  assert(s.kicked == 18 and escalation.action == 'mod_warn_escalation')
+  assert(s.payloads[tonumber(escalation.payload)].warn_seq == escalation.seq - 1)
+  s.event('modAction', 'warn', 18, 'Fuera del límite')
+  assert(#s.api.GetChain() == #chain and s.sent['staff_suite:notify'] == s.env.Locale.es.rate_limited)
+  s = serverSandbox({ setup = configure, files = s.files })
+  s.ace.admin = true
+  s.event('modAction', 'warn', 18, 'Ya escalado')
+  assert(not s.kicked and s.api.GetChain()[#s.api.GetChain()].action == 'mod_warn')
+  s.now = s.now + 60
+  s.event('modAction', 'warn', 18, 'Ventana nueva')
+  assert(not s.kicked)
+end
+
+function T.test_warn_escalation_uses_the_same_audit_timestamp_before_and_after_restart()
+  local deferred
+  local s = serverSandbox({ setup = function(server)
+    server.env.Config.WarnEscalation = { enabled = true, threshold = 2, window_seconds = 60 }
+    local persist = server.env.StaffSuiteModules['server.persist']
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb)
+        if not deferred and cb then
+          deferred = cb
+          return save()
+        end
+        return save(cb)
+      end
+      return storage
+    end
+  end })
+  s.ace.admin = true
+  s.event('modAction', 'warn', 18, 'Primera')
+  s.now = s.now + 60
+  deferred(true)
+  s.event('modAction', 'warn', 18, 'Segunda')
+  assert(not s.kicked)
 end
 
 function T.test_ban_persists_before_drop_and_checks_expiration_on_reconnect()
@@ -512,6 +754,36 @@ function T.test_revive_dispatches_framework_bridge_or_standalone()
   s.event('modAction', 'revive', 18)
   assert(s.lastClientEvent[1] == 'hospital:client:Revive' and s.lastClientEvent[2] == 18)
   assert(#s.api.GetChain() == 4 and s.api.Verify())
+end
+
+function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result()
+  local s = serverSandbox()
+  s.ace.mod = true
+  s.event('waypoint', 18)
+  assert(#s.api.GetChain() == 0)
+  s.ace.admin = true
+  s.event('waypoint', 18)
+  local sequence = s.recipients[17]['staff_suite:waypoint']
+  local chain = s.api.GetChain()
+  assert(sequence == 1 and chain[1].action == 'staff_waypoint_request')
+  assert(chain[1].target == 'license:account17' and not s.recipients[18])
+  s.env.source = 18
+  s.event('waypointResult', sequence, 'ok')
+  assert(#chain == 1)
+  s.env.source = 17
+  s.event('waypointResult', sequence, 'untrusted')
+  assert(#chain == 1)
+  s.event('waypointResult', sequence, 'no_marker')
+  assert(chain[2].action == 'staff_waypoint_result' and chain[2].reason == 'no_marker')
+  assert(s.payloads[tonumber(chain[2].payload)].request_seq == sequence)
+  s.event('waypointResult', sequence, 'ok')
+  assert(#chain == 2 and s.api.Verify())
+  s.event('waypoint')
+  assert(s.sent['staff_suite:notify'] == s.env.Locale.es.rate_limited and #chain == 2)
+  s.now = s.now + 5
+  s.failWrites = true
+  s.event('waypoint')
+  assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
 function T.test_spectate_only_dispatches_to_authorized_observer()
@@ -649,10 +921,50 @@ function T.test_state_reports_export_flags_without_webhook_url()
   state = s.sent['staff_suite:state']
   assert(state.exportStatus.webhook == true and state.exportStatus.file == false)
   for key, value in pairs(state.exportStatus) do
-    assert(((key == 'file' or key == 'webhook') and type(value) == 'boolean')
+    assert(((key == 'file' or key == 'webhook' or key == 'tickets') and type(value) == 'boolean')
       or (key == 'anchor_every' and type(value) == 'number'))
   end
   assert(not state.export and not state.webhook)
+end
+
+function T.test_ticket_export_checks_permission_saves_audit_and_omits_private_data()
+  local s = serverSandbox()
+  local url, result = 'https://discord.com/api/webhooks/123456/demo-token', 'staff_suite:ticketExportResult'
+  s.env.Config.Export.ticket_webhook = url
+  local id = s.api.CreateTicket({ reporter = 'license:account18', description = 'Mi consulta' })
+  s.ace.admin = true
+  s.event('ticketMessage', id, 'Nota interna', true)
+  s.event('ticketMessage', id, 'Respuesta pública', false)
+  local request
+  s.env.PerformHttpRequest = function(uri, cb, method, body, headers, options)
+    local entries = s.files[s.env.Config.JsonFile].chain.entries
+    assert(entries[#entries].action == 'ticket_export_request')
+    assert(uri == url .. '?wait=true' and method == 'POST' and options.followLocation == false)
+    assert(headers['Content-Type']:match('^multipart/form%-data; boundary='))
+    assert(body:find('Mi consulta', 1, true) and body:find('Respuesta pública', 1, true))
+    assert(not body:find('Nota interna', 1, true) and not body:find('license:', 1, true))
+    request = cb
+  end
+  s.ace.admin = false
+  s.event('ticketExport', id, 2)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('no_permission') and not request)
+  s.ace.admin = true
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].exportStatus.tickets == true)
+  s.now = s.now + 30
+  s.failWrites = true
+  s.event('ticketExport', id, 3)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('mod_save_failed') and not request)
+  s.now = s.now + 30
+  s.failWrites = false
+  s.event('ticketExport', id, 4)
+  assert(request and s.sent[result].req == 3)
+  s.event('ticketExport', id, 5)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
+  request(200)
+  assert(s.sent[result].ok and s.sent[result].req == 4)
+  local chain = s.api.GetChain()
+  assert(chain[#chain].action == 'ticket_export_result' and s.api.Verify())
 end
 
 function T.test_ticket_transfer_assigns_eligible_recipient()

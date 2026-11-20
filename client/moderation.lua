@@ -20,6 +20,40 @@ RegisterNetEvent('staff_suite:revive', function()
 end)
 
 local observing
+local streamingWaypoint = false
+
+local function waypointDestination(coords)
+  if streamingWaypoint then return end
+  if not NewLoadSceneStartSphere(coords.x, coords.y, coords.z, 100.0, 0) then return end
+  streamingWaypoint = true
+  local deadline = GetGameTimer() + 5000
+  while not IsNewLoadSceneLoaded() and GetGameTimer() < deadline do Wait(0) end
+  local found, z = GetGroundZFor_3dCoord(coords.x, coords.y, 1000.0, false)
+  NewLoadSceneStop()
+  streamingWaypoint = false
+  if found then return z end
+end
+
+local function canUseWaypoint(ped)
+  return not observing and DoesEntityExist(ped) and not IsEntityDead(ped)
+    and not IsEntityPositionFrozen(ped) and not IsPedInAnyVehicle(ped, false)
+end
+
+RegisterNetEvent('staff_suite:waypoint', function(seq)
+  if source ~= 65535 then return end
+  local function reply(outcome) TriggerServerEvent('staff_suite:waypointResult', seq, outcome) end
+  local marker = GetFirstBlipInfoId(8)
+  if not DoesBlipExist(marker) then return reply('no_marker') end
+  local ped = PlayerPedId()
+  if not canUseWaypoint(ped) then return reply('unavailable') end
+  local coords = GetBlipInfoIdCoord(marker)
+  local z = waypointDestination(coords)
+  if not z or PlayerPedId() ~= ped or not canUseWaypoint(ped) then
+    return reply('unavailable')
+  end
+  SetEntityCoordsNoOffset(ped, coords.x, coords.y, z + 1.0, false, false, false)
+  reply('ok')
+end)
 
 local function stopSpectating(session)
   if observing ~= session then return end
@@ -75,5 +109,7 @@ RegisterNetEvent('staff_suite:spectate', function(target, coords)
 end)
 
 AddEventHandler('onClientResourceStop', function(resource)
-  if resource == GetCurrentResourceName() and observing then stopSpectating(observing) end
+  if resource ~= GetCurrentResourceName() then return end
+  if observing then stopSpectating(observing) end
+  if streamingWaypoint then NewLoadSceneStop() end
 end)

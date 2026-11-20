@@ -1,4 +1,4 @@
-import { Camera, Inbox, Plus, Star } from 'lucide-react';
+import { Camera, Inbox, Plus, Send, Star } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
@@ -6,9 +6,10 @@ import { formatDateTime, formatRelative, shortId } from '../format';
 import { isLite } from '../edition';
 import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone } from '../labels';
 import { useApp } from '../store';
-import type { ModAction, Priority, Ticket, TicketState } from '../types';
+import type { ModAction, Priority, SanctionTemplate, Ticket, TicketCreateResult, TicketState } from '../types';
 import { ReportDialog } from '../components/ReportDialog';
 import { LimitHint, TicketChat, overLimit } from './TicketChat';
+import { PlayerProfileButton } from './PlayerProfileDialog';
 import v from './views.module.css';
 
 type Group = 'all' | 'open' | 'active' | 'done';
@@ -47,15 +48,36 @@ interface DetailProps {
   openDialog: (d: DialogState) => void;
   reason: string;
   setReason: (r: string) => void;
+  template?: SanctionTemplate;
+  templates: SanctionTemplate[];
+  setTemplate: (id: string) => void;
 }
 
-function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
+function TicketExportButton({ id }: { id: number }) {
+  const { dispatch, t, send } = useApp();
+  const [pending, setPending] = useState(false);
+  async function exportTicket() {
+    setPending(true);
+    const result = await send('ticket_export', { id }) as TicketCreateResult | null;
+    setPending(false);
+    dispatch({ type: 'toast', kind: result?.ok ? 'ok' : 'error',
+      text: result?.ok ? t('ticket_export_sent') : result?.error ?? t('ticket_export_unconfirmed') });
+  }
+  return (
+    <Button size="small" disabled={pending} className={v.railWide} onClick={() => void exportTicket()}>
+      <Send size={15} aria-hidden />{t('ui_ticket_export')}
+    </Button>
+  );
+}
+
+function Detail({ tk, openDialog, reason, setReason, template, templates, setTemplate }: DetailProps) {
   const { state, dispatch, t, can, send } = useApp();
   const [viewing, setViewing] = useState<number | null>(null);
   const shot = state.evidence;
   const closeViewer = () => { setViewing(null); dispatch({ type: 'evidenceClose' }); };
   const me = state.player?.identifier || state.player?.name;
   const requireReason = state.config.require_reason !== false;
+  const escalation = can('mod.warn_escalate') && state.config.warn_escalation;
 
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
@@ -65,11 +87,17 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
   const canReopen = DONE.has(st) && can('report.resolve');
   const canMessage = can('report.message');
   const frozen = state.frozenPlayers[tk.reporter] === true;
+  const currentReason = template?.reason ?? reason;
+  const reasonMax = state.config.limits?.reason;
 
   const mod = (action: ModAction) => {
     if (action === 'ban') return openDialog({ kind: 'ban' });
-    void send('mod_action', { action, target: tk.reporter, reason: reason.trim(), ticket: tk.id });
-    if (NEEDS_REASON.has(action) || action === 'kick') setReason('');
+    const preset = template?.action === action ? template.id : undefined;
+    void send('mod_action', { action, target: tk.reporter, reason: template ? '' : reason.trim(), ticket: tk.id, template: preset });
+    if (NEEDS_REASON.has(action) || action === 'kick') {
+      setReason('');
+      setTemplate('');
+    }
   };
 
   return (
@@ -120,6 +148,9 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               <Button disabled={!canResolve} onClick={() => openDialog({ kind: 'resolve' })}>{t('resolve')}</Button>
               <Button disabled={!canClose} onClick={() => void send('ticket_close', { id: tk.id })}>{t('close')}</Button>
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
+              {!isLite && state.config.export?.tickets && state.player?.capabilities?.includes('report.export')
+                && <TicketExportButton key={tk.id} id={tk.id} />}
+              {!isLite && can('player.profile.view') && <PlayerProfileButton key={`profile-${tk.id}`} id={tk.id} />}
             </div>
           </section>
           {!isLite && (state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (
@@ -161,15 +192,29 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
           {!isLite && <section className={cx(ui.card, v.railCard)}>
             <h3>{t('ui_mod_title')}</h3>
             <div className={v.target}>{t('ui_mod_target')}: <strong>{shortId(tk.reporter)}</strong></div>
+            {templates.length > 0 && <label className={ui.field}>
+              <span className={ui.label}>{t('ui_sanction_template')}</span>
+              <select className={ui.input} value={template?.id ?? ''} onChange={(e) => setTemplate(e.target.value)}>
+                <option value="">{t('ui_sanction_custom')}</option>
+                {templates.map((item) => <option key={item.id} value={item.id}>
+                  {t(`mod_${item.action}`)} · {item.reason}
+                </option>)}
+              </select>
+            </label>}
             <label className={ui.field}>
               <span className={ui.label}>{t('ui_mod_reason')}</span>
               <input
                 className={ui.input}
-                value={reason}
+                value={currentReason}
+                readOnly={template != null}
                 placeholder={t('ui_mod_reason_ph')}
                 onChange={(e) => setReason(e.target.value)}
               />
             </label>
+            <LimitHint text={currentReason} max={reasonMax} />
+            {escalation && <p className={v.setHint}>{t('ui_warn_escalation', {
+              count: escalation.threshold, minutes: escalation.windowSeconds / 60,
+            })}</p>}
             <div className={v.railGrid}>
               {MODS.map((m) => (
                 <Button
@@ -177,7 +222,9 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
                   size="small"
                   variant={m === 'ban' ? 'danger' : 'secondary'}
                   className={m === 'ban' ? v.railWide : undefined}
-                  disabled={!can(`mod.${m}`) || ((NEEDS_REASON.has(m) || (m === 'kick' && requireReason)) && !reason.trim())}
+                  disabled={!can(`mod.${m}`) || overLimit(currentReason, reasonMax)
+                    || ((NEEDS_REASON.has(m) || (m === 'kick' && requireReason)) && !currentReason.trim())
+                    || (!!template && (NEEDS_REASON.has(m) || m === 'kick') && m !== template.action)}
                   aria-pressed={m === 'freeze' ? frozen : undefined}
                   onClick={() => mod(m === 'freeze' && frozen ? 'unfreeze' : m)}
                 >
@@ -202,8 +249,11 @@ export function TicketsView() {
   const [text, setText] = useState('');
   const [target, setTarget] = useState('');
   const [reason, setReason] = useState('');
+  const [templateId, setTemplate] = useState('');
   const [banDuration, setBanDuration] = useState('');
-  useEffect(() => setReason(''), [selected]);
+  useEffect(() => { setReason(''); setTemplate(''); }, [selected]);
+  const templates = can('mod.template') && Array.isArray(state.config.sanction_templates) ? state.config.sanction_templates : [];
+  const template = templates.find((item) => item.id === templateId);
 
   const list = useMemo(() => {
     const states = GROUPS[group];
@@ -259,7 +309,8 @@ export function TicketsView() {
             )) : <Empty icon={<Inbox size={18} />}>{t('queue_empty')}</Empty>}
           </div>
         </div>
-        {tk ? <Detail tk={tk} openDialog={setDialog} reason={reason} setReason={setReason} /> : (
+        {tk ? <Detail tk={tk} openDialog={setDialog} reason={reason} setReason={setReason}
+          template={template} templates={templates} setTemplate={setTemplate} /> : (
           <section className={ui.card}><Empty icon={<Inbox size={18} />}>{t('ui_ticket_select')}</Empty></section>
         )}
       </div>
@@ -307,11 +358,17 @@ export function TicketsView() {
             <Button onClick={close}>{t('ui_cancel')}</Button>
             <Button
               variant="danger"
-              disabled={!can('mod.ban') || !reason.trim()}
+              disabled={!can('mod.ban') || !(template?.reason ?? reason).trim()
+                || overLimit(template?.reason ?? reason, state.config.limits?.reason)}
               onClick={() => {
-                const duration = banDuration === '' ? undefined : Number(banDuration);
-                void send('mod_action', { action: 'ban', target: tk.reporter, reason: reason.trim(), ticket: tk.id, duration });
+                const preset = template?.action === 'ban' ? template.id : undefined;
+                const duration = preset || banDuration === '' ? undefined : Number(banDuration);
+                void send('mod_action', {
+                  action: 'ban', target: tk.reporter, reason: preset ? '' : reason.trim(),
+                  ticket: tk.id, duration, template: preset,
+                });
                 setReason('');
+                setTemplate('');
                 close();
               }}
             >
@@ -320,8 +377,10 @@ export function TicketsView() {
           </>}
         >
           <p>{t('ui_confirm_ban_body', { target: shortId(tk.reporter) })}</p>
-          <p className={ui.label}>{t('ui_mod_reason')}: {reason || '—'}</p>
-          <label className={ui.field}>
+          <p className={ui.label}>{t('ui_mod_reason')}: {template?.reason ?? (reason || '—')}</p>
+          {template?.action === 'ban' ? (
+            <p>{template.duration ? t('ui_sanction_duration', { seconds: template.duration }) : t('ui_ban_permanent')}</p>
+          ) : <label className={ui.field}>
             <span className={ui.label}>{t('ui_ban_duration')}</span>
             <select className={ui.input} value={banDuration} onChange={(e) => setBanDuration(e.target.value)}>
               <option value="">{t('ui_ban_default')}</option>
@@ -330,7 +389,7 @@ export function TicketsView() {
               <option value="604800">{t('ui_ban_week')}</option>
               <option value="0">{t('ui_ban_permanent')}</option>
             </select>
-          </label>
+          </label>}
         </Dialog>
       )}
       {dialog?.kind === 'create' && <ReportDialog staff onClose={close} />}

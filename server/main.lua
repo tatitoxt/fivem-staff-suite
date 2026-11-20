@@ -23,10 +23,64 @@ local bans = {}
 local revokedBans = {}
 local pendingBans = {}
 local pendingRevocations = {}
+local pendingExports = {}
 local entry_count = 0
 local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
+local waypointRequests = {}
+local profileHistory = {}
+local profileAuditIntact = true
+local playtime, activePlaytime, playtimeSources = {}, {}, {}
+local profileKinds = { mod_warn = 'warns', mod_ban = 'bans', mod_ban_failed = 'bans',
+  player_profile_note = 'notes' }
+
+local function indexProfileEntry(entry)
+  local kind = profileKinds[entry.action]
+  if not kind then return end
+  local profile = profileHistory[entry.target]
+  if not profile then
+    profile = { warns = {}, bans = {}, notes = {} }
+    profileHistory[entry.target] = profile
+  end
+  local rows = profile[kind]
+  local position = 1
+  while rows[position] and rows[position].seq > entry.seq do position = position + 1 end
+  if position > 20 then return end
+  table.insert(rows, position, { seq = entry.seq, ts = entry.ts, actor = entry.actor, text = entry.reason,
+    failed = entry.action == 'mod_ban_failed' or nil })
+  rows[21] = nil
+end
+local rule = type(Config.WarnEscalation) == 'table' and Config.WarnEscalation or {}
+local escalate = rule.enabled == true and math.type(rule.threshold) == 'integer'
+  and rule.threshold >= 2 and rule.threshold <= 100
+  and math.type(rule.window_seconds) == 'integer' and rule.window_seconds >= 60 and rule.window_seconds <= 2592000
+local warnings, escalations, pendingEscalations = {}, {}, {}
+
+local function indexWarning(target, ts, now)
+  local history = warnings[target] or {}
+  warnings[target] = history
+  history[#history + 1] = ts
+  while history[1] and (#history > rule.threshold or history[1] <= now - rule.window_seconds) do
+    table.remove(history, 1)
+  end
+  return #history
+end
+
+local function restoreEscalation(now)
+  local cutoff, failures = now - rule.window_seconds, {}
+  for _, e in ipairs(chain.entries) do
+    if e.ts > cutoff and (e.action == 'mod_warn_failed' or e.action == 'mod_warn_escalation_failed') then
+      failures[tonumber(e.reason) or 0] = true
+    end
+  end
+  for _, e in ipairs(chain.entries) do
+    if e.ts > cutoff and not failures[e.seq] then
+      if e.action == 'mod_warn' then indexWarning(e.target, e.ts, now) end
+      if e.action == 'mod_warn_escalation' then escalations[e.target] = e.ts end
+    end
+  end
+end
 
 -- ===== Persistencia =====
 local function snapshot()
@@ -36,6 +90,7 @@ local function snapshot()
     perms = pmodel,
     duty = dreg,
     bans = bans,
+    playtime = playtime,
   }
 end
 
@@ -116,7 +171,25 @@ local function restore(data)
     chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
     local verified, ok, at = pcall(audit.verify, chain)
     validChain = verified and ok
-    if not verified or not ok then print(t('console_chain_broken', { at = at or '?' })) end
+    profileAuditIntact = validChain
+    if profileAuditIntact then
+      local failedNotes = {}
+      for _, entry in ipairs(chain.entries) do
+        if entry.action == 'player_profile_note_failed' then
+          local seq = tonumber(entry.reason)
+          if seq then failedNotes[seq] = true end
+        end
+      end
+      for _, entry in ipairs(chain.entries) do
+        if entry.action ~= 'player_profile_note' or not failedNotes[entry.seq] then indexProfileEntry(entry) end
+      end
+    else
+      print(t('console_chain_broken', { at = at or '?' }))
+    end
+    if escalate then
+      escalate = validChain
+      if escalate then restoreEscalation(os.time()) end
+    end
   end
   if data.tickets then
     store.next_id = data.tickets.next_id or 1
@@ -134,6 +207,7 @@ local function restore(data)
       recoverRevokedBans()
     end
   end
+  if data.playtime then playtime = data.playtime end
   entry_count = #chain.entries
 end
 
@@ -145,14 +219,72 @@ local function record(action, actor, target, reason, payload, onSaved)
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
+  local retryCallback
+  if action == 'player_profile_note' then
+    local reply = onSaved
+    retryCallback = reply == nil
+    onSaved = function(saved)
+      if saved and profileAuditIntact then
+        indexProfileEntry(e)
+      elseif not saved and reply then
+        record('player_profile_note_failed', e.actor, e.target, tostring(e.seq))
+      end
+      if reply then reply(saved) end
+    end
+  elseif profileAuditIntact then
+    indexProfileEntry(e)
+  end
   if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
-  storage.save(onSaved)
+  storage.save(onSaved, retryCallback)
   return e
 end
 
 -- ===== Permisos / rangos =====
 local function getPlayer(src)
   return bridges.resolve(src, Config)
+end
+
+local function accountPlaytime(identifier, session, now)
+  if now <= session.since then return false end
+  playtime[identifier] = (playtime[identifier] or 0) + now - session.since
+  session.since = now
+  return true
+end
+
+local function stopPlaytime(src)
+  local identifier = playtimeSources[src]
+  if not identifier then return end
+  playtimeSources[src] = nil
+  local session = activePlaytime[identifier]
+  session.connections = session.connections - 1
+  if session.connections == 0 then
+    activePlaytime[identifier] = nil
+    if accountPlaytime(identifier, session, GetGameTimer()) then storage.save() end
+  end
+end
+
+local function startPlaytime(src)
+  src = tonumber(src)
+  local player = getPlayer(src)
+  local identifier = player.identifier
+  if playtimeSources[src] == identifier then return end
+  stopPlaytime(src)
+  if not identifier then return end
+  playtimeSources[src] = identifier
+  local session = activePlaytime[identifier]
+  if not session then
+    session = { since = GetGameTimer(), connections = 0 }
+    activePlaytime[identifier] = session
+  end
+  session.connections = session.connections + 1
+end
+
+local function checkpointPlaytime()
+  local now, dirty = GetGameTimer(), false
+  for identifier, session in pairs(activePlaytime) do
+    if accountPlaytime(identifier, session, now) then dirty = true end
+  end
+  if dirty then storage.save() end
 end
 
 local function actorId(player, src)
@@ -380,12 +512,80 @@ local modActions = {
   end },
 }
 
-local function doMod(src, action, tgt, reason, duration)
+local function canEscalate(player)
+  return escalate and can(player, 'mod.warn_escalate') and can(player, 'mod.warn') and can(player, 'mod.kick')
+end
+
+local function canKickEscalation(ctx)
+  if ctx.src == ctx.tgt or not GetPlayerName(ctx.src) or not GetPlayerName(ctx.tgt) then return false end
+  local actor, target = getPlayer(ctx.src), getPlayer(ctx.tgt)
+  return actor.identifier == ctx.actor and target.identifier == ctx.target and canEscalate(actor)
+    and not perms.outranks(target.rank, actor.rank)
+end
+
+local function warnSaved(ctx, sequence, saved)
+  if not saved then
+    record('mod_warn_failed', ctx.actor, ctx.target, tostring(sequence))
+    return
+  end
+  if not escalate then return end
+  local now = os.time()
+  local count = indexWarning(ctx.target, chain.entries[sequence].ts, now)
+  if count < rule.threshold or pendingEscalations[ctx.target]
+    or (escalations[ctx.target] or -math.huge) > now - rule.window_seconds then return end
+  if not canKickEscalation(ctx) then return end
+  pendingEscalations[ctx.target] = true
+  local attempt = #chain.entries + 1
+  local reason = t('warn_escalation_reason', { count = count })
+  record('mod_warn_escalation', ctx.actor, ctx.target, reason, { warn_seq = sequence, count = count }, function(ok)
+    pendingEscalations[ctx.target] = nil
+    if not ok or not canKickEscalation(ctx) then
+      record('mod_warn_escalation_failed', ctx.actor, ctx.target, tostring(attempt))
+      return
+    end
+    escalations[ctx.target] = chain.entries[attempt].ts
+    modActions.kick.run({ tgt = ctx.tgt, reason = reason })
+  end)
+end
+
+local function sanctionTemplate(id)
+  if type(id) ~= 'string' or #id > 32 or not id:match('^[%w_%-]+$') then return end
+  local template = (Config.SanctionTemplates or {})[id]
+  if type(template) ~= 'table' or type(template.reason_key) ~= 'string' then return end
+  local action, duration = template.action, template.duration
+  if action ~= 'warn' and action ~= 'kick' and action ~= 'ban' then return end
+  if action == 'ban' and (type(duration) ~= 'number' or duration ~= 0
+    and (not positiveInteger(duration) or duration > 31536000)) then return end
+  local reason = cleanText(t(template.reason_key), limit('reason') or 300)
+  if not reason or reason == '' or reason == template.reason_key then return end
+  return { id = id, action = action, reason = reason, duration = duration }
+end
+
+local function sanctionTemplates(player)
+  local list = {}
+  if can(player, 'mod.template') then
+    for id in pairs(Config.SanctionTemplates or {}) do
+      local item = sanctionTemplate(id)
+      if item and can(player, 'mod.' .. item.action) then list[#list + 1] = item end
+    end
+    table.sort(list, function(a, b) return a.id < b.id end)
+  end
+  return list
+end
+
+local function doMod(src, action, tgt, reason, duration, templateId)
   if type(action) ~= 'string' then return false, t('mod_unavailable') end
   local player = getPlayer(src)
   local spec = modActions[action]
   if not can(player, spec and spec.cap or ('mod.' .. action)) then return false, t('no_permission') end
   if not spec then return false, t('mod_unavailable') end
+  local template
+  if templateId ~= nil then
+    if not can(player, 'mod.template') then return false, t('no_permission') end
+    template = sanctionTemplate(templateId)
+    if not template or template.action ~= action then return false, t('sanction_template_invalid') end
+    reason, duration = template.reason, template.duration
+  end
   tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
   if not tgt or not GetPlayerName(tgt) then
     return false, t('mod_invalid_target')
@@ -401,9 +601,16 @@ local function doMod(src, action, tgt, reason, duration)
     return false, t('reason_required')
   end
   local ctx = { src = tonumber(src), tgt = tgt, actor = actorId(player, src), target = getIdentifier(tgt),
-    reason = reason, duration = duration, payload = { action = action } }
+    reason = reason, duration = duration, payload = { action = action, template = template and template.id } }
   local ok, err = spec.run(ctx)
   if ok == false then return false, err end
+  if action == 'warn' and ctx.target:sub(1, 4) ~= 'src:' then
+    local sequence, notify = #chain.entries + 1, ctx.onSaved
+    ctx.onSaved = function(saved)
+      notify(saved)
+      warnSaved(ctx, sequence, saved)
+    end
+  end
   record('mod_' .. action, ctx.actor, ctx.target, reason, ctx.payload, ctx.onSaved)
   return true
 end
@@ -526,6 +733,96 @@ command(Config.Commands.audit, function(src)
 end)
 
 -- ===== NUI / eventos de panel =====
+RegisterNetEvent('staff_suite:staffChat', function(body, req)
+  local src = source
+  req = positiveInteger(req)
+  if not req then return end
+  local function reply(ok, err)
+    TriggerClientEvent('staff_suite:staffChatResult', src, { req = req, ok = ok, error = err })
+  end
+  if not allowRate(src, 'staff_suite:staffChat') then return reply(false, t('rate_limited')) end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'staff.chat') then return reply(false, t('no_permission')) end
+  local text, err = cleanText(body, limit('message_body') or 1000)
+  if not text or text == '' then return reply(false, err or t('staff_chat_empty')) end
+  -- El registro confirma el envío sin dar acceso al contenido a través de audit.view.
+  local requestSeq = #chain.entries + 1
+  record('staff_chat_request', player.identifier, 'staff', '', { bytes = #text }, function(saved)
+    local recipients = 0
+    if saved then
+      for _, target in ipairs(GetPlayers()) do
+        local recipient = getPlayer(target)
+        if recipient.identifier and can(recipient, 'staff.chat') then
+          TriggerClientEvent('staff_suite:staffChatMessage', tonumber(target), player.name, text)
+          recipients = recipients + 1
+        end
+      end
+    end
+    record('staff_chat_result', player.identifier, 'staff', '',
+      { request_seq = requestSeq, ok = saved == true, recipients = recipients })
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+      reply(saved == true, not saved and t('mod_save_failed') or nil)
+    end
+  end)
+end)
+
+local function recentPlayerProfile(identifier)
+  local profile = profileHistory[identifier] or {}
+  local session = activePlaytime[identifier]
+  local elapsed = session and math.max(GetGameTimer() - session.since, 0) or 0
+  local result = { warns = profile.warns or {}, bans = profile.bans or {}, notes = profile.notes or {}, tickets = {},
+    played_seconds = ((playtime[identifier] or 0) + elapsed) // 1000 }
+  -- Los IDs de ticket son monotónicos y el almacenamiento puede tener huecos.
+  for _, ticket in pairs(store.tickets) do
+    if ticket.reporter == identifier then
+      result.tickets[#result.tickets + 1] = { id = ticket.id, state = ticket.state, ts = ticket.created_ts }
+    end
+  end
+  table.sort(result.tickets, function(a, b) return a.id > b.id end)
+  for i = #result.tickets, 21, -1 do result.tickets[i] = nil end
+  return result
+end
+
+local function profileEvent(name, action, cap, fn)
+  RegisterNetEvent(name, function(id, req, body)
+    local src = source
+    req = positiveInteger(req)
+    if not req then return end
+    local function reply(ok, err, data)
+      TriggerClientEvent(action, src, { req = req, ok = ok, error = err, data = data })
+    end
+    if not allowRate(src, name) then return reply(false, t('rate_limited')) end
+    if not ready then return reply(false, t('persistence_starting')) end
+    local player = getPlayer(src)
+    if not player.identifier or not can(player, 'report.view') or not can(player, 'player.profile.view')
+      or not can(player, cap) then return reply(false, t('no_permission')) end
+    id = positiveInteger(id)
+    local ticket = id and store.tickets[id]
+    if not ticket then return reply(false, t('player_profile_missing')) end
+    if not profileAuditIntact then return reply(false, t('player_profile_audit_broken')) end
+    fn(ticket.reporter, player, body, function(ok, err, data)
+      if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then reply(ok, err, data) end
+    end)
+  end)
+end
+
+profileEvent('staff_suite:playerProfile', 'staff_suite:playerProfileResult', 'player.profile.view',
+  function(identifier, player, _, reply)
+    record('player_profile_view', player.identifier, identifier, '', nil, function(saved)
+      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
+    end)
+  end)
+
+profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResult', 'player.profile.note',
+  function(identifier, player, body, reply)
+    local text, err = cleanText(body, limit('message_body') or 1000)
+    if not text or text == '' then return reply(false, err or t('player_profile_note_empty')) end
+    record('player_profile_note', player.identifier, identifier, text, nil, function(saved)
+      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
+    end)
+  end)
+
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
     if not allowRate(source, name) then return end
@@ -669,12 +966,55 @@ RegisterNetEvent('staff_suite:banRevoke', function(id, reason, req)
   end)
 end)
 
+RegisterNetEvent('staff_suite:ticketExport', function(id, req)
+  local src = source
+  req = positiveInteger(req)
+  if not req then return end
+  local function reply(ok, err)
+    TriggerClientEvent('staff_suite:ticketExportResult', src, { req = req, ok = ok, error = err })
+  end
+  if not allowRate(src, 'staff_suite:ticketExport', { burst = 1, per_second = 1 / 30 }) then
+    return reply(false, t('rate_limited'))
+  end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'report.view') or not can(player, 'report.export') then
+    return reply(false, t('no_permission'))
+  end
+  local cfg = Config.Export
+  if not export.ticketEnabled(cfg) then return reply(false, t('ticket_export_unavailable')) end
+  id = positiveInteger(id)
+  local ticket = id and store.tickets[id]
+  if not ticket then return reply(false, t('ticket_export_missing')) end
+  if pendingExports[id] then return reply(false, t('ticket_export_pending')) end
+  pendingExports[id] = true
+  local target, seq = 'ticket:' .. id, #chain.entries + 1
+  local function finish(ok, status)
+    pendingExports[id] = nil
+    record('ticket_export_result', player.identifier, target, '', { request_seq = seq, ok = ok, status = status })
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+      reply(ok, not ok and t(status == 0 and 'ticket_export_unconfirmed' or 'ticket_export_failed') or nil)
+    end
+  end
+  record('ticket_export_request', player.identifier, target, '', nil, function(saved)
+    if saved then
+      export.ticket(ticket, cfg, finish)
+    else
+      pendingExports[id] = nil
+      if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+        reply(false, t('mod_save_failed'))
+      end
+    end
+  end)
+end)
+
 net('staff_suite:getState', function()
   local src = source
   local player = getPlayer(src)
   local capabilities = {}
   for _, cap in ipairs(perms.CAPS) do
-    local available = cap:sub(1, 4) ~= 'mod.' or modActions[cap:sub(5)]
+    local available = cap:sub(1, 4) ~= 'mod.' or cap == 'mod.template' or modActions[cap:sub(5)]
+      or cap == 'mod.warn_escalate' and canEscalate(player)
     if available and can(player, cap) then capabilities[#capabilities + 1] = cap end
   end
   local rank = player.rank or 'player'
@@ -700,6 +1040,7 @@ net('staff_suite:getState', function()
       webhook = type(exportConfig.webhook) == 'string' and exportConfig.webhook ~= '',
       file = exportConfig.file == true,
       anchor_every = exportConfig.anchor_every,
+      tickets = can(player, 'report.export') and export.ticketEnabled(exportConfig),
     },
     audit = canViewAudit and chain.entries or {},
     duty = canViewAnalytics and duty.snapshot(dreg, now) or {},
@@ -707,6 +1048,8 @@ net('staff_suite:getState', function()
     verify = verify,
     alerts = alerts,
     evidenceEnabled = evidenceAvailable(),
+    sanctionTemplates = sanctionTemplates(player),
+    warnEscalation = canEscalate(player) and { threshold = rule.threshold, windowSeconds = rule.window_seconds } or false,
     player = { name = player.name, rank = rank, identifier = player.identifier or '', capabilities = capabilities },
     rank = rank, locale = Config.Locale,
   })
@@ -896,10 +1239,53 @@ net('staff_suite:evidenceGet', function(id, n)
   TriggerLatentClientEvent('staff_suite:evidence', src, 250000, { id = id, n = n, data = data, ok = ok })
 end)
 
-net('staff_suite:modAction', function(action, tgt, reason, duration)
+net('staff_suite:modAction', function(action, tgt, reason, duration, templateId)
   local src = source
-  local ok, err = doMod(src, action, tgt, reason, duration)
+  if action == 'warn' and not allowRate(src, 'staff_suite:modWarn') then return end
+  if templateId ~= nil and not allowRate(src, 'staff_suite:modTemplate') then return end
+  local ok, err = doMod(src, action, tgt, reason, duration, templateId)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end
+end)
+
+local waypointMessages = { ok = 'waypoint_ok', no_marker = 'waypoint_no_marker',
+  unavailable = 'waypoint_unavailable', save_failed = 'waypoint_save_failed' }
+
+local function finishWaypoint(src, request, outcome)
+  waypointRequests[src] = nil
+  record('staff_waypoint_result', request.actor, request.actor, outcome, { request_seq = request.seq })
+  if GetPlayerName(src) and getPlayer(src).identifier == request.actor then
+    TriggerClientEvent('staff_suite:notify', src, t(waypointMessages[outcome]))
+  end
+end
+
+net('staff_suite:waypoint', function()
+  local src = source
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'staff.waypoint') or waypointRequests[src] then return end
+  local request = { actor = player.identifier, seq = #chain.entries + 1 }
+  waypointRequests[src] = request
+  record('staff_waypoint_request', request.actor, request.actor, '', nil, function(saved)
+    if waypointRequests[src] ~= request then return end
+    if not saved then return finishWaypoint(src, request, 'save_failed') end
+    local current = getPlayer(src)
+    if not GetPlayerName(src) or current.identifier ~= request.actor or not can(current, 'staff.waypoint') then
+      return finishWaypoint(src, request, 'unavailable')
+    end
+    request.dispatched = true
+    TriggerClientEvent('staff_suite:waypoint', src, request.seq)
+    SetTimeout(12000, function()
+      if waypointRequests[src] == request then finishWaypoint(src, request, 'unavailable') end
+    end)
+  end)
+end)
+
+net('staff_suite:waypointResult', function(sequence, outcome)
+  local src = source
+  local request = waypointRequests[src]
+  if outcome ~= 'ok' and outcome ~= 'no_marker' and outcome ~= 'unavailable' then return end
+  if request and request.dispatched and sequence == request.seq and getPlayer(src).identifier == request.actor then
+    finishWaypoint(src, request, outcome)
+  end
 end)
 
 net('staff_suite:verify', function()
@@ -999,16 +1385,37 @@ CreateThread(function()
   storage.load(function(data, backend)
     restore(data)
     ready = true
+    for _, src in ipairs(GetPlayers()) do startPlaytime(src) end
+    CreateThread(function()
+      while true do
+        Wait(60000)
+        checkpointPlaytime()
+      end
+    end)
     capture.install(Config, bridges.select, getIdentifier, record)
     print(t('console_started', { n = #chain.entries, persistence = backend, framework = bridges.select(Config) }))
   end)
 end)
 
+AddEventHandler('playerJoining', function()
+  if ready then startPlaytime(source) end
+end)
+
 AddEventHandler('playerDropped', function()
-  ratelimit.forget(limiter, tonumber(source))
+  local src = tonumber(source)
+  local request = waypointRequests[src]
+  if request then
+    waypointRequests[src] = nil
+    record('staff_waypoint_result', request.actor, request.actor, 'disconnected', { request_seq = request.seq })
+  end
+  stopPlaytime(src)
+  ratelimit.forget(limiter, src)
 end)
 
 -- Los lotes pendientes se respaldan antes de apagar el recurso.
 AddEventHandler('onResourceStop', function(res)
-  if ready and res == GetCurrentResourceName() then storage.stop() end
+  if ready and res == GetCurrentResourceName() then
+    checkpointPlaytime()
+    storage.stop()
+  end
 end)

@@ -76,7 +76,7 @@ end
 local function restore(tables, meta)
   local state = {
     chain = { entries = tables.audit, head = meta.head }, tickets = { next_id = meta.next_id or 1, tickets = {} },
-    perms = meta.perms, duty = { staff = {} }, bans = {},
+    perms = meta.perms, duty = { staff = {} }, bans = {}, playtime = meta.playtime,
   }
   local store = state.tickets
   for _, ticket in ipairs(tables.tickets) do
@@ -330,7 +330,7 @@ function M.save(state, cache, cb)
   queries[#queries + 1] = {
     query = 'INSERT INTO staff_state (k, v, data) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)',
     values = { 'metadata', '1', json.encode({ head = state.chain.head, next_id = state.tickets.next_id,
-      perms = state.perms }) },
+      perms = state.perms, playtime = state.playtime }) },
   }
   call('transaction', queries, {}, function(ok) cb(ok == true, nextCache) end)
 end

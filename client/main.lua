@@ -16,6 +16,8 @@ local transferTargets = nil
 local exportStatus = nil
 local evidenceEnabled = false
 local initSent = false
+local sanctionTemplates = {}
+local warnEscalation
 
 local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
@@ -59,6 +61,7 @@ local function sendInit()
       export = (exportStatus and {
         webhook = exportStatus.webhook == true,
         file = exportStatus.file == true,
+        tickets = exportStatus.tickets == true,
         anchor_every = exportStatus.anchor_every,
       }) or (Config.Export and {
         webhook = (Config.Export.webhook or '') ~= '',
@@ -68,6 +71,8 @@ local function sendInit()
       transfer_targets = transferTargets,
       canned = not lite and cannedList() or nil,
       evidence = not lite and evidenceEnabled,
+      sanction_templates = not lite and sanctionTemplates or nil,
+      warn_escalation = warnEscalation,
     },
   })
 end
@@ -184,14 +189,14 @@ on('ticket_close', ticketAction('close'))
 on('ticket_reopen', ticketAction('reopen'))
 -- Los callbacks esperan al servidor para conservar el borrador si falla el envío.
 local pendingRequests, requestSeq = {}, 0
-local function ticketRequest(action, result, failure, send, afterSuccess)
+local function ticketRequest(action, result, failure, send, afterSuccess, timeout)
   RegisterNUICallback(action, function(d, cb)
     requestSeq = requestSeq % 2147483647 + 1
     local req = requestSeq
     local pending = { result = result, cb = cb, afterSuccess = afterSuccess }
     pendingRequests[req] = pending
     send(d or {}, req)
-    SetTimeout(10000, function()
+    SetTimeout(timeout or 10000, function()
       if pendingRequests[req] == pending then
         pendingRequests[req] = nil
         cb({ ok = false, error = t(failure) })
@@ -233,6 +238,29 @@ if not lite then
   ticketRequest('ban_revoke', 'staff_suite:banRevokeResult', 'ban_review_failed', function(d, req)
     TriggerServerEvent('staff_suite:banRevoke', d.id, d.reason, req)
   end)
+  ticketResult('staff_suite:ticketExportResult')
+  ticketRequest('ticket_export', 'staff_suite:ticketExportResult', 'ticket_export_unconfirmed', function(d, req)
+    TriggerServerEvent('staff_suite:ticketExport', d.id, req)
+  end, nil, 40000)
+  ticketResult('staff_suite:staffChatResult')
+  ticketRequest('staff_chat', 'staff_suite:staffChatResult', 'staff_chat_failed', function(d, req)
+    TriggerServerEvent('staff_suite:staffChat', d.body, req)
+  end)
+  RegisterNetEvent('staff_suite:staffChatMessage', function(name, body)
+    if source ~= 65535 or type(name) ~= 'string' or type(body) ~= 'string' then return end
+    local label = ('%s · %s'):format(t('ui_staff_chat'), name)
+    local chat = GetResourceState('chat') == 'started'
+    if chat then TriggerEvent('chat:addMessage', { args = { label, body } }) end
+    if panelOpen or not chat then nui('toast', { kind = 'info', text = label .. ': ' .. body, outside = not chat }) end
+  end)
+  ticketResult('staff_suite:playerProfileResult')
+  ticketResult('staff_suite:playerProfileNoteResult')
+  ticketRequest('player_profile', 'staff_suite:playerProfileResult', 'player_profile_failed', function(d, req)
+    TriggerServerEvent('staff_suite:playerProfile', d.id, req)
+  end)
+  ticketRequest('player_profile_note', 'staff_suite:playerProfileNoteResult', 'player_profile_note_failed', function(d, req)
+    TriggerServerEvent('staff_suite:playerProfileNote', d.id, req, d.body)
+  end)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
     if not panelOpen then SetNuiFocus(false, false) end
@@ -244,8 +272,9 @@ if not lite then
   on('evidence_get', function(d) TriggerServerEvent('staff_suite:evidenceGet', d.id, d.n) end)
   on('ticket_transfer', ticketAction('transfer'))
   on('mod_action', function(d)
-    TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason, d.duration)
+    TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason, d.duration, d.template)
   end)
+  on('goto_waypoint', function() TriggerServerEvent('staff_suite:waypoint') end)
   on('duty_toggle', function()
     ExecuteCommand(Config.Commands.duty)
     refreshSoon()
@@ -259,6 +288,8 @@ RegisterNetEvent('staff_suite:state', function(state)
   if state.transferTargets then transferTargets = state.transferTargets; initDirty = true end
   if state.exportStatus then exportStatus = state.exportStatus; initDirty = true end
   if state.evidenceEnabled ~= nil then evidenceEnabled = state.evidenceEnabled == true; initDirty = true end
+  if state.sanctionTemplates then sanctionTemplates = state.sanctionTemplates; initDirty = true end
+  if state.warnEscalation ~= nil then warnEscalation = state.warnEscalation or nil; initDirty = true end
   if state.player then
     playerInfo = state.player
     rank = state.player.rank or rank

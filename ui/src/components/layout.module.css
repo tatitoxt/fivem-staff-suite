@@ -201,6 +201,7 @@
   animation: toastIn var(--dur-in) var(--ease);
   pointer-events: auto;
   max-width: 560px;
+  overflow-wrap: anywhere;
 }
 .toastDot {
   width: 9px;
@@ -261,33 +262,25 @@
   color: var(--muted);
 }
 
-/* Dev harness (solo npm run dev) */
+/* Controles del simulador y la demo */
 .harness {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  left: var(--s4);
+  bottom: var(--s4);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 8px 8px 8px 14px;
-  border-radius: var(--pill);
-  background: rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
+  gap: var(--s2);
+  max-width: calc(100% - var(--s6));
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--muted);
   font-size: 13px;
   z-index: 50;
 }
-.harness button {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--pill);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: transparent;
-  color: #f8fafc;
-  font-size: 13px;
-}
-.harness button:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
+.harness > span { padding-inline: var(--s1); }
 /* En el harness el panel deja lugar abajo para la barra de controles. */
 :global(html.dev-harness) .panel {
   height: min(780px, calc(100vh - 128px));

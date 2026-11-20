@@ -6,7 +6,9 @@ import type {
   EvidencePayload, NoticePayload, PlayerInfo, ReporterTicket, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
 } from './types';
 
-export interface Toast { id: number; kind: ToastKind; text: string }
+export interface Toast { id: number; kind: ToastKind; text: string; outside?: boolean }
+
+type StaffDialog = 'ban.view' | 'staff.chat';
 export interface Notice extends NoticePayload { id: number }
 
 export interface AppState {
@@ -38,7 +40,7 @@ export interface AppState {
   palette: boolean;
   reportOpen: boolean;
   notices: Notice[];
-  banReviewOpen: boolean;
+  staffDialog: StaffDialog | null;
 }
 
 type Action =
@@ -55,7 +57,7 @@ type Action =
   | { type: 'palette'; open: boolean }
   | { type: 'report'; open: boolean }
   | { type: 'dismissNotice'; id: number }
-  | { type: 'banReview'; open: boolean };
+  | { type: 'staffDialog'; dialog: StaffDialog | null };
 
 let toastSeq = 0;
 
@@ -77,7 +79,7 @@ export function initialState(visible: boolean): AppState {
     duty: null,
     toasts: [],
     auditActor: '', ratePrompt: null, evidence: null, dataState: 'idle', palette: false, reportOpen: false, notices: [],
-    banReviewOpen: false,
+    staffDialog: null,
   };
 }
 
@@ -90,8 +92,8 @@ function normalizeTickets<T extends Ticket | ReporterTicket>(t: T[] | Record<str
     .map((x) => ({ ...x, messages: Array.isArray(x.messages) ? x.messages : [] }));
 }
 
-function pushToast(state: AppState, kind: ToastKind, text: string): AppState {
-  const toasts = [...state.toasts, { id: ++toastSeq, kind, text }].slice(-3);
+function pushToast(state: AppState, kind: ToastKind, text: string, outside?: boolean): AppState {
+  const toasts = [...state.toasts, { id: ++toastSeq, kind, text, outside }].slice(-3);
   return { ...state, toasts };
 }
 
@@ -109,8 +111,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, palette: action.open };
     case 'report':
       return { ...state, reportOpen: action.open, view: action.open ? 'myReports' : state.view };
-    case 'banReview':
-      return { ...state, banReviewOpen: action.open };
+    case 'staffDialog':
+      return { ...state, staffDialog: action.dialog };
     case 'checking':
       return { ...state, audit: { ...state.audit, checking: true } };
     case 'dismissToast':
@@ -139,7 +141,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
       return {
         ...state, ready: true, locale: p.locale, strings: p.strings ?? {}, version: p.version ?? '',
         player: p.player ?? null, config: p.config ?? {},
-        banReviewOpen: state.banReviewOpen && !!p.player?.capabilities?.includes('ban.view'),
+        staffDialog: state.staffDialog && p.player?.capabilities?.includes(state.staffDialog) ? state.staffDialog : null,
       };
     }
     case 'audit': {
@@ -174,7 +176,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'duty':
       return { ...state, duty: { ...msg.payload, staff: arr(msg.payload.staff) } };
     case 'toast':
-      return pushToast(state, msg.payload.kind, msg.payload.text);
+      return pushToast(state, msg.payload.kind, msg.payload.text, msg.payload.outside);
     case 'notice': {
       const max = Math.max(1, Math.min(5, msg.payload.max ?? 3));
       return { ...state, notices: [...state.notices, { ...msg.payload, id: ++toastSeq }].slice(-max) };
@@ -186,7 +188,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'open':
       return { ...state, visible: true, notices: [], view: msg.payload?.view ?? state.view, dataState: state.dataState === 'ready' ? 'ready' : 'loading' };
     case 'close':
-      return { ...state, visible: false, palette: false, banReviewOpen: false };
+      return { ...state, visible: false, palette: false, staffDialog: null };
   }
 }
 

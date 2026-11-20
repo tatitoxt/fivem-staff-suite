@@ -15,6 +15,7 @@ import { BanReview } from './views/BanReview';
 import { DashboardView } from './views/DashboardView';
 import { DutyView } from './views/DutyView';
 import { SettingsView } from './views/SettingsView';
+import { StaffChatComposer } from './views/StaffChatComposer';
 import { TicketsView } from './views/TicketsView';
 import { MyReportsView } from './views/MyReportsView';
 
@@ -59,6 +60,7 @@ export const LOAD_TIMEOUT_MS = 8000;
 
 function Shell() {
   const { state, dispatch, send } = useApp();
+  const closeStaffDialog = () => dispatch({ type: 'staffDialog', dialog: null });
 
   useEffect(() => {
     if (!state.visible || state.dataState !== 'loading') return;
@@ -111,14 +113,14 @@ function Shell() {
               <div className={s.loading} aria-busy="true"><span className={s.spinner} aria-hidden /></div>
             )}
             {state.ready && state.palette && <CommandPalette />}
-            {!isLite && state.banReviewOpen && state.player?.capabilities?.includes('ban.view') && (
-              <BanReview onClose={() => dispatch({ type: 'banReview', open: false })} />
-            )}
+            {!isLite && state.staffDialog === 'ban.view' && <BanReview onClose={closeStaffDialog} />}
+            {!isLite && state.staffDialog === 'staff.chat' && <StaffChatComposer onClose={closeStaffDialog} />}
             <Toasts />
           </div>
         </div>
       )}
       {!state.visible && <Notices />}
+      {!state.visible && state.toasts.some((toast) => toast.outside) && <Toasts outside />}
       {!isLite && state.ratePrompt != null && <RatePrompt />}
       {useMock() && <DevHarness />}
     </>

@@ -3,6 +3,7 @@ import { version } from '../../package.json';
 import { sha256Hex } from './sha256';
 import type {
   AuditEntry, BanRow, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
+  SanctionTemplate,
 } from '../types';
 import { append, verify } from './chain';
 import { ALL_CAPS, ME, STAFF, TAMPER_SEQ, buildAlerts, buildAudit, buildStaff, buildTickets } from './demo';
@@ -90,7 +91,8 @@ export class MockBackend {
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
-          export: { webhook: true, file: true, anchor_every: 20 },
+          export: { webhook: true, file: true, anchor_every: 20, tickets: true },
+          sanction_templates: this.sanctionTemplates(),
           canned: ['greeting', 'investigating', 'need_info', 'resolved']
             .map((id) => ({ id, title: this.s(`canned_${id}_title`), text: this.s(`canned_${id}`) })),
           evidence: true,
@@ -99,6 +101,13 @@ export class MockBackend {
         },
       },
     });
+  }
+
+  private sanctionTemplates(): SanctionTemplate[] {
+    return [
+      { id: 'rp_warning', action: 'warn', reason: this.s('sanction_reason_rp') },
+      { id: 'evasion_day', action: 'ban', reason: this.s('sanction_reason_evasion'), duration: 86400 },
+    ];
   }
 
   emitAudit(withVerify: boolean) {
@@ -234,6 +243,37 @@ export class MockBackend {
         this.emitAudit(false);
         return { ok: true };
       }
+      case 'ticket_export': {
+        const { id } = p as OutgoingPayloads['ticket_export'];
+        this.record(ME, 'ticket_export_request', `ticket:${id}`);
+        this.record(ME, 'ticket_export_result', `ticket:${id}`, '', { ok: true, status: 200 });
+        this.emitAudit(false);
+        return { ok: true };
+      }
+      case 'staff_chat': {
+        const { body } = p as OutgoingPayloads['staff_chat'];
+        this.record(ME, 'staff_chat_request', 'staff', '', { bytes: new TextEncoder().encode(body).length });
+        this.record(ME, 'staff_chat_result', 'staff', '', { request_seq: this.entries.length, ok: true, recipients: 1 });
+        this.emitAudit(false);
+        return;
+      }
+      case 'player_profile':
+      case 'player_profile_note': {
+        const { id, body } = p as { id: number; body?: string };
+        const ticket = this.tickets.find((item) => item.id === id);
+        if (!ticket) return { ok: false, error: this.s('player_profile_missing') };
+        const player = ticket.reporter;
+        this.record(ME, action === 'player_profile' ? 'player_profile_view' : 'player_profile_note', player, body);
+        this.emitAudit(false);
+        const recent = (event: string) => this.entries.filter((entry) => entry.action === event && entry.target === player)
+          .slice(-20).reverse().map(({ seq, ts, actor, reason }) => ({ seq, ts, actor, text: reason }));
+        return { ok: true, data: {
+          played_seconds: 7230,
+          warns: recent('mod_warn'), bans: recent('mod_ban'), notes: recent('player_profile_note'),
+          tickets: this.tickets.filter((item) => item.reporter === player).slice(0, 20)
+            .map(({ id, state, created_ts: ts }) => ({ id, state, ts })),
+        } };
+      }
       case 'audit_verify': {
         const res = verify(this.entries);
         this.record(ME, 'audit_verify', '', res.ok ? 'ok' : `broken:${res.broken_at}`);
@@ -329,14 +369,22 @@ export class MockBackend {
         this.emit({ type: 'evidence', payload: { id, n, data, ok: sha256Hex(data) === item.sha256 } });
         return;
       }
+      case 'goto_waypoint':
+        this.toast('info', this.s('waypoint_no_marker'));
+        return;
       case 'mod_action': {
-        const { action: mod, target, reason, duration } = p as OutgoingPayloads['mod_action'];
+        const { action: mod, target, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
+        const preset = template ? this.sanctionTemplates().find((item) => item.id === template && item.action === mod) : undefined;
+        if (template && !preset) return this.toast('error', this.s('sanction_template_invalid'));
+        const reason = preset?.reason ?? customReason;
+        const duration = preset?.duration ?? customDuration;
         if (REASON_REQUIRED.has(mod) && !reason.trim()) return this.toast('error', this.s('reason_required'));
         if (mod === 'freeze' || mod === 'unfreeze') {
           this.emit({ type: 'freezeState', payload: { target, frozen: mod === 'freeze' } });
         }
         this.record(ME, `mod_${mod}`, target, reason.trim(), {
           action: mod,
+          template,
           ...(mod === 'ban' && { expires_at: duration === 0 ? 0 : Math.round(Date.now() / 1000) + (duration ?? 86400) }),
         });
         if (mod === 'ban') {
