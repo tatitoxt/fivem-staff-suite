@@ -16,6 +16,7 @@
 3. **Dashboard** (dueño): KPIs (tickets abiertos/resueltos, tiempo respuesta promedio, rating promedio, staff on-duty), leaderboard de staff, alertas de anomalías.
 4. **Duty**: toggle on/off duty propio, tabla de staff con horas/sesiones/resueltos/rating.
 5. **Ajustes**: idioma, keybind, info de versión, estado de export Discord.
+6. **Mis reportes**: reportes abiertos del jugador y conversación pública con el staff. Disponible en Core y Lite.
 
 ## Contrato NUI ↔ Lua (mensajes)
 **Entrantes (SendNUIMessage → window event `message`):**
@@ -23,6 +24,9 @@
 {type:"init", payload:{locale:"es", strings:{...}, version:"0.1.0", player:{name,rank,capabilities:string[]}, config:{...}}}
 {type:"audit", payload:{entries:AuditEntry[], head:string, verify:{ok:boolean,broken_at:number|null}}}
 {type:"tickets", payload:{tickets:Ticket[]}}
+{type:"myTickets", payload:{tickets:ReporterTicket[]}}
+{type:"frozenPlayers", payload:Record<string,boolean>}
+{type:"freezeState", payload:{target:string,frozen:boolean}}
 {type:"dashboard", payload:{kpis:{...}, leaderboard:StaffStat[], alerts:Alert[]}}
 {type:"duty", payload:{self:{on_duty:boolean}, staff:StaffStat[]}}
 {type:"toast", payload:{kind:"ok"|"error"|"info", text:string}}
@@ -31,7 +35,7 @@
 ```
 close_ui, set_locale{locale}, audit_verify, audit_filter{actor,action,from,to},
 ticket_claim{id}, ticket_transfer{id,to}, ticket_resolve{id,resolution}, ticket_close{id},
-ticket_reopen{id}, ticket_message{id,body,internal}, ticket_create{category,priority,body},
+ticket_reopen{id}, ticket_message{id,body,internal}, ticket_reply{id,body}, ticket_create{category,priority,body},
 mod_action{action,target,reason,duration?}, duty_toggle, refresh
 ```
 **Tipos:**
@@ -39,8 +43,11 @@ mod_action{action,target,reason,duration?}, duty_toggle, refresh
 AuditEntry={seq,ts,actor,action,target,reason,payload,prev_hash,hash}
 Ticket={id,reporter,category,priority,state,claimer,created_ts,updated_ts,messages:Msg[],resolution,rating}
 Msg={author,body,ts,internal}
+ReporterTicket={id,category,state,description,messages:{mine,body,ts}[]}
 StaffStat={actor,on_duty,duty_hours,sessions,resolved,avg_response,avg_rating}
 ```
+
+`ticket_message` y `ticket_reply` devuelven `{ok,error?}` tras la validación en el servidor. El jugador solo recibe el hilo público de sus propios tickets activos. `freeze` y `unfreeze` usan `mod.freeze`.
 
 ## Capa de abstracción (clave para testear sin juego)
 `ui/src/nui.ts`:

@@ -30,6 +30,20 @@ export interface Msg {
   internal: boolean;
 }
 
+export interface PublicMsg {
+  mine: boolean;
+  body: string;
+  ts: number;
+}
+
+export interface ReporterTicket {
+  id: number;
+  category: string;
+  state: TicketState;
+  description?: string;
+  messages: PublicMsg[];
+}
+
 export interface Ticket {
   id: number;
   reporter: string;
@@ -161,6 +175,9 @@ export type IncomingMessage =
   | { type: 'init'; payload: InitPayload }
   | { type: 'audit'; payload: AuditPayload }
   | { type: 'tickets'; payload: { tickets: Ticket[] | Record<string, Ticket> } }
+  | { type: 'myTickets'; payload: { tickets: ReporterTicket[] | Record<string, ReporterTicket> } }
+  | { type: 'frozenPlayers'; payload: Record<string, boolean> }
+  | { type: 'freezeState'; payload: { target: string; frozen: boolean } }
   | { type: 'dashboard'; payload: DashboardPayload }
   | { type: 'duty'; payload: DutyPayload }
   | { type: 'toast'; payload: { kind: ToastKind; text: string } }
@@ -180,6 +197,7 @@ export interface OutgoingPayloads {
   ticket_close: { id: number };
   ticket_reopen: { id: number };
   ticket_message: { id: number; body: string; internal: boolean };
+  ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
   duty_toggle: Record<string, never>;
@@ -192,6 +210,6 @@ export interface OutgoingPayloads {
 
 export type OutgoingAction = keyof OutgoingPayloads;
 
-export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
+export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
 
-export type ViewId = 'audit' | 'tickets' | 'dashboard' | 'duty' | 'settings';
+export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'settings';

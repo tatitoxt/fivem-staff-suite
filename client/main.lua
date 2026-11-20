@@ -8,7 +8,7 @@ local panelOpen = false
 local pendingLiteOpen
 local uiLocale = Config.Locale or 'es'
 local rank = lite and 'player' or 'helper'
-local ticketsCache = {}
+local ticketsCache, ticketsById = {}, {}
 local dutyCache = {}
 local alertsCache = {}
 local playerInfo = nil
@@ -180,29 +180,43 @@ on('ticket_claim', ticketAction('claim'))
 on('ticket_resolve', ticketAction('resolve'))
 on('ticket_close', ticketAction('close'))
 on('ticket_reopen', ticketAction('reopen'))
--- El panel espera la respuesta del server para cerrar el diálogo o conservar el borrador.
-local pendingCreates, createSeq = {}, 0
-RegisterNUICallback('ticket_create', function(d, cb)
-  d = d or {}
-  createSeq = createSeq + 1
-  local req = createSeq
-  pendingCreates[req] = cb
-  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''), req)
-  SetTimeout(10000, function()
-    local pending = pendingCreates[req]
-    if pending then
-      pendingCreates[req] = nil
-      pending({ ok = false, error = t('report_failed') })
-    end
+-- Los callbacks esperan al servidor para conservar el borrador si falla el envío.
+local pendingRequests, requestSeq = {}, 0
+local function ticketRequest(action, result, failure, send, afterSuccess)
+  RegisterNUICallback(action, function(d, cb)
+    requestSeq = requestSeq % 2147483647 + 1
+    local req = requestSeq
+    local pending = { result = result, cb = cb, afterSuccess = afterSuccess }
+    pendingRequests[req] = pending
+    send(d or {}, req)
+    SetTimeout(10000, function()
+      if pendingRequests[req] == pending then
+        pendingRequests[req] = nil
+        cb({ ok = false, error = t(failure) })
+      end
+    end)
   end)
+end
+local function ticketResult(result)
+  RegisterNetEvent(result, function(res)
+    if source ~= 65535 or type(res) ~= 'table' then return end
+    local pending = pendingRequests[res.req]
+    if not pending or pending.result ~= result then return end
+    pendingRequests[res.req] = nil
+    pending.cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil })
+    if res.ok == true and pending.afterSuccess then pending.afterSuccess() end
+  end)
+end
+ticketResult('staff_suite:ticketCreateResult')
+ticketResult('staff_suite:ticketMessageResult')
+ticketRequest('ticket_create', 'staff_suite:ticketCreateResult', 'report_failed', function(d, req)
+  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''), req)
+end, refreshSoon)
+ticketRequest('ticket_message', 'staff_suite:ticketMessageResult', 'ticket_message_failed', function(d, req)
+  TriggerServerEvent('staff_suite:ticketMessage', d.id, d.body, d.internal == true, req)
 end)
-RegisterNetEvent('staff_suite:ticketCreateResult', function(res)
-  if source ~= 65535 or type(res) ~= 'table' then return end
-  local cb = pendingCreates[res.req]
-  if not cb then return end
-  pendingCreates[res.req] = nil
-  cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil })
-  if res.ok == true then refreshSoon() end
+ticketRequest('ticket_reply', 'staff_suite:ticketMessageResult', 'ticket_message_failed', function(d, req)
+  TriggerServerEvent('staff_suite:ticketReply', d.id, d.body, req)
 end)
 if not lite then
   on('ticket_rate', function(d)
@@ -215,9 +229,6 @@ if not lite then
   on('ticket_evidence', function(d) TriggerServerEvent('staff_suite:ticketEvidence', d.id) end)
   on('evidence_get', function(d) TriggerServerEvent('staff_suite:evidenceGet', d.id, d.n) end)
   on('ticket_transfer', ticketAction('transfer'))
-  on('ticket_message', function(d)
-    TriggerServerEvent('staff_suite:ticketMessage', d.id, d.body, d.internal == true)
-  end)
   on('mod_action', function(d)
     TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason, d.duration)
   end)
@@ -244,10 +255,17 @@ RegisterNetEvent('staff_suite:state', function(state)
   end
   if initDirty then sendInit() end
   if state.alerts then alertsCache = state.alerts end
-  if state.tickets then
-    ticketsCache = ticketList(state.tickets)
+  if state.tickets or state.ticket then
+    if state.tickets then
+      ticketsById = {}
+      for _, ticket in ipairs(ticketList(state.tickets)) do ticketsById[ticket.id] = ticket end
+    end
+    if state.ticket then ticketsById[state.ticket.id] = state.ticket end
+    ticketsCache = ticketList(ticketsById)
     nui('tickets', { tickets = ticketsCache })
   end
+  if state.myTickets then nui('myTickets', { tickets = ticketList(state.myTickets) }) end
+  if not lite and state.frozenPlayers then nui('frozenPlayers', state.frozenPlayers) end
   if state.audit then
     local v = state.verify
     nui('audit', {
@@ -277,6 +295,10 @@ end)
 if lite then
   RegisterNetEvent('staff_suite:openPanel', function(view)
     if source == 65535 then openPanel(view) end
+  end)
+else
+  RegisterNetEvent('staff_suite:freezeState', function(state)
+    if source == 65535 and type(state) == 'table' then nui('freezeState', state) end
   end)
 end
 

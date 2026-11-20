@@ -36,6 +36,7 @@ local function server(disk)
     GetPlayerName = function(src) return 'Player ' .. src end,
     GetPlayerIdentifiers = function(src) return { 'license2:alternate', 'license:' .. src } end,
     GetPlayers = function() return { '1', '2' } end,
+    os = setmetatable({ time = function() return 10000 end }, { __index = os }),
     IsPlayerAceAllowed = function(src, ace) return src == 2 and ace == 'staff_suite.lite' end,
     RegisterNetEvent = function(name, handler) events[name] = handler end,
     RegisterCommand = function(name, handler) commands[name] = handler end,
@@ -71,13 +72,14 @@ end
 function T.test_basic_tickets_are_authorized_audited_and_restored()
   local call, commands, sent, disk, audit, events = server()
   commands.report(1, { 'player', 'sample', 'report' })
-  assert(#sent == 1 and sent[1].src == 2)
+  assert(#sent == 2 and sent[1].src == 1 and sent[2].src == 2)
   call(1, 'getState')
   local public = sent[#sent].value
   assert(not next(public.tickets) and not next(public.audit) and not next(public.player.capabilities))
+  assert(public.myTickets[1].id == 1)
   assert(public.player.identifier == 'license:1')
   commands.reports(1)
-  assert(#sent == 2)
+  assert(#sent == 3)
   commands.reports(2)
   assert(sent[#sent].name == 'staff_suite:openPanel' and sent[#sent].value == 'tickets')
   commands.audit(2)
@@ -87,7 +89,7 @@ function T.test_basic_tickets_are_authorized_audited_and_restored()
   call(1, 'verify')
   call(2, 'ticketAction', 1, 'transfer', { to = 'license:1' })
   assert(#disk.snapshot.chain.entries == 1 and disk.snapshot.tickets.tickets[1].state == 'open')
-  assert(not events['staff_suite:modAction'] and not events['staff_suite:ticketMessage'])
+  assert(not events['staff_suite:modAction'] and events['staff_suite:ticketMessage'] and events['staff_suite:ticketReply'])
   call(2, 'ticketAction', 1, 'claim')
   call(2, 'ticketAction', 1, 'resolve', { resolution = 'Revisado' })
   call(2, 'ticketAction', 1, 'close')
@@ -113,6 +115,7 @@ end
 
 function T.test_client_opens_basic_panel_and_registers_basic_actions()
   local events, callbacks, nui, sent = {}, {}, {}, {}
+  local request
   local env = setmetatable({
     RegisterCommand = function() end,
     RegisterKeyMapping = function() end,
@@ -125,7 +128,8 @@ function T.test_client_opens_basic_panel_and_registers_basic_actions()
     PlayerId = function() return 1 end,
     SetNuiFocus = function() end,
     SendNUIMessage = function(message) nui[#nui + 1] = message end,
-    TriggerServerEvent = function(name) sent[#sent + 1] = name end,
+    TriggerServerEvent = function(name, ...) sent[#sent + 1] = name; request = { ... } end,
+    SetTimeout = function() end,
   }, { __index = _G })
   local manifest = scripts()
   for _, file in ipairs(manifest.shared_scripts) do loadLua(file, env) end
@@ -143,10 +147,59 @@ function T.test_client_opens_basic_panel_and_registers_basic_actions()
   events['staff_suite:state']({ player = { name = 'Lite staff', rank = 'lite_staff', capabilities = { 'audit.view' } } })
   assert(nui[#nui].type == 'open' and nui[#nui].payload.view == 'audit')
   assert(callbacks.ticket_create and callbacks.ticket_claim and callbacks.audit_verify)
-  assert(not callbacks.ticket_message and not callbacks.ticket_transfer and not callbacks.duty_toggle)
+  assert(callbacks.ticket_message and callbacks.ticket_reply)
+  assert(not callbacks.ticket_transfer and not callbacks.duty_toggle)
   assert(not callbacks.mod_action and not events['staff_suite:spectate'] and not events['staff_suite:tp'])
   assert(not callbacks.ticket_rate and not callbacks.ticket_evidence and not callbacks.evidence_get)
   assert(not events['staff_suite:ratePrompt'] and not events['staff_suite:evidence'])
+  events['staff_suite:state']({ myTickets = { { id = 1, messages = {} } } })
+  assert(nui[#nui].type == 'myTickets' and nui[#nui].payload.tickets[1].id == 1)
+  local response
+  callbacks.ticket_reply({ id = 1, body = 'Gracias' }, function(result) response = result end)
+  assert(sent[#sent] == 'staff_suite:ticketReply' and request[1] == 1 and request[2] == 'Gracias')
+  env.source = 1
+  events['staff_suite:ticketMessageResult']({ req = request[3], ok = true })
+  assert(response == nil)
+  env.source = 65535
+  events['staff_suite:ticketMessageResult']({ req = request[3], ok = false, error = 'Límite' })
+  assert(not response.ok and response.error == 'Límite')
+end
+
+function T.test_lite_public_chat_ownership_limits_and_persistence()
+  local call, _, sent, disk, audit = server()
+  local function last()
+    local event = sent[#sent]
+    assert(event.name == 'staff_suite:ticketMessageResult')
+    return event.value
+  end
+  call(1, 'ticketCreate', 'bug', nil, 'Mi reporte')
+  call(2, 'ticketReply', 1, 'No es mío', 1)
+  assert(not last().ok)
+  call(1, 'ticketMessage', 1, 'No soy staff', false, 2)
+  assert(not last().ok)
+  call(2, 'ticketMessage', 1, 'Nota interna no disponible', true, 3)
+  assert(not last().ok)
+  call(2, 'ticketMessage', 1, 'Respuesta pública', false, 4)
+  assert(last().ok)
+  call(1, 'ticketReply', 1, string.rep('é', 501), 5)
+  assert(not last().ok)
+  call(1, 'ticketReply', 1, ' Gracias\0 ', 6)
+  assert(last().ok)
+  for _ = 1, 7 do call(1, 'ticketReply', 999, 'No existe', 7) end
+  call(1, 'ticketReply', 1, 'Rate', 8)
+  assert(not last().ok and last().error == 'Estás enviando acciones demasiado rápido. Esperá unos segundos.')
+  assert(#disk.snapshot.chain.entries == 3 and audit.verify(disk.snapshot.chain))
+  local restored, _, afterRestart = server(disk)
+  restored(1, 'getState')
+  local thread = afterRestart[1].value.myTickets[1].messages
+  assert(#thread == 2 and thread[1].body == 'Respuesta pública' and not thread[1].mine)
+  assert(thread[2].body == 'Gracias' and thread[2].mine)
+  assert(not thread[1].author and not thread[1].internal)
+  restored(2, 'ticketAction', 1, 'close')
+  restored(1, 'getState')
+  assert(not next(afterRestart[#afterRestart].value.myTickets))
+  restored(1, 'ticketReply', 1, 'Cerrado', 9)
+  assert(not afterRestart[#afterRestart].value.ok)
 end
 
 function T.test_lite_limits_text_open_tickets_and_rate()

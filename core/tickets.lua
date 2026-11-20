@@ -18,6 +18,31 @@ function M.new_store()
   return { tickets = {}, next_id = 1 }
 end
 
+function M.is_open(ticket)
+  return ticket.state ~= 'resolved' and ticket.state ~= 'closed'
+end
+
+-- La vista del reportante lleva solo los campos públicos y roles, sin IDs del staff.
+function M.reporter_view(store, reporter)
+  local result = {}
+  if not reporter then return result end
+  for _, ticket in pairs(store.tickets) do
+    if ticket.reporter == reporter and M.is_open(ticket) then
+      local messages = {}
+      for _, msg in ipairs(ticket.messages or {}) do
+        if not msg.internal then
+          messages[#messages + 1] = { mine = msg.author == reporter, body = msg.body, ts = msg.ts }
+        end
+      end
+      result[#result + 1] = {
+        id = ticket.id, category = ticket.category, state = ticket.state,
+        description = ticket.description, messages = messages,
+      }
+    end
+  end
+  return result
+end
+
 -- data: {reporter, category, priority, description, ts}
 function M.create(store, data)
   local id = store.next_id
@@ -76,6 +101,7 @@ function M.add_message(store, id, author, body, internal, ts)
   local t = store.tickets[id]
   if not t then return nil, "ticket_not_found" end
   local msg = { author = author, body = body, internal = internal or false, ts = ts }
+  t.messages = t.messages or {}
   t.messages[#t.messages + 1] = msg
   if not msg.internal and author ~= t.reporter and not t.first_response_ts then t.first_response_ts = ts end
   t.updated_ts = ts or t.updated_ts

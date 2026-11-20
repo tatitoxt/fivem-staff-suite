@@ -22,11 +22,12 @@ The server only sends the data the player's capabilities allow (see [Ranks and p
 |---|---|---|
 | Audit | `audit.view` | Entry timeline with filters and details (actor, action, target, reason, hash). "Verify chain" button with `audit.verify`. If the chain is broken, it marks the first mismatching entry and the following ones as unverified. |
 | Reports | `report.view` | Ticket queue, ticket chat, internal notes and the moderation rail. |
+| My reports | none | Your open reports and their public conversations with staff. |
 | Dashboard | `staff.analytics` | KPIs (open, resolved, response time, staff on duty), leaderboard and alerts, such as a broken audit chain. |
 | Duty | `staff.duty` | Button to go on or off duty (same as `/duty`), your hours and sessions, and the team's status. |
 | Settings | none | Panel language (ES/EN), open key, export status (webhook, file, anchor every N entries), version, your rank and persistence. |
 
-A player without a staff rank only sees Settings; they create reports with `/report`.
+Create reports with `/report`. In My reports, you can read and reply to the public thread of each open report. You get a notification when staff replies. Public chat is available in Core and Lite.
 
 ## Reports
 
@@ -37,13 +38,14 @@ A player without a staff rank only sees Settings; they create reports with `/rep
 | Resolve (with resolution text) | `report.resolve` | claimed, in progress |
 | Close | `report.resolve` | any except closed |
 | Reopen | `report.resolve` | resolved, closed |
-| Message / internal note | `report.message` | any except closed |
+| Public message | `report.message` | open, claimed, in progress, reopened |
+| Internal note (Core) | `report.message` | any except closed |
 
 The server sends the list of transfer recipients: online staff who can claim reports. Unclaiming a ticket and moving it to "in progress" have no button yet **(coming soon)**; use the `TicketAction` export.
 
 ## Moderation
 
-The ticket's moderation rail acts on the player who filed the report. Each button needs `mod.<action>`. With `Config.Moderation.require_reason = true`, kick requires a reason.
+The ticket's moderation rail acts on the player who filed the report. Freeze and Unfreeze share `mod.freeze`. The other buttons need `mod.<action>`. With `Config.Moderation.require_reason = true`, kick requires a reason.
 
 - Ban and warn always require a reason. Bans can be temporary or permanent, and warned players get an in-game notification.
 - Spectate requires the target to be in the same instance. Press Backspace to exit.
