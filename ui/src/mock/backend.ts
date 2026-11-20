@@ -230,6 +230,18 @@ export class MockBackend {
         this.toast('info', `${this.s('announcement_title')} · ${body}`);
         return { ok: true };
       }
+      case 'vehicle_cleanup': {
+        const { seconds } = p as OutgoingPayloads['vehicle_cleanup'];
+        this.record(ME, 'world_cleanup_request', 'server', '', { seconds });
+        this.emitAudit(false);
+        this.toast('info', this.s('cleanup_countdown').replace('%{seconds}', String(seconds)));
+        return { ok: true, data: { seconds } };
+      }
+      case 'vehicle_cleanup_cancel':
+        this.record(ME, 'world_cleanup_cancel', 'server', '');
+        this.emitAudit(false);
+        this.toast('info', this.s('cleanup_cancelled'));
+        return { ok: true };
       case 'ban_list': {
         const { page } = p as OutgoingPayloads['ban_list'];
         return { ok: true, data: { rows: this.bans.slice((page - 1) * 20, page * 20), hasMore: this.bans.length > page * 20 } };

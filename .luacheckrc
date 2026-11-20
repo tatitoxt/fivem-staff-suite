@@ -15,7 +15,7 @@ local function runtime_with(globals)
 end
 
 files['server/**/*.lua'].read_globals = runtime_with({
-  'CancelEvent', 'DropPlayer', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
+  'CancelEvent', 'DeleteEntity', 'DoesEntityExist', 'DropPlayer', 'GetAllVehicles', 'GetPedInVehicleSeat', 'GetVehiclePedIsIn', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
   'GetGameTimer', 'GetInvokingResource', 'GetNumPlayerTokens', 'GetPlayerToken', 'GetResourcePath',
   'GetPlayerName', 'GetPlayerPed', 'GetPlayerRoutingBucket', 'GetPlayers', 'IsEntityPositionFrozen', 'IsPlayerAceAllowed', 'PerformHttpRequest',
   'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',
@@ -32,7 +32,7 @@ files['client/**/*.lua'].read_globals = runtime_with({
   'source',
 })
 files['tests/e2e_resource/server.lua'].read_globals = runtime_with({
-  'ExecuteCommand', 'GetConvar', 'GetConvarInt', 'GetGameTimer', 'SetHttpHandler',
+  'CreateVehicleServerSetter', 'DoesEntityExist', 'ExecuteCommand', 'GetConvar', 'GetConvarInt', 'GetGameTimer', 'GetHashKey', 'SetHttpHandler',
 })
 files['tests/e2e_resource/lite_probe.lua'].read_globals = { 'exports', 'GetInvokingResource' }
 files['tests/e2e_resource/lite_probe.lua'].globals = {

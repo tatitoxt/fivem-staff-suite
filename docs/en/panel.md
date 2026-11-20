@@ -56,6 +56,8 @@ The ticket's moderation rail acts on the player who filed the report. Freeze and
 
 With `staff.waypoint`, set a point on the map and use **Settings → Go to waypoint** or **Ctrl+K → Go to waypoint** to move your own character on foot. The audit log stores the server authorization and the result reported by the client.
 
+With `world.cleanup`, **Settings → Vehicle cleanup** deletes vehicles with no players or driver. Pick the countdown (`Config.VehicleCleanup.countdowns`, 10, 30 or 60 seconds by default): the server warns every player and you can cancel it before it ends. The audit log stores the request, the cancellation and the number of deleted vehicles.
+
 In Core, open **Ban list** from **Settings** or with **Ctrl+K** to see who issued each ban, its status, expiry and the number of linked identifiers. `ban.view` grants access to admins and above. `ban.revoke` allows senior admins and above to revoke a ban with a reason. Legacy bans can be revoked when the audit history identifies their aliases.
 
 ## Language

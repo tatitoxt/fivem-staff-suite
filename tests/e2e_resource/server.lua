@@ -139,6 +139,26 @@ local function testExport(ss)
   check('export webhook recibe el anchor', got, #webhookPosts .. ' POST recibidos')
 end
 
+local function testVehicleCleanup(ss)
+  local vehicle = CreateVehicleServerSetter(GetHashKey('adder'), 'automobile', 0.0, 0.0, 72.0, 0.0)
+  local spawned = waitFor(function() return vehicle ~= 0 and DoesEntityExist(vehicle) end, 5000)
+  if not spawned then skipped('limpieza: vehículo de prueba', 'CreateVehicleServerSetter no creó la entidad') end
+  local ok, err = ss:VehicleCleanup('license:e2e_staff', 0)
+  check('limpieza: programada por export', ok == true, tostring(ok) .. ',' .. tostring(err))
+  local result
+  waitFor(function()
+    local chain = ss:GetChain()
+    result = chain[#chain]
+    return result and result.action == 'world_cleanup_result'
+  end, 5000)
+  check('limpieza: resultado auditado', result and result.action == 'world_cleanup_result', result and result.action)
+  local request = ss:GetChain()[#ss:GetChain() - 1]
+  check('limpieza: solicitud antes del resultado', request and request.action == 'world_cleanup_request', request and request.action)
+  if spawned then
+    check('limpieza: vehículo vacío borrado', not DoesEntityExist(vehicle), vehicle)
+  end
+end
+
 local function testVerify(ss)
   local ok, at = ss:Verify()
   check('verify cadena íntegra', ok == true, at)
@@ -305,7 +325,7 @@ local function run()
   end
   local ss = exports[TARGET]
   local edition = GetConvar('staff_suite_e2e_edition', 'core')
-  local steps = edition == 'lite' and { testLite } or { testTickets, testDuty, testExport, testVerify, measure }
+  local steps = edition == 'lite' and { testLite } or { testTickets, testDuty, testExport, testVehicleCleanup, testVerify, measure }
   metric('edition', edition)
   for _, step in ipairs(steps) do
     local ok, err = pcall(step, ss)

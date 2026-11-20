@@ -1,5 +1,5 @@
-import { Info, Keyboard, Languages, MapPin, Megaphone, MessageSquare, Send, ShieldBan } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { CarFront, Info, Keyboard, Languages, MapPin, Megaphone, MessageSquare, Send, ShieldBan } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Badge, Button, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
 import { isLite } from '../edition';
@@ -41,6 +41,55 @@ function AnnouncementForm() {
   );
 }
 
+function VehicleCleanupForm() {
+  const { state, t, send } = useApp();
+  const options = state.config.cleanup_countdowns?.length ? state.config.cleanup_countdowns : [10, 30, 60];
+  const [seconds, setSeconds] = useState(String(options[Math.min(1, options.length - 1)]));
+  const [sending, setSending] = useState(false);
+  const [scheduled, setScheduled] = useState<number>();
+  const [result, setResult] = useState<{ ok: boolean; text: string }>();
+
+  useEffect(() => {
+    if (scheduled === undefined) return;
+    const timer = window.setTimeout(() => setScheduled(undefined), scheduled * 1000);
+    return () => window.clearTimeout(timer);
+  }, [scheduled]);
+
+  async function run(action: 'vehicle_cleanup' | 'vehicle_cleanup_cancel') {
+    setSending(true);
+    setResult(undefined);
+    const response = action === 'vehicle_cleanup'
+      ? await send(action, { seconds: Number(seconds) }) as TicketCreateResult | null
+      : await send(action, {}) as TicketCreateResult | null;
+    setSending(false);
+    if (!response?.ok) return setResult({ ok: false, text: response?.error ?? t('cleanup_failed') });
+    if (action === 'vehicle_cleanup') {
+      setScheduled(Number(seconds));
+      setResult({ ok: true, text: t('ui_cleanup_scheduled', { n: seconds }) });
+    } else {
+      setScheduled(undefined);
+      setResult({ ok: true, text: t('ui_cleanup_cancelled') });
+    }
+  }
+
+  return (
+    <section className={cx(ui.card, v.setCard)} aria-labelledby="cleanup-heading">
+      <div className={v.setHead}><span className={v.setIcon}><CarFront size={15} /></span><h2 id="cleanup-heading">{t('ui_cleanup_title')}</h2></div>
+      <Segmented
+        label={t('ui_cleanup_countdown')}
+        value={seconds}
+        options={options.map((n) => ({ value: String(n), label: t('ui_cleanup_seconds', { n }) }))}
+        onChange={(next) => { setSeconds(next); setResult(undefined); }}
+      />
+      <p className={v.setHint}>{t('ui_cleanup_hint')}</p>
+      {scheduled === undefined
+        ? <Button variant="primary" disabled={sending} onClick={() => void run('vehicle_cleanup')}>{t('ui_cleanup_start')}</Button>
+        : <Button disabled={sending} onClick={() => void run('vehicle_cleanup_cancel')}>{t('ui_cleanup_cancel')}</Button>}
+      {result && <p className={v.setHint} role={result.ok ? 'status' : 'alert'}>{result.text}</p>}
+    </section>
+  );
+}
+
 export function SettingsView() {
   const { state, dispatch, t, send, can } = useApp();
   const cfg = state.config;
@@ -66,6 +115,7 @@ export function SettingsView() {
             </Button>}
           </div>}
           {!isLite && state.player?.capabilities?.includes('staff.announce') && <AnnouncementForm />}
+          {!isLite && can('world.cleanup') && <VehicleCleanupForm />}
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Languages size={15} /></span><h2>{t('ui_set_language')}</h2></div>
             <Segmented
