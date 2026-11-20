@@ -33,7 +33,7 @@ local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local staffModes, staffModeSeq = {}, 0
 local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
 local emergency, emergencyChange
-local pendingPermissions
+local pendingPermissions, pendingDutyClose
 local editableCaps, editableCap = {}, {}
 for _, cap in ipairs(perms.CAPS) do
   if cap ~= 'admin.permissions' then
@@ -110,6 +110,16 @@ end
 local storage = persist.new(Config, function()
   local state = snapshot()
   state.perms = pendingPermissions or pmodel
+  if pendingDutyClose then
+    -- El snapshot cierra el turno junto con el permiso. El estado en memoria espera la confirmación.
+    local actor = pendingDutyClose.actor
+    state.duty = { staff = {} }
+    for id, shift in pairs(dreg.staff) do state.duty.staff[id] = shift end
+    local closed = {}
+    for key, value in pairs(dreg.staff[actor]) do closed[key] = value end
+    state.duty.staff[actor] = closed
+    duty.clock_out(state.duty, actor, pendingDutyClose.ts)
+  end
   if next(pendingBans) or next(pendingRevocations) then
     state.bans = {}
     for id, ban in pairs(bans) do state.bans[id] = ban end
@@ -226,13 +236,19 @@ local function restore(data)
 end
 
 -- ===== Auditoría =====
-local function record(action, actor, target, reason, payload, onSaved)
+local function appendAudit(action, actor, target, reason, payload)
   local e = audit.append(chain, {
     ts = os.time(), actor = actor or 'system', action = action,
     target = target or '', reason = reason or '',
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
+  if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
+  return e
+end
+
+local function record(action, actor, target, reason, payload, onSaved)
+  local e = appendAudit(action, actor, target, reason, payload)
   local retryCallback
   if action == 'player_profile_note' then
     local reply = onSaved
@@ -248,14 +264,13 @@ local function record(action, actor, target, reason, payload, onSaved)
   elseif profileAuditIntact then
     indexProfileEntry(e)
   end
-  if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
   storage.save(onSaved, retryCallback)
   return e
 end
 
 -- ===== Permisos / rangos =====
-local function effectiveRank(identifier, baseRank)
-  local override = (pmodel.ranks or {})[identifier]
+local function effectiveRank(model, identifier, baseRank)
+  local override = (model.ranks or {})[identifier]
   if baseRank ~= 'owner' and override and override ~= 'inherit' and perms.editableRank(override) then
     return override
   end
@@ -266,7 +281,7 @@ local function getPlayer(src)
   local player = bridges.resolve(src, Config)
   player.baseRank = player.rank
   if player.rank ~= 'owner' then
-    player.rank = effectiveRank(player.identifier, player.baseRank)
+    player.rank = effectiveRank(pmodel, player.identifier, player.baseRank)
     if player.identifier then
       player.ace = function(cap) return IsPlayerAceAllowed(src, 'staff_suite.cap.' .. cap) end
     end
@@ -881,6 +896,9 @@ command(Config.Commands.duty, function(src)
   local player = getPlayer(src)
   if not can(player, 'staff.duty') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
   local id = actorId(player, src)
+  if pendingDutyClose and pendingDutyClose.actor == id then
+    return TriggerClientEvent('staff_suite:notify', src, t('permissions_pending'))
+  end
   local s = dreg.staff[id]
   local ev
   if s and s.on_duty then ev = duty.clock_out(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_out', { time = string.format('%.1fh', (ev.seconds or 0) / 3600) }))
@@ -1155,19 +1173,26 @@ RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected,
   local previous = field == 'rank' and ((pmodel.ranks or {})[player.identifier] or 'inherit')
     or perms.override(pmodel, player.identifier, field)
   if previous == value then return reply(true, nil, details()) end
-  local dutyAce = player.ace and player.ace('staff.duty')
   pendingPermissions = perms.edit(pmodel, player.identifier, field, value)
+  local shift = dreg.staff[player.identifier]
+  local rank = effectiveRank(pendingPermissions, player.identifier, player.baseRank)
+  local dutyEntry
+  if shift and shift.on_duty and not perms.can(pendingPermissions, player.identifier, rank, 'staff.duty', player.ace) then
+    dutyEntry = appendAudit('duty.out', player.identifier, player.identifier, 'permission_revoked', {
+      owner = owner.identifier,
+    })
+    pendingDutyClose = dutyEntry
+  end
   record('admin_permissions_change', owner.identifier, player.identifier, cleaned,
     { field = field, previous = previous, value = value }, function(saved)
       if saved then pmodel = pendingPermissions end
-      pendingPermissions = nil
+      pendingPermissions, pendingDutyClose = nil, nil
       if saved then
-        local canDuty
+        if dutyEntry then duty.clock_out(dreg, player.identifier, dutyEntry.ts) end
         for _, candidate in ipairs(GetPlayers()) do
           local observer = tonumber(candidate)
           local current = getPlayer(observer)
           if current.identifier == player.identifier then
-            canDuty = canDuty or can(current, 'staff.duty')
             if not can(current, 'mod.spectate') then
               pendingSpectators[observer] = nil
               local session = spectators[observer]
@@ -1178,18 +1203,10 @@ RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected,
             end
           end
         end
-        if canDuty == nil then
-          canDuty = perms.can(pmodel, player.identifier, effectiveRank(player.identifier, player.baseRank),
-            'staff.duty', function() return dutyAce end)
-        end
-        local shift = dreg.staff[player.identifier]
-        if shift and shift.on_duty and not canDuty then
-          local ev = duty.clock_out(dreg, player.identifier, os.time())
-          record(ev.event, player.identifier, player.identifier, 'permission_revoked', { owner = owner.identifier })
-        end
       end
       if not saved then
-        record('admin_permissions_failed', owner.identifier, player.identifier, '', { field = field, value = value })
+        record('admin_permissions_failed', owner.identifier, player.identifier, dutyEntry and tostring(dutyEntry.seq) or '',
+          { field = field, value = value })
       end
       if not GetPlayerName(src) or getPlayer(src).identifier ~= owner.identifier then return end
       if saved and can(getPlayer(src), 'admin.permissions') then
@@ -1809,6 +1826,7 @@ expose('GetState', snapshot)
 expose('SetDuty', function(actor, onDuty)
   actor = idText(actor)
   if not actor or type(onDuty) ~= 'boolean' then return nil, 'invalid_input' end
+  if pendingDutyClose and pendingDutyClose.actor == actor then return false, 'permissions_pending' end
   local ev, err
   if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
   if not ev then return false, err end

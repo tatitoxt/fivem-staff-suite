@@ -886,12 +886,13 @@ function T.test_owner_acl_revocation_closes_active_duty_and_persists()
   s.now = s.now + 30
   s.event('ownerPermissions', 2, 18, id, 'staff.duty', 'deny', 'fin de acceso')
   assert(not shift.on_duty and shift.total_seconds == 60)
-  s.api.Flush()
   local restarted = serverSandbox({ files = s.files })
   local state = restarted.api.GetState()
   assert(not state.duty.staff[id].on_duty and state.duty.staff[id].total_seconds == 60)
-  local entry = state.chain.entries[#state.chain.entries]
+  local entry = state.chain.entries[#state.chain.entries - 1]
   assert(entry.action == 'duty.out' and entry.actor == id and entry.reason == 'permission_revoked')
+  local report = s.env.StaffSuiteModules.loadmod('core.duty').weekly(state.chain.entries, s.now + 60, function() end)
+  assert(report.staff[1].duty_seconds == 60)
   assert(restarted.api.Verify())
 end
 
