@@ -27,7 +27,7 @@ Los jugadores reportan con `/report`. Tu staff abre el panel con F6, reclama el 
 
 ## Rendimiento
 * resmon de cliente: [RESMON PENDIENTE]
-* Probado en un FXServer real: 29 de 29 checks E2E.
+* Probado en un FXServer real: 32 de 32 checks E2E.
 * Sin loops por tick en el server.
 
 ## Instalación
