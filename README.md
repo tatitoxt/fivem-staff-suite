@@ -4,6 +4,12 @@
 
 **El único que audita a tu staff.** Reportes, moderación dentro del ticket, duty y un audit log con hash-chain SHA-256 que delata cualquier edición o borrado. Español-first, también en inglés.
 
+![Dashboard de Staff Integrity Suite](launch/media/shot-dashboard-es.png)
+
+Reporte → claim → resolve, con el estado visible para el jugador:
+
+![Flujo reporte, claim y resolve](launch/media/flow-report-claim-resolve-es.gif)
+
 Versión **0.2.0**. [Cambios y guía de actualización](CHANGELOG.md#020--español).
 
 ## Funciones de Core
@@ -30,6 +36,17 @@ No reemplaza a txAdmin: noclip, god y spawn siguen ahí.
 | **Lite** | $0 | Reportes básicos, auditoría con hash-chain de lo que pasa por el panel, visor. |
 | **Core** | $29–39 pago único | Suite completo: reportes avanzados, moderación en ticket, duty/analytics, auditoría unificada con export off-box, permisos por rango, multi-framework. |
 | **Integrity Pro** | $8–12/mes por server | **(próximamente)** Inventario de permisos cross-system, permisos con vencimiento, flags de anomalías, case files, apelaciones, dashboard del dueño. |
+
+### Lite vs Core
+
+| Función | Free Lite | Core |
+|---|---|---|
+| Reportes y tickets | `/report`, cola, reclamar, resolver, cerrar, reabrir y chat público en Mis reportes | Flujo de Lite más prioridades, notas internas, transferencias, respuestas predefinidas, calificación y evidencia |
+| Auditoría | Cadena SHA-256 de acciones del panel, visor y verificación | Todo Lite, captura externa, anclajes y exportación de auditoría |
+| Moderación, turnos y estadísticas | — | Acciones desde el ticket, duty y analytics |
+| Integraciones y acceso | Standalone, un permiso ACE para staff | Standalone, ESX, QBCore y Qbox con rangos y capabilities. API de exports para otros recursos |
+| Persistencia | Archivo JSON | JSON u oxmysql con respaldo JSON |
+| Distribución | Gratis para GitHub/foro, licencia MIT, código Lua editable | Paquete para Tebex y Cfx Asset Escrow |
 
 Free Lite está preparado para distribución gratuita por GitHub y foro bajo licencia MIT. Core se empaqueta para Tebex con Cfx Asset Escrow. [Comparar ediciones](docs/es/ediciones.md).
 
@@ -69,6 +86,13 @@ FIVEM_LICENSE_KEY=... scripts/e2e-fxserver.sh   # E2E en FXServer real, ver docs
 
 **The only one that audits your staff.** Reports, in-ticket moderation, duty and an audit log with a SHA-256 hash chain that exposes any edit or deletion. Spanish-first, also in English.
 
+![Staff Integrity Suite dashboard](launch/media/shot-dashboard-en.png)
+
+Report → claim → resolve, with the status visible to the player (mock demo data, in Spanish):
+
+![Report, claim and resolve flow](launch/media/flow-report-claim-resolve-es.gif)
+
+
 Version **0.2.0**. [Changelog and upgrade guide](CHANGELOG.md#020--english).
 
 ### Core features
@@ -95,6 +119,17 @@ It does not replace txAdmin: noclip, god and spawning stay there.
 | **Lite** | $0 | Basic reports, hash-chain audit of everything done through the panel, viewer. |
 | **Core** | $29–39 one-time | Full suite: advanced reports, in-ticket moderation, duty/analytics, unified audit log with off-box export, rank permissions, multi-framework. |
 | **Integrity Pro** | $8–12/month per server | **(coming soon)** Cross-system permission inventory, expiring permissions, anomaly flags, case files, appeals, owner dashboard. |
+
+### Lite vs Core
+
+| Feature | Free Lite | Core |
+|---|---|---|
+| Reports and tickets | `/report`, queue, claim, resolve, close, reopen and public chat in My reports | Lite workflow plus priorities, internal notes, transfers, canned replies, ratings and evidence |
+| Audit | SHA-256 chain for panel actions, viewer and verification | Everything in Lite, external event capture, anchoring and audit export |
+| Moderation, duty and analytics | — | In-ticket moderation, duty and staff analytics |
+| Integrations and access | Standalone with a single staff ACE permission | Standalone, ESX, QBCore and Qbox with ranks and capabilities. Exports API for other resources |
+| Storage | JSON file | JSON or oxmysql with a JSON backup |
+| Distribution | Free for GitHub and forum distribution, MIT-licensed, editable Lua code | Package for Tebex and Cfx Asset Escrow |
 
 Free Lite is packaged under MIT for free distribution on GitHub and the forum. Core is packaged for Tebex with Cfx Asset Escrow. [Compare editions](docs/en/editions.md).
 
