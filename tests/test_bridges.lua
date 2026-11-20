@@ -971,6 +971,29 @@ function T.test_ban_review_loads_legacy_aliases_and_only_revokes_after_persisten
   reboot.env.source = 19
   reboot.hook('playerConnecting', '', function() end)
   assert(reboot.cancelled, 'el otro baneo sigue activo')
+
+  s.now = s.now + 10
+  s.online['50'] = true
+  s.event('modAction', 'ban', 18, 'Reincidencia', 0)
+  s.event('modAction', 'ban', 50, 'Cuenta secundaria', 0)
+  assert(s.api.GetState().bans['license:new50'].id ~= ban)
+  for _, entry in ipairs(s.api.GetChain()) do
+    if entry.action == 'mod_unban' or entry.action == 'mod_unban_failed' then
+      -- El sandbox usa tokens en vez de JSON real, mantenerlos para el reinicio simulado.
+      local token = entry.payload
+      s.files[token] = s.payloads[tonumber(token)]
+    end
+  end
+  local afterReban = serverSandbox({ files = s.files })
+  afterReban.ace.god = true
+  afterReban.event('banList', 1, 9)
+  for _, row in ipairs(afterReban.sent[listResult].data.rows) do
+    if row.id == ban then
+      assert(row.status == 'revoked' and row.reason == 'primero' and row.aliases == 3)
+      return
+    end
+  end
+  error('Se perdió el baneo revocado del historial')
 end
 
 function T.test_resolve_and_rating_feed_staff_analytics()
