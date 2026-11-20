@@ -1,6 +1,6 @@
 import { UserRound } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Dialog, ui } from '../components/ui';
+import { Button, Dialog, cx, ui } from '../components/ui';
 import { formatDateTime, shortId } from '../format';
 import { stateLabel } from '../labels';
 import { useApp } from '../store';
@@ -77,7 +77,7 @@ export function PlayerProfileButton({ id }: { id: number }) {
         <Dialog title={t('ui_player_profile')} onClose={() => setOpen(false)}
           footer={<Button onClick={() => setOpen(false)}>{t('close')}</Button>}>
           {busy && !profile && <p role="status">{t('ui_evidence_loading')}</p>}
-          {profile && <div className={v.rows}>
+          {profile && <div className={cx(v.rows, v.profileScroll, ui.scroll)} tabIndex={0}>
             <History title={t('ui_player_profile_warns')} items={profile.warns} />
             <History title={t('ui_player_profile_bans')} items={profile.bans} />
             <section>
