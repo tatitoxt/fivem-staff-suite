@@ -8,32 +8,32 @@ M.CAPS = {
   "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
   "mod.revive", "mod.kick", "mod.warn", "mod.ban",
   "audit.view", "audit.verify", "audit.export",
-  "staff.duty", "staff.analytics",
+  "staff.duty", "staff.analytics", "staff.chat",
   "admin.config", "admin.permissions",
 }
 
 -- Rangos base con su set de capabilities (least-privilege, escalado).
 local RANK_CAPS = {
   helper = {
-    "report.view", "report.claim", "report.message", "staff.duty",
+    "report.view", "report.claim", "report.message", "staff.duty", "staff.chat",
   },
   moderator = {
     "report.view", "report.claim", "report.resolve", "report.message",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
-    "mod.kick", "mod.warn", "audit.view", "staff.duty",
+    "mod.kick", "mod.warn", "audit.view", "staff.duty", "staff.chat",
   },
   admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
-    "audit.view", "audit.verify", "staff.duty", "staff.analytics",
+    "audit.view", "audit.verify", "staff.duty", "staff.analytics", "staff.chat",
   },
   senior_admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
     "audit.view", "audit.verify", "audit.export",
-    "staff.duty", "staff.analytics", "admin.config",
+    "staff.duty", "staff.analytics", "staff.chat", "admin.config",
   },
   owner = nil, -- owner = todas (se resuelve abajo)
 }

@@ -219,6 +219,16 @@ ticketRequest('ticket_reply', 'staff_suite:ticketMessageResult', 'ticket_message
   TriggerServerEvent('staff_suite:ticketReply', d.id, d.body, req)
 end)
 if not lite then
+  ticketResult('staff_suite:staffChatResult')
+  ticketRequest('staff_chat', 'staff_suite:staffChatResult', 'staff_chat_failed', function(d, req)
+    TriggerServerEvent('staff_suite:staffChat', d.body, req)
+  end)
+  RegisterNetEvent('staff_suite:staffChatMessage', function(name, body)
+    if source ~= 65535 or type(name) ~= 'string' or type(body) ~= 'string' then return end
+    local label = ('%s · %s'):format(t('ui_staff_chat'), name)
+    TriggerEvent('chat:addMessage', { args = { label, body } })
+    if panelOpen then nui('toast', { kind = 'info', text = label .. ': ' .. body }) end
+  end)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
     if not panelOpen then SetNuiFocus(false, false) end

@@ -214,6 +214,12 @@ export class MockBackend {
         return;
       case 'audit_filter':
         return;
+      case 'staff_chat': {
+        const { body } = p as OutgoingPayloads['staff_chat'];
+        this.record(ME, 'staff_chat_message', 'staff', '', { body });
+        this.emitAudit(false);
+        return;
+      }
       case 'audit_verify': {
         const res = verify(this.entries);
         this.record(ME, 'audit_verify', '', res.ok ? 'ok' : `broken:${res.broken_at}`);

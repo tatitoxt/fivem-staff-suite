@@ -197,6 +197,7 @@ export interface OutgoingPayloads {
   ticket_close: { id: number };
   ticket_reopen: { id: number };
   ticket_message: { id: number; body: string; internal: boolean };
+  staff_chat: { body: string };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
