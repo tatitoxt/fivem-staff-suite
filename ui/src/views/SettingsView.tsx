@@ -53,7 +53,7 @@ export function SettingsView() {
         <div className={v.settings}>
           {!isLite && state.player?.capabilities?.includes('staff.announce') && <AnnouncementForm />}
           <section className={cx(ui.card, v.setCard)}>
-            <div className={v.setHead}><span className={v.setIcon}><Languages size={20} /></span><h2>{t('ui_set_language')}</h2></div>
+            <div className={v.setHead}><span className={v.setIcon}><Languages size={15} /></span><h2>{t('ui_set_language')}</h2></div>
             <Segmented
               label={t('ui_set_language')}
               value={state.locale}
@@ -63,12 +63,18 @@ export function SettingsView() {
             <p className={v.setHint}>{t('ui_set_language_hint')}</p>
           </section>
           <section className={cx(ui.card, v.setCard)}>
-            <div className={v.setHead}><span className={v.setIcon}><Keyboard size={20} /></span><h2>{t('ui_set_keybind')}</h2></div>
+            <div className={v.setHead}><span className={v.setIcon}><Keyboard size={15} /></span><h2>{t('ui_set_keybind')}</h2></div>
             <span className={v.kbd}>{cfg.panel_key ?? 'F6'}</span>
             <p className={v.setHint}>{t('ui_set_keybind_hint')}</p>
+            <div className={v.shortcuts} aria-label={t('ui_shortcuts')} role="group">
+              <span><span className={ui.kbd}>Ctrl</span><span className={ui.kbd}>K</span></span><span>{t('ui_cmd_title')}</span>
+              <span><span className={ui.kbd}>1</span>–<span className={ui.kbd}>{isLite ? 4 : 6}</span></span><span>{t('ui_shortcut_views')}</span>
+              <span><span className={ui.kbd}>N</span></span><span>{t('ui_report_new')}</span>
+              <span><span className={ui.kbd}>Esc</span></span><span>{t('ui_cmd_close')}</span>
+            </div>
           </section>
           {!isLite && <section className={cx(ui.card, v.setCard)}>
-            <div className={v.setHead}><span className={v.setIcon}><Send size={20} /></span><h2>{t('ui_set_export')}</h2></div>
+            <div className={v.setHead}><span className={v.setIcon}><Send size={15} /></span><h2>{t('ui_set_export')}</h2></div>
             <div className={v.rows}>
               <div className={v.row}>
                 <span>{t('ui_export_discord')}</span>
@@ -86,7 +92,7 @@ export function SettingsView() {
             <p className={v.setHint}>{t('ui_set_export_hint')}</p>
           </section>}
           <section className={cx(ui.card, v.setCard)}>
-            <div className={v.setHead}><span className={v.setIcon}><Info size={20} /></span><h2>{t('ui_set_about')}</h2></div>
+            <div className={v.setHead}><span className={v.setIcon}><Info size={15} /></span><h2>{t('ui_set_about')}</h2></div>
             <div className={v.rows}>
               <div className={v.row}><span>{t('ui_set_version')}</span><strong>v{state.version || '—'}</strong></div>
               {!isLite && <div className={v.row}><span>{t('ui_set_rank')}</span><strong>{state.player ? rankLabel(t, state.player.rank) : '—'}</strong></div>}

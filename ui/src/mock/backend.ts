@@ -258,7 +258,7 @@ export class MockBackend {
         return;
       }
       case 'ticket_create': {
-        const { category, priority, body } = p as OutgoingPayloads['ticket_create'];
+        const { category, priority, body, attach } = p as OutgoingPayloads['ticket_create'];
         const ts = Math.round(Date.now() / 1000);
         const id = Math.max(0, ...this.tickets.map((t) => t.id)) + 1;
         this.tickets.push({
@@ -266,6 +266,12 @@ export class MockBackend {
           description: body, messages: [], resolution: null, rating: null,
         });
         this.record(ME, 'ticket_create', ME, '', { ticket: id, category });
+        if (attach) {
+          const data = demoScreenshot(id, 1);
+          this.evidenceData.set(`${id}:1`, data);
+          this.tickets[this.tickets.length - 1].evidence = [{ n: 1, ts, by: ME, sha256: sha256Hex(data), size: data.length }];
+          this.record(ME, 'ticket_evidence', `ticket:${id}`, '', { n: 1 });
+        }
         this.emitTickets();
         this.emitAudit(false);
         this.emitDuty();

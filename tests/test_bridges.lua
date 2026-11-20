@@ -1078,4 +1078,32 @@ function T.test_ticket_create_replies_ok_or_error_to_panel()
   assert(s.sent[result].req == 10 and not s.sent[result].ok and s.sent[result].error == s.env.Locale.es.rate_limited)
 end
 
+function T.test_report_with_attached_screenshot()
+  local s = serverSandbox()
+  s.env.source = 21
+  local shots = 0
+  s.states['screenshot-basic'] = 'started'
+  s.env.exports['screenshot-basic'] = {
+    requestClientScreenshot = function(_, src, _, cb) shots = shots + 1; assert(src == 21); cb(false, 'data:image/jpeg;base64,CCCC') end,
+  }
+  s.env.SaveResourceFile = function() return true end
+  s.event('ticketCreate', 'player', 'normal', 'Me chocaron a propósito', 1, true)
+  s.event('ticketCreate', 'player', 'normal', 'Sin captura', 2, false)
+  local list = s.api.GetState().tickets.tickets
+  local withShot, without
+  for _, tk in pairs(list) do
+    if tk.description == 'Me chocaron a propósito' then withShot = tk end
+    if tk.description == 'Sin captura' then without = tk end
+  end
+  assert(shots == 1, 'solo captura si el reporter lo pidió')
+  assert(withShot and #withShot.evidence == 1 and withShot.evidence[1].by == withShot.reporter)
+  assert(without and without.evidence == nil)
+  local entries = s.api.GetChain()
+  local found = false
+  for _, e in ipairs(entries) do
+    if e.action == 'ticket_evidence' and e.target == 'ticket:' .. withShot.id then found = true end
+  end
+  assert(found, 'la captura del reporter queda auditada')
+end
+
 return T

@@ -210,7 +210,7 @@ end
 ticketResult('staff_suite:ticketCreateResult')
 ticketResult('staff_suite:ticketMessageResult')
 ticketRequest('ticket_create', 'staff_suite:ticketCreateResult', 'report_failed', function(d, req)
-  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''), req)
+  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''), req, d.attach == true)
 end, refreshSoon)
 ticketRequest('ticket_message', 'staff_suite:ticketMessageResult', 'ticket_message_failed', function(d, req)
   TriggerServerEvent('staff_suite:ticketMessage', d.id, d.body, d.internal == true, req)
