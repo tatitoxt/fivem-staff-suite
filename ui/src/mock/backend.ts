@@ -193,8 +193,7 @@ export class MockBackend {
   handle<A extends OutgoingAction>(action: A, payload: OutgoingPayloads[A]): Promise<unknown> {
     return new Promise((resolve) => {
       setTimeout(() => {
-        this.dispatch(action, payload);
-        resolve({ ok: true });
+        resolve(this.dispatch(action, payload) ?? { ok: true });
       }, action === 'audit_verify' ? this.latency * 4 : this.latency);
     });
   }
