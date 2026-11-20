@@ -53,6 +53,16 @@ local function sandbox()
   return client, env, events, callbacks, hooks
 end
 
+function T.test_emergency_shutdown_restores_local_controlled_entities_without_server_rpc()
+  local c, env, events, _, hooks = sandbox()
+  env.NetworkDoesEntityExistWithNetworkId = function(id) return id == 2 end
+  env.NetworkGetEntityFromNetworkId = function() return env.PlayerPedId() end
+  env.source, c.frozen = 65535, true
+  events['staff_suite:emergencyEntities']({ ['2'] = false })
+  hooks.onClientResourceStop('staff_suite')
+  assert(not c.frozen)
+end
+
 function T.test_waypoint_does_not_move_without_authorization_marker_or_ground()
   local client, env, events, callbacks = sandbox()
   local move = events['staff_suite:waypoint']

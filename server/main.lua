@@ -471,14 +471,16 @@ end
 
 local function enforceEmergency(session)
   if emergency ~= session then return end
+  local changed, toFreeze = false, {}
   local function freeze(entity, wasSpectating)
     if entity == 0 or not DoesEntityExist(entity) then return end
     local network = NetworkGetNetworkIdFromEntity(entity)
     local current = session.entities[entity]
     if not current or current.network ~= network then
       session.entities[entity] = { network = network, frozen = not wasSpectating and IsEntityPositionFrozen(entity) }
+      changed = true
     end
-    if not IsEntityPositionFrozen(entity) then FreezeEntityPosition(entity, true) end
+    if not IsEntityPositionFrozen(entity) then toFreeze[entity] = true end
   end
   for _, player in ipairs(GetPlayers()) do
     local src = tonumber(player)
@@ -489,8 +491,19 @@ local function enforceEmergency(session)
     end
   end
   for entity in pairs(session.entities) do
-    if not DoesEntityExist(entity) then session.entities[entity] = nil end
+    if not DoesEntityExist(entity) or NetworkGetNetworkIdFromEntity(entity) ~= session.entities[entity].network then
+      session.entities[entity] = nil
+      changed = true
+    end
   end
+  if changed then
+    local restoration = {}
+    for _, saved in pairs(session.entities) do
+      if saved.network > 0 then restoration[tostring(saved.network)] = saved.frozen end
+    end
+    TriggerClientEvent('staff_suite:emergencyEntities', -1, restoration)
+  end
+  for entity in pairs(toFreeze) do FreezeEntityPosition(entity, true) end
   SetTimeout(1000, function() enforceEmergency(session) end)
 end
 
@@ -503,6 +516,7 @@ local function releaseEmergency()
       FreezeEntityPosition(entity, saved.frozen)
     end
   end
+  TriggerClientEvent('staff_suite:emergencyEntities', -1, false)
 end
 
 local function setFrozen(m, frozen)
@@ -528,20 +542,38 @@ local function frozenPlayers()
   return frozen
 end
 
+local function protectsOccupant(vehicle, src, actor)
+  for _, candidate in ipairs(GetPlayers()) do
+    local id = tonumber(candidate)
+    local ped = GetPlayerPed(id)
+    if id ~= src and ped ~= 0 and GetVehiclePedIsIn(ped, false) == vehicle
+      and perms.outranks(getPlayer(id).rank, actor.rank) then return true end
+  end
+  return false
+end
+
 local function moderateVehicle(m)
   local ped = GetPlayerPed(m.tgt)
   local vehicle = ped ~= 0 and GetVehiclePedIsIn(ped, false) or 0
   if vehicle == 0 or not DoesEntityExist(vehicle) then return false, t('mod_vehicle_missing') end
   local netId = NetworkGetNetworkIdFromEntity(vehicle)
   if netId == 0 then return false, t('mod_vehicle_missing') end
+  local deleting = m.payload.action == 'delete_vehicle'
+  if deleting and protectsOccupant(vehicle, m.src, getPlayer(m.src)) then return false, t('mod_target_protected') end
   m.payload.vehicle = netId
   m.onSaved = afterSanction(m, function()
+    local actor = getPlayer(m.src)
+    if not GetPlayerName(m.src) or actor.identifier ~= m.actor
+      or not can(actor, 'mod.' .. m.payload.action) then return end
     local currentPed = GetPlayerPed(m.tgt)
     if currentPed == 0 or GetVehiclePedIsIn(currentPed, false) ~= vehicle or not DoesEntityExist(vehicle)
       or NetworkGetNetworkIdFromEntity(vehicle) ~= netId then
       return TriggerClientEvent('staff_suite:notify', m.src, t('mod_vehicle_missing'))
     end
-    if m.payload.action == 'delete_vehicle' then
+    if deleting then
+      if protectsOccupant(vehicle, m.src, actor) then
+        return TriggerClientEvent('staff_suite:notify', m.src, t('mod_target_protected'))
+      end
       DeleteEntity(vehicle)
     else
       local owner = NetworkGetEntityOwner(vehicle)
