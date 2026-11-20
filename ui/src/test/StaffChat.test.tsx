@@ -1,0 +1,66 @@
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { App } from '../App';
+import { LOCALES } from '../mock/locales';
+import type { IncomingMessage } from '../types';
+
+const strings = LOCALES.es;
+
+function dispatch(data: IncomingMessage) {
+  act(() => window.dispatchEvent(new MessageEvent('message', { data, origin: 'https://nui-game-internal' })));
+}
+
+function profile(capabilities: string[]) {
+  dispatch({ type: 'init', payload: {
+    locale: 'es', strings, version: '0.2.0', config: { limits: { message_body: 8 } },
+    player: { name: 'Alex', rank: 'helper', capabilities },
+  } });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete window.GetParentResourceName;
+});
+
+it('displays the chat fallback when the panel is closed', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  render(<App />);
+  dispatch({ type: 'toast', payload: { kind: 'info', text: 'Solo panel' } });
+  dispatch({ type: 'toast', payload: { kind: 'info', text: 'Chat de staff · Alex: Hola', outside: true } });
+  expect(await screen.findByText('Chat de staff · Alex: Hola')).toBeInTheDocument();
+  expect(screen.queryByText('Solo panel')).not.toBeInTheDocument();
+});
+
+it('shows the composer to staff and preserves the draft after a rejected send', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce({ json: async () => ({ ok: false, error: strings.rate_limited }) })
+    .mockResolvedValueOnce({ json: async () => ({ ok: true }) });
+  vi.stubGlobal('fetch', fetcher);
+  render(<App />);
+  profile([]);
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  expect(screen.queryByRole('button', { name: strings.ui_staff_chat })).not.toBeInTheDocument();
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  const palette = screen.getByRole('combobox', { name: strings.ui_cmd_placeholder });
+  expect(screen.queryByRole('option', { name: strings.ui_staff_chat })).not.toBeInTheDocument();
+  profile(['staff.chat']);
+  expect(screen.getByRole('button', { name: strings.ui_staff_chat })).toBeInTheDocument();
+  fireEvent.change(palette, { target: { value: strings.ui_staff_chat } });
+  fireEvent.keyDown(palette, { key: 'Enter' });
+  const form = within(await screen.findByRole('dialog', { name: strings.ui_staff_chat }));
+  const input = form.getByRole('textbox');
+  const send = form.getByRole('button', { name: strings.ui_send });
+  fireEvent.change(input, { target: { value: 'ñññññ' } });
+  expect(send).toBeDisabled();
+  fireEvent.change(input, { target: { value: 'Hola' } });
+  fireEvent.click(send);
+  expect(await form.findByRole('alert')).toHaveTextContent(strings.rate_limited);
+  expect(input).toHaveValue('Hola');
+  fireEvent.click(send);
+  expect(await form.findByRole('status')).toHaveTextContent(strings.staff_chat_sent);
+  expect(input).toHaveValue('');
+  expect(fetcher).toHaveBeenLastCalledWith('https://staff_suite/staff_chat', expect.objectContaining({
+    body: JSON.stringify({ body: 'Hola' }),
+  }));
+});

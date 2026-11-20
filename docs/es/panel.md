@@ -25,7 +25,9 @@ El server solo manda los datos que permiten las capabilities del jugador (ver [R
 | Mis reportes | ninguna | Tus reportes abiertos y sus conversaciones públicas con el staff. |
 | Dashboard | `staff.analytics` | KPIs (abiertos, resueltos, tiempo de respuesta, staff en servicio), leaderboard y alertas, como la de cadena de auditoría rota. |
 | Servicio | `staff.duty` | Botón para entrar o salir de servicio (equivale a `/duty`), tus horas y sesiones, y el estado del equipo. |
-| Ajustes | ninguna | Idioma del panel (ES/EN), tecla para abrirlo, estado del export (webhook, archivo, ancla cada N entradas), versión, tu rango y la persistencia. |
+| Ajustes | ninguna | Idioma del panel (ES/EN), tecla para abrirlo, estado del export (webhook, archivo, ancla cada N entradas), versión, tu rango y la persistencia. En Core, `staff.chat` habilita el chat de staff. |
+
+Abrí **Chat de staff** desde **Ajustes** o con **Ctrl+K**. El mensaje llega al chat de FiveM de los jugadores conectados con `staff.chat`. Si el panel está abierto o el recurso `chat` está apagado, también aparece un aviso. La auditoría guarda la solicitud y el resultado de cada envío sin el texto del mensaje. Aplican `Config.Limits.message_body` y `Config.RateLimit['staff_suite:staffChat']`.
 
 Creá reportes con `/report`. En Mis reportes podés leer y responder el hilo público de cada reporte abierto. Recibís una notificación cuando el staff responde. El chat público está disponible en Core y Lite.
 
@@ -51,9 +53,15 @@ El panel de moderación del ticket actúa sobre quien hizo el reporte. Congelar 
 - Spectate requiere que el objetivo esté en la misma instancia. Usá Retroceso para salir.
 - Revive usa la integración médica del framework si está disponible, con una implementación standalone para los demás casos.
 
+En Core, abrí **Lista de baneos** desde **Ajustes** o con **Ctrl+K** para consultar quién aplicó cada baneo, su estado, su vigencia y cuántos identificadores abarca. `ban.view` habilita la consulta desde admin. `ban.revoke` habilita la revocación con motivo desde senior admin. Un baneo anterior se puede revocar si el historial de auditoría permite identificar sus aliases.
+
 ## Idioma
 
 El idioma inicial es `Config.Locale`. Desde Ajustes cada jugador lo cambia solo para su panel; no se guarda entre sesiones. Los textos salen de `locales/es.lua` y `locales/en.lua` (claves `ui_*`), así que se pueden editar sin recompilar.
+
+En Core, **Perfil del jugador** en las acciones del ticket muestra hasta 20 entradas recientes de cada tipo para el reportante: advertencias, baneos, reportes y notas. Requiere `report.view` y `player.profile.view`. `player.profile.note` habilita agregar notas de hasta `Config.Limits.message_body` bytes. Las consultas y notas quedan en la cadena de auditoría.
+
+El perfil también muestra el tiempo conectado desde que se instaló esta versión, incluidos los períodos AFK. El total se guarda cada minuto, al desconectarse y al detener el recurso. Un cierre abrupto puede perder el último tramo desde el guardado.
 
 ## Desarrollo
 
