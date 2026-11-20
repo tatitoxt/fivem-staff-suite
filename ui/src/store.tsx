@@ -97,6 +97,7 @@ function pushToast(state: AppState, kind: ToastKind, text: string, outside?: boo
   return { ...state, toasts };
 }
 
+const HIDDEN_DEFER = new Set(['audit', 'tickets', 'myTickets', 'dashboard', 'duty', 'frozenPlayers']);
 const DATA_MESSAGES = new Set(['audit', 'tickets', 'myTickets', 'dashboard', 'duty']);
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -205,7 +206,25 @@ const Ctx = createContext<AppApi | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, useMock(), initialState);
 
-  useEffect(() => subscribe((msg) => dispatch({ type: 'msg', msg })), []);
+  const visibleRef = useRef(state.visible);
+  visibleRef.current = state.visible;
+  useEffect(() => {
+    // Con el panel oculto, los datos se guardan sin renderizar y se aplican al abrir.
+    const pending = new Map<string, IncomingMessage[]>();
+    return subscribe((msg) => {
+      if (!visibleRef.current && HIDDEN_DEFER.has(msg.type)) {
+        pending.set(msg.type, msg.type === 'audit' ? [...(pending.get('audit') ?? []), msg] : [msg]);
+        return;
+      }
+      dispatch({ type: 'msg', msg });
+      if (msg.type === 'close') visibleRef.current = false;
+      if (msg.type === 'open') {
+        visibleRef.current = true;
+        for (const list of pending.values()) for (const m of list) dispatch({ type: 'msg', msg: m });
+        pending.clear();
+      }
+    });
+  }, []);
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => fmt(state.strings[key] ?? key, vars),
