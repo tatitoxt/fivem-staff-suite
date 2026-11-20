@@ -30,6 +30,17 @@ describe('NUI rediseño', () => {
     expect(screen.getByTestId('chain-status')).toBeInTheDocument();
   });
 
+  it('Ctrl+K no abre la palette sobre un diálogo, así Escape no descarta el borrador', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    fireEvent.keyDown(window, { key: 'n' });
+    const dialog = await screen.findByRole('dialog', { name: 'Nuevo reporte' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Borrador' } });
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    expect(screen.queryByRole('combobox', { name: /Buscá una vista/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox')).toHaveValue('Borrador');
+  });
+
   it('los números cambian de vista, salvo mientras se escribe', async () => {
     render(<App />);
     await screen.findByTestId('chain-status');

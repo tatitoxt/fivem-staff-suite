@@ -74,7 +74,7 @@ function Shell() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        if (state.ready) dispatch({ type: 'palette', open: !state.palette });
+        if (state.ready && (state.palette || !document.querySelector('[role="dialog"]'))) dispatch({ type: 'palette', open: !state.palette });
         return;
       }
       if (e.key === 'Escape') { void send('close_ui'); return; }
