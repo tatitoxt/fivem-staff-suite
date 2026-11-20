@@ -11,7 +11,7 @@ function toCsv({ from, to, staff }: WeeklyStaffReport) {
   const date = (ts: number) => new Date(ts * 1000).toISOString();
   const quote = (value: string) => {
     const safe = /^[\s]*[=+@-]|^[\t\r\n]/.test(value) ? `'${value}` : value;
-    return `"${safe.replaceAll('"', '""')}"`;
+    return `"${safe.replace(/"/g, '""')}"`;
   };
   return [
     'from_utc,to_utc,staff,duty_seconds,sessions,resolved,ratings,average_rating',

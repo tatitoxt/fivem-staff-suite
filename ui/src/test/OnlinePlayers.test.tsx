@@ -78,7 +78,9 @@ it('uses the audited export response to prepare a CSV and neutralizes spreadshee
   render(<App />);
   profile(['staff.analytics', 'staff.analytics.export']);
   dispatch({ type: 'open', payload: { view: 'weekly' } });
-  dispatch({ type: 'dashboard', payload: { leaderboard: [], alerts: [], kpis: {} } } as IncomingMessage);
+  dispatch({ type: 'dashboard', payload: {
+    leaderboard: [], alerts: [], kpis: { open: 0, resolved: 0, avg_response: 0, avg_rating: 0, on_duty: 0 },
+  } });
   fireEvent.click(await screen.findByRole('button', { name: strings.ui_weekly_export }));
   const csv = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: strings.ui_weekly_csv });
   expect(csv.value).toContain(`"'=HYPERLINK(""a"",""b"")",60,1,2,0,`);
