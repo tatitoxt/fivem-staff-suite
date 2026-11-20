@@ -272,6 +272,7 @@ if not lite then
   on('mod_action', function(d)
     TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason, d.duration, d.template)
   end)
+  on('goto_waypoint', function() TriggerServerEvent('staff_suite:waypoint') end)
   on('duty_toggle', function()
     ExecuteCommand(Config.Commands.duty)
     refreshSoon()

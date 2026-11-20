@@ -232,6 +232,7 @@ export interface OutgoingPayloads {
   announce: { body: string };
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
+  goto_waypoint: Record<string, never>;
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };

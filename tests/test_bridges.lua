@@ -756,6 +756,36 @@ function T.test_revive_dispatches_framework_bridge_or_standalone()
   assert(#s.api.GetChain() == 4 and s.api.Verify())
 end
 
+function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result()
+  local s = serverSandbox()
+  s.ace.mod = true
+  s.event('waypoint', 18)
+  assert(#s.api.GetChain() == 0)
+  s.ace.admin = true
+  s.event('waypoint', 18)
+  local sequence = s.recipients[17]['staff_suite:waypoint']
+  local chain = s.api.GetChain()
+  assert(sequence == 1 and chain[1].action == 'staff_waypoint_request')
+  assert(chain[1].target == 'license:account17' and not s.recipients[18])
+  s.env.source = 18
+  s.event('waypointResult', sequence, 'ok')
+  assert(#chain == 1)
+  s.env.source = 17
+  s.event('waypointResult', sequence, 'untrusted')
+  assert(#chain == 1)
+  s.event('waypointResult', sequence, 'no_marker')
+  assert(chain[2].action == 'staff_waypoint_result' and chain[2].reason == 'no_marker')
+  assert(s.payloads[tonumber(chain[2].payload)].request_seq == sequence)
+  s.event('waypointResult', sequence, 'ok')
+  assert(#chain == 2 and s.api.Verify())
+  s.event('waypoint')
+  assert(s.sent['staff_suite:notify'] == s.env.Locale.es.rate_limited and #chain == 2)
+  s.now = s.now + 5
+  s.failWrites = true
+  s.event('waypoint')
+  assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
+end
+
 function T.test_spectate_only_dispatches_to_authorized_observer()
   local s = serverSandbox()
   s.event('modAction', 'spectate', 18)

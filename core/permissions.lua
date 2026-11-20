@@ -14,6 +14,7 @@ M.CAPS = {
   "audit.view", "audit.verify", "audit.export",
   "staff.duty", "staff.analytics", "staff.announce", "staff.chat",
   "player.profile.view", "player.profile.note",
+  "staff.waypoint",
   "admin.config", "admin.permissions",
 }
 
@@ -39,6 +40,7 @@ local RANK_CAPS = {
     "player.profile.view", "player.profile.note",
     "mod.template",
     "mod.warn_escalate",
+    "staff.waypoint",
   },
   senior_admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
@@ -51,6 +53,7 @@ local RANK_CAPS = {
     "audit.view", "audit.verify", "audit.export",
     "staff.duty", "staff.analytics", "staff.announce", "staff.chat", "admin.config",
     "player.profile.view", "player.profile.note",
+    "staff.waypoint",
   },
   owner = nil, -- owner = todas (se resuelve abajo)
 }

@@ -54,6 +54,8 @@ El panel de moderación del ticket actúa sobre quien hizo el reporte. Congelar 
 - Spectate requiere que el objetivo esté en la misma instancia. Usá Retroceso para salir.
 - Revive usa la integración médica del framework si está disponible, con una implementación standalone para los demás casos.
 
+Con `staff.waypoint`, poné un marcador en el mapa y usá **Ajustes → Ir al marcador** o **Ctrl+K → Ir al marcador** para mover a tu propio personaje a pie. La auditoría guarda la autorización del servidor y el resultado que informa el cliente.
+
 En Core, abrí **Lista de baneos** desde **Ajustes** o con **Ctrl+K** para consultar quién aplicó cada baneo, su estado, su vigencia y cuántos identificadores abarca. `ban.view` habilita la consulta desde admin. `ban.revoke` habilita la revocación con motivo desde senior admin. Un baneo anterior se puede revocar si el historial de auditoría permite identificar sus aliases.
 
 ## Idioma

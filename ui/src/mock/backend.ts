@@ -369,6 +369,9 @@ export class MockBackend {
         this.emit({ type: 'evidence', payload: { id, n, data, ok: sha256Hex(data) === item.sha256 } });
         return;
       }
+      case 'goto_waypoint':
+        this.toast('info', this.s('waypoint_no_marker'));
+        return;
       case 'mod_action': {
         const { action: mod, target, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
         const preset = template ? this.sanctionTemplates().find((item) => item.id === template && item.action === mod) : undefined;
