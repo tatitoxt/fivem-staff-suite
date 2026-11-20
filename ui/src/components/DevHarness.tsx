@@ -20,7 +20,7 @@ export function DevHarness() {
       <button onClick={() => {
         const demo = [
           { kind: 'reply', text: 'Te respondieron el reporte #12.' },
-          { kind: 'report', text: 'Reporte nuevo #13 · Jugador · prioridad Urgente', priority: 'urgent' },
+          { kind: 'report', text: 'Reporte #13 · Jugador · prioridad Urgente', priority: 'urgent' },
           { kind: 'warn', text: 'Recibiste una advertencia del staff: lenguaje ofensivo por radio.' },
           { kind: 'announce', text: 'Reinicio del servidor en 10 minutos.' },
         ];
