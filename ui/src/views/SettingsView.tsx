@@ -1,4 +1,4 @@
-import { Info, Keyboard, Languages, Megaphone, Send } from 'lucide-react';
+import { Info, Keyboard, Languages, Megaphone, Send, ShieldBan } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Badge, Button, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
@@ -42,7 +42,7 @@ function AnnouncementForm() {
 }
 
 export function SettingsView() {
-  const { state, t, send } = useApp();
+  const { state, dispatch, t, send } = useApp();
   const cfg = state.config;
   const locales = cfg.locales?.length ? cfg.locales : ['es', 'en'];
   const exp = cfg.export;
@@ -51,6 +51,11 @@ export function SettingsView() {
       <ViewHeader title={t('ui_nav_settings')} subtitle={t('ui_settings_sub')} />
       <div className={cx(lay.viewBody, ui.scroll)}>
         <div className={v.settings}>
+          {!isLite && state.player?.capabilities?.includes('ban.view') && <div className={v.settingsTools}>
+            <Button size="small" onClick={() => dispatch({ type: 'banReview', open: true })}>
+              <ShieldBan size={15} aria-hidden />{t('ban_review_title')}
+            </Button>
+          </div>}
           {!isLite && state.player?.capabilities?.includes('staff.announce') && <AnnouncementForm />}
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Languages size={15} /></span><h2>{t('ui_set_language')}</h2></div>

@@ -1,4 +1,4 @@
-import { ArrowRight, CornerDownLeft, Languages, MessageSquarePlus, Power, RefreshCw, Search, ShieldCheck, X } from 'lucide-react';
+import { ArrowRight, CornerDownLeft, Languages, MessageSquarePlus, Power, RefreshCw, Search, ShieldBan, ShieldCheck, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { isLite } from '../edition';
 import { useApp } from '../store';
@@ -13,6 +13,7 @@ const norm = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').t
 export function useCommands(): Cmd[] {
   const { state, dispatch, t, can, send } = useApp();
   const nav = useNav();
+  const canViewBans = !isLite && state.player?.capabilities?.includes('ban.view');
   return useMemo(() => {
     const go = t('ui_cmd_views');
     const act = t('ui_cmd_actions');
@@ -28,11 +29,14 @@ export function useCommands(): Cmd[] {
     if (can('audit.verify')) {
       list.push({ id: 'verify', group: act, label: t('audit_verify'), icon: <ShieldCheck size={16} />, run: () => { dispatch({ type: 'view', view: 'audit' }); dispatch({ type: 'checking' }); void send('audit_verify'); } });
     }
+    if (canViewBans) {
+      list.push({ id: 'bans', group: act, label: t('ban_review_title'), icon: <ShieldBan size={16} />, run: () => dispatch({ type: 'banReview', open: true }) });
+    }
     if (other) list.push({ id: 'lang', group: act, label: t('ui_cmd_lang', { lang: t(`ui_lang_${other}`) }), icon: <Languages size={16} />, run: () => void send('set_locale', { locale: other }) });
     list.push({ id: 'refresh', group: act, label: t('ui_cmd_refresh'), icon: <RefreshCw size={16} />, run: () => void send('refresh') });
     list.push({ id: 'close', group: act, label: t('ui_cmd_close'), icon: <X size={16} />, hint: 'Esc', run: () => void send('close_ui') });
     return list;
-  }, [nav, state.config.locales, state.locale, state.duty, dispatch, t, can, send]);
+  }, [nav, state.config.locales, state.locale, state.duty, dispatch, t, can, canViewBans, send]);
 }
 
 export function CommandPalette() {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { CommandPalette } from './components/CommandPalette';
 import { DevHarness } from './components/DevHarness';
 import { RatePrompt } from './components/RatePrompt';
@@ -10,6 +10,7 @@ import { useMock } from './nui';
 import { isLite } from './edition';
 import { AppProvider, useApp } from './store';
 import { AuditView } from './views/AuditView';
+import { BanReview } from './views/BanReview';
 import { DashboardView } from './views/DashboardView';
 import { DutyView } from './views/DutyView';
 import { SettingsView } from './views/SettingsView';
@@ -69,7 +70,7 @@ function Shell() {
   }, [state.locale]);
 
   const nav = useNav();
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!state.visible) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -109,6 +110,9 @@ function Shell() {
               <div className={s.loading} aria-busy="true"><span className={s.spinner} aria-hidden /></div>
             )}
             {state.ready && state.palette && <CommandPalette />}
+            {!isLite && state.banReviewOpen && state.player?.capabilities?.includes('ban.view') && (
+              <BanReview onClose={() => dispatch({ type: 'banReview', open: false })} />
+            )}
             <Toasts />
           </div>
         </div>

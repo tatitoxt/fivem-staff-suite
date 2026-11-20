@@ -2,7 +2,7 @@ import { fmt } from '../format';
 import { version } from '../../package.json';
 import { sha256Hex } from './sha256';
 import type {
-  AuditEntry, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
+  AuditEntry, BanRow, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
 } from '../types';
 import { append, verify } from './chain';
 import { ALL_CAPS, ME, STAFF, TAMPER_SEQ, buildAlerts, buildAudit, buildStaff, buildTickets } from './demo';
@@ -51,6 +51,7 @@ export class MockBackend {
   locale = 'es';
   now = Date.now() / 1000;
   entries: AuditEntry[] = buildAudit(this.now);
+  bans: BanRow[] = [];
   tickets: Ticket[] = buildTickets(this.now);
   staff: StaffStat[] = buildStaff();
   alerts = buildAlerts(this.now);
@@ -192,8 +193,7 @@ export class MockBackend {
   handle<A extends OutgoingAction>(action: A, payload: OutgoingPayloads[A]): Promise<unknown> {
     return new Promise((resolve) => {
       setTimeout(() => {
-        this.dispatch(action, payload);
-        resolve({ ok: true });
+        resolve(this.dispatch(action, payload) ?? { ok: true });
       }, action === 'audit_verify' ? this.latency * 4 : this.latency);
     });
   }
@@ -219,6 +219,19 @@ export class MockBackend {
         this.record(ME, 'staff_announce', 'server', body);
         this.emitAudit(false);
         this.toast('info', `${this.s('announcement_title')} · ${body}`);
+        return { ok: true };
+      }
+      case 'ban_list': {
+        const { page } = p as OutgoingPayloads['ban_list'];
+        return { ok: true, data: { rows: this.bans.slice((page - 1) * 20, page * 20), hasMore: this.bans.length > page * 20 } };
+      }
+      case 'ban_revoke': {
+        const { id, reason } = p as OutgoingPayloads['ban_revoke'];
+        const ban = this.bans.find((row) => row.id === id && row.status === 'active');
+        if (!ban) return { ok: false, error: this.s('ban_not_active') };
+        ban.status = 'revoked';
+        this.record(ME, 'mod_unban', ban.identifier, reason, { ban_id: id });
+        this.emitAudit(false);
         return { ok: true };
       }
       case 'audit_verify': {
@@ -326,6 +339,11 @@ export class MockBackend {
           action: mod,
           ...(mod === 'ban' && { expires_at: duration === 0 ? 0 : Math.round(Date.now() / 1000) + (duration ?? 86400) }),
         });
+        if (mod === 'ban') {
+          const now = Math.round(Date.now() / 1000);
+          this.bans.unshift({ id: this.entries.length, identifier: target, actor: ME, reason: reason.trim(),
+            created_at: now, expires_at: duration === 0 ? 0 : now + (duration ?? 86400), status: 'active', aliases: 1 });
+        }
         this.emitAudit(false);
         this.toast('ok', this.s('ui_toast_mod_done', { action: this.s(`mod_${mod}`) }));
         return;

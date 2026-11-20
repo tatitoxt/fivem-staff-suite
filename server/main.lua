@@ -20,7 +20,9 @@ local store = tickets.new_store()
 local pmodel = perms.new()
 local dreg = duty.new_registry()
 local bans = {}
+local revokedBans = {}
 local pendingBans = {}
+local pendingRevocations = {}
 local entry_count = 0
 local ready = false
 local limiter = ratelimit.new()
@@ -39,22 +41,81 @@ end
 
 local storage = persist.new(Config, function()
   local state = snapshot()
-  if next(pendingBans) then
+  if next(pendingBans) or next(pendingRevocations) then
     state.bans = {}
     for id, ban in pairs(bans) do state.bans[id] = ban end
     for id, ban in pairs(pendingBans) do state.bans[id] = ban end
+    for id, ban in pairs(pendingRevocations) do state.bans[id] = ban end
   end
   return state
 end)
 
+-- Los bans anteriores a la migración se agrupan por la entrada original, incluidos
+-- aliases añadidos al reconectar. Sin procedencia verificable quedan solo para lectura.
+local function recoverBanIds()
+  local byAlias, previous = {}, {}
+  for _, entry in ipairs(chain.entries) do
+    local action = entry.action
+    if action == 'mod_ban' or action == 'mod_ban_failed' or action == 'mod_ban_extended' then
+      local ok, payload = pcall(json.decode, entry.payload)
+      if ok and type(payload) == 'table' and type(payload.identifiers) == 'table' then
+        if action == 'mod_ban' then
+          previous[entry.seq] = {}
+          for _, id in ipairs(payload.identifiers) do
+            previous[entry.seq][id] = byAlias[id]
+            byAlias[id] = { entry = entry, expires_at = payload.expires_at }
+          end
+        elseif action == 'mod_ban_extended' then
+          local original = byAlias[entry.target]
+          for _, id in ipairs(payload.identifiers) do byAlias[id] = original end
+        else
+          for _, id in ipairs(payload.identifiers) do
+            local current = byAlias[id]
+            if current and current.entry.target == entry.target and current.entry.actor == entry.actor then
+              byAlias[id] = previous[current.entry.seq][id]
+            end
+          end
+        end
+      end
+    end
+  end
+  for id, ban in pairs(bans) do
+    local known = byAlias[id]
+    if not ban.id and known and type(ban.created_at) == 'number'
+        and known.entry.actor == ban.actor and known.entry.reason == ban.reason
+        and known.expires_at == ban.expires_at and math.abs(known.entry.ts - ban.created_at) <= 1 then
+      ban.id = known.entry.seq
+    end
+  end
+end
+
+local function recoverRevokedBans()
+  local requests = {}
+  for _, entry in ipairs(chain.entries) do
+    if entry.action == 'mod_unban' or entry.action == 'mod_unban_failed' then
+      local ok, payload = pcall(json.decode, entry.payload)
+      if ok and type(payload) == 'table' then
+        if entry.action == 'mod_unban' and type(payload.review) == 'table' and type(payload.review.id) == 'number' then
+          requests[entry.seq] = payload.review
+        elseif entry.action == 'mod_unban_failed' and type(payload.request_seq) == 'number' then
+          requests[payload.request_seq] = nil
+        end
+      end
+    end
+  end
+  for _, row in pairs(requests) do revokedBans[row.id] = row end
+end
+
 local function restore(data)
   if not data then return end
+  local validChain = false
   if data.chain then
     chain.entries = data.chain.entries or {}
     -- El head sale de la última entrada: un head ausente o distinto encadenaría lo nuevo a otra rama.
     local last = chain.entries[#chain.entries]
     chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
     local verified, ok, at = pcall(audit.verify, chain)
+    validChain = verified and ok
     if not verified or not ok then print(t('console_chain_broken', { at = at or '?' })) end
   end
   if data.tickets then
@@ -66,7 +127,13 @@ local function restore(data)
   end
   if data.perms then pmodel = data.perms end
   if data.duty then dreg = data.duty end
-  if data.bans then bans = data.bans end
+  if data.bans then
+    bans = data.bans
+    if validChain then
+      recoverBanIds()
+      recoverRevokedBans()
+    end
+  end
   entry_count = #chain.entries
 end
 
@@ -218,6 +285,10 @@ local function banMessage(ban)
   return t('ban_expires', { reason = ban.reason, date = os.date('!%Y-%m-%d %H:%M UTC', ban.expires_at) })
 end
 
+local function activeBan(ban, now)
+  return ban and not ban.revoked_at and (ban.expires_at == 0 or ban.expires_at > now)
+end
+
 local function afterSanction(ctx, fn)
   return function(ok)
     if not ok then
@@ -283,7 +354,7 @@ local modActions = {
     local identifier = identifiers[1]
     if not identifier then return false, t('mod_invalid_target') end
     for _, id in ipairs(identifiers) do
-      if pendingBans[id] then return false, t('ban_pending') end
+      if pendingBans[id] or pendingRevocations[id] then return false, t('ban_pending') end
     end
     local seconds = m.duration
     if seconds == nil then seconds = Config.Moderation.ban_duration or 86400 end
@@ -291,7 +362,8 @@ local modActions = {
       return false, t('ban_invalid_duration')
     end
     local now = os.time()
-    local ban = { actor = m.actor, reason = m.reason, created_at = now, expires_at = seconds == 0 and 0 or now + seconds }
+    local ban = { id = #chain.entries + 1, actor = m.actor, reason = m.reason, created_at = now,
+      expires_at = seconds == 0 and 0 or now + seconds }
     for _, id in ipairs(identifiers) do pendingBans[id] = ban end
     m.payload.expires_at = ban.expires_at
     m.payload.identifier = identifier
@@ -346,14 +418,18 @@ AddEventHandler('playerConnecting', function(_, setKickReason)
   local identifiers = bridges.ban_identifiers(source, Config)
   for _, identifier in ipairs(identifiers) do
     local ban = bans[identifier]
-    if ban and (ban.expires_at == 0 or ban.expires_at > now) then
+    if activeBan(ban, now) then
       setKickReason(banMessage(ban))
       CancelEvent()
+      if pendingRevocations[identifier] then return end
       -- Evasión con cuentas nuevas: el ban se extiende a los identificadores que no tenía.
       local added = {}
       for _, id in ipairs(identifiers) do
         local old = bans[id]
-        if not old or (old.expires_at ~= 0 and old.expires_at <= now) then bans[id] = ban; added[#added + 1] = id end
+        if not pendingBans[id] and not pendingRevocations[id] and not activeBan(old, now) then
+          bans[id] = ban
+          added[#added + 1] = id
+        end
       end
       if #added > 0 then
         record('mod_ban_extended', 'system', identifier, ban.reason, { identifiers = added, expires_at = ban.expires_at })
@@ -489,6 +565,98 @@ RegisterNetEvent('staff_suite:announce', function(body, req)
     if saved then TriggerClientEvent('staff_suite:announcement', -1, message) end
     if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
       reply(saved, not saved and t('announcement_failed') or nil)
+    end
+  end)
+end)
+
+local function banRequest(src, name, req, cap, rate)
+  req = positiveInteger(req)
+  if not req then return end
+  local function reply(ok, errorMessage, data)
+    TriggerClientEvent(name .. 'Result', src, { req = req, ok = ok, error = errorMessage, data = data })
+  end
+  if not allowRate(src, name, rate) then reply(false, t('rate_limited')); return end
+  if not ready then reply(false, t('persistence_starting')); return end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'ban.view') or not can(player, cap) then
+    reply(false, t('no_permission'))
+    return
+  end
+  return player, reply
+end
+
+RegisterNetEvent('staff_suite:banList', function(page, req)
+  local player, reply = banRequest(source, 'staff_suite:banList', req, 'ban.view', { burst = 5, per_second = 1 })
+  if not player then return end
+  page = positiveInteger(page)
+  if not page then return reply(false, t('ban_review_failed')) end
+
+  local now, rows, groups = os.time(), {}, {}
+  for identifier, ban in pairs(bans) do
+    if not (ban.id and revokedBans[ban.id]) then
+      local group = ban.id and groups[ban.id]
+      if not group then
+        local status = ban.revoked_at and 'revoked' or (activeBan(ban, now) and 'active' or 'expired')
+        group = { id = ban.id, identifier = identifier, actor = ban.actor, reason = ban.reason,
+          created_at = ban.created_at, expires_at = ban.expires_at, status = status, aliases = 0 }
+        if ban.id then groups[ban.id] = group end
+        rows[#rows + 1] = group
+      end
+      group.aliases = group.aliases + 1
+      if identifier < group.identifier then group.identifier = identifier end
+    end
+  end
+  for _, row in pairs(revokedBans) do rows[#rows + 1] = row end
+  table.sort(rows, function(a, b)
+    if a.created_at ~= b.created_at then return a.created_at > b.created_at end
+    if a.identifier ~= b.identifier then return a.identifier < b.identifier end
+    return (a.id or 0) > (b.id or 0)
+  end)
+  local result, pageSize = {}, 20
+  for i = (page - 1) * pageSize + 1, math.min(page * pageSize, #rows) do result[#result + 1] = rows[i] end
+  record('ban_list_view', player.identifier, 'server', '', { page = page })
+  return reply(true, nil, { rows = result, hasMore = #rows > page * pageSize })
+end)
+
+RegisterNetEvent('staff_suite:banRevoke', function(id, reason, req)
+  local src = source
+  local player, reply = banRequest(src, 'staff_suite:banRevoke', req, 'ban.revoke', { burst = 2, per_second = 1 / 10 })
+  if not player then return end
+  id = positiveInteger(id)
+  if not id then return reply(false, t('ban_review_failed')) end
+  local why, err = cleanText(reason, limit('reason') or 300)
+  if not why or why == '' then return reply(false, err or t('reason_required')) end
+
+  local aliases, now = {}, os.time()
+  for identifier, ban in pairs(bans) do
+    if ban.id == id and activeBan(ban, now) then
+      if pendingRevocations[identifier] or pendingBans[identifier] then return reply(false, t('ban_pending')) end
+      aliases[#aliases + 1] = identifier
+    end
+  end
+  if #aliases == 0 then return reply(false, t('ban_not_active')) end
+  table.sort(aliases)
+  for _, identifier in ipairs(aliases) do
+    local ban = bans[identifier]
+    pendingRevocations[identifier] = { id = ban.id, actor = ban.actor, reason = ban.reason, created_at = ban.created_at,
+      expires_at = ban.expires_at, revoked_at = now }
+  end
+  local original, requestSeq = bans[aliases[1]], #chain.entries + 1
+  local review = { id = id, identifier = aliases[1], actor = original.actor, reason = original.reason,
+    created_at = original.created_at, expires_at = original.expires_at, status = 'revoked', aliases = #aliases }
+  local payload = { ban_id = id, identifiers = aliases, review = review }
+  record('mod_unban', player.identifier, aliases[1], why, payload, function(saved)
+    for _, identifier in ipairs(aliases) do
+      if saved then bans[identifier] = pendingRevocations[identifier] end
+      pendingRevocations[identifier] = nil
+    end
+    if saved then
+      revokedBans[id] = review
+    else
+      record('mod_unban_failed', player.identifier, aliases[1], why, { ban_id = id, request_seq = requestSeq })
+    end
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+      reply(saved, not saved and t('mod_save_failed') or nil)
     end
   end)
 end)

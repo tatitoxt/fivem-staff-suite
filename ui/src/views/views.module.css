@@ -296,6 +296,11 @@
 
 /* ---------- Ajustes ---------- */
 .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); align-content: start; padding-right: var(--s1); }
+.settingsTools { grid-column: 1 / -1; display: flex; gap: var(--s2); padding-bottom: var(--s2); border-bottom: 1px solid var(--line); }
+.banList { max-height: min(46vh, 360px); overflow-y: auto; padding-right: var(--s1); }
+.banItem { display: grid; justify-items: start; gap: var(--s1); padding: var(--s2) 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.banLine { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--s2); }
+.banReason { display: grid; width: 100%; gap: var(--s2); }
 .setCard { padding: var(--s4); display: flex; flex-direction: column; gap: var(--s3); }
 .setHead { display: flex; align-items: center; gap: 10px; }
 .setHead h2 { font-size: 14px; }

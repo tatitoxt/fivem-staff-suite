@@ -51,6 +51,8 @@ El panel de moderación del ticket actúa sobre quien hizo el reporte. Congelar 
 - Spectate requiere que el objetivo esté en la misma instancia. Usá Retroceso para salir.
 - Revive usa la integración médica del framework si está disponible, con una implementación standalone para los demás casos.
 
+En Core, abrí **Lista de baneos** desde **Ajustes** o con **Ctrl+K** para consultar quién aplicó cada baneo, su estado, su vigencia y cuántos identificadores abarca. `ban.view` habilita la consulta desde admin. `ban.revoke` habilita la revocación con motivo desde senior admin. Un baneo anterior se puede revocar si el historial de auditoría permite identificar sus aliases.
+
 ## Idioma
 
 El idioma inicial es `Config.Locale`. Desde Ajustes cada jugador lo cambia solo para su panel; no se guarda entre sesiones. Los textos salen de `locales/es.lua` y `locales/en.lua` (claves `ui_*`), así que se pueden editar sin recompilar.

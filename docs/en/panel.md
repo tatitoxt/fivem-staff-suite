@@ -51,6 +51,8 @@ The ticket's moderation rail acts on the player who filed the report. Freeze and
 - Spectate requires the target to be in the same instance. Press Backspace to exit.
 - Revive uses the framework's medical integration when available, with a standalone implementation for other setups.
 
+In Core, open **Ban list** from **Settings** or with **Ctrl+K** to see who issued each ban, its status, expiry and the number of linked identifiers. `ban.view` grants access to admins and above. `ban.revoke` allows senior admins and above to revoke a ban with a reason. Legacy bans can be revoked when the audit history identifies their aliases.
+
 ## Language
 
 The initial language is `Config.Locale`. From Settings each player changes it for their own panel only; it is not saved between sessions. Strings come from `locales/es.lua` and `locales/en.lua` (`ui_*` keys), so you can edit them without rebuilding.

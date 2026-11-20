@@ -203,7 +203,7 @@ local function ticketResult(result)
     local pending = pendingRequests[res.req]
     if not pending or pending.result ~= result then return end
     pendingRequests[res.req] = nil
-    pending.cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil })
+    pending.cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil, data = res.data })
     if res.ok == true and pending.afterSuccess then pending.afterSuccess() end
   end)
 end
@@ -222,6 +222,14 @@ if not lite then
   ticketResult('staff_suite:announceResult')
   ticketRequest('announce', 'staff_suite:announceResult', 'announcement_failed', function(d, req)
     TriggerServerEvent('staff_suite:announce', d.body, req)
+  end)
+  ticketResult('staff_suite:banListResult')
+  ticketResult('staff_suite:banRevokeResult')
+  ticketRequest('ban_list', 'staff_suite:banListResult', 'ban_review_failed', function(d, req)
+    TriggerServerEvent('staff_suite:banList', d.page, req)
+  end)
+  ticketRequest('ban_revoke', 'staff_suite:banRevokeResult', 'ban_review_failed', function(d, req)
+    TriggerServerEvent('staff_suite:banRevoke', d.id, d.reason, req)
   end)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
