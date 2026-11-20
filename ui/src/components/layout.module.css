@@ -201,6 +201,7 @@
   animation: toastIn var(--dur-in) var(--ease);
   pointer-events: auto;
   max-width: 560px;
+  overflow-wrap: anywhere;
 }
 .toastDot {
   width: 9px;

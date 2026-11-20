@@ -180,7 +180,7 @@ export type IncomingMessage =
   | { type: 'freezeState'; payload: { target: string; frozen: boolean } }
   | { type: 'dashboard'; payload: DashboardPayload }
   | { type: 'duty'; payload: DutyPayload }
-  | { type: 'toast'; payload: { kind: ToastKind; text: string } }
+  | { type: 'toast'; payload: { kind: ToastKind; text: string; outside?: boolean } }
   | { type: 'rate'; payload: { id: number } }
   | { type: 'evidence'; payload: EvidencePayload }
   | { type: 'open'; payload?: { view?: ViewId } }
@@ -198,6 +198,7 @@ export interface OutgoingPayloads {
   ticket_reopen: { id: number };
   ticket_message: { id: number; body: string; internal: boolean };
   ticket_export: { id: number };
+  staff_chat: { body: string };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };

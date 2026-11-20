@@ -7,6 +7,7 @@ export const ME = 'Fausto';
 export const ALL_CAPS = [
   'report.view', 'report.claim', 'report.resolve', 'report.message',
   'report.export',
+  'staff.chat',
   'mod.goto', 'mod.bring', 'mod.spectate', 'mod.freeze', 'mod.heal',
   'mod.revive', 'mod.kick', 'mod.warn', 'mod.ban',
   'ban.view', 'ban.revoke',

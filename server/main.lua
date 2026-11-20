@@ -519,6 +519,40 @@ command(Config.Commands.audit, function(src)
 end)
 
 -- ===== NUI / eventos de panel =====
+RegisterNetEvent('staff_suite:staffChat', function(body, req)
+  local src = source
+  req = positiveInteger(req)
+  if not req then return end
+  local function reply(ok, err)
+    TriggerClientEvent('staff_suite:staffChatResult', src, { req = req, ok = ok, error = err })
+  end
+  if not allowRate(src, 'staff_suite:staffChat') then return reply(false, t('rate_limited')) end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'staff.chat') then return reply(false, t('no_permission')) end
+  local text, err = cleanText(body, limit('message_body') or 1000)
+  if not text or text == '' then return reply(false, err or t('staff_chat_empty')) end
+  -- El registro confirma el envío sin dar acceso al contenido a través de audit.view.
+  local requestSeq = #chain.entries + 1
+  record('staff_chat_request', player.identifier, 'staff', '', { bytes = #text }, function(saved)
+    local recipients = 0
+    if saved then
+      for _, target in ipairs(GetPlayers()) do
+        local recipient = getPlayer(target)
+        if recipient.identifier and can(recipient, 'staff.chat') then
+          TriggerClientEvent('staff_suite:staffChatMessage', tonumber(target), player.name, text)
+          recipients = recipients + 1
+        end
+      end
+    end
+    record('staff_chat_result', player.identifier, 'staff', '',
+      { request_seq = requestSeq, ok = saved == true, recipients = recipients })
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+      reply(saved == true, not saved and t('mod_save_failed') or nil)
+    end
+  end)
+end)
+
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
     if not allowRate(source, name) then return end

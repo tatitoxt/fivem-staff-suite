@@ -1,4 +1,4 @@
-import { Info, Keyboard, Languages, Megaphone, Send, ShieldBan } from 'lucide-react';
+import { Info, Keyboard, Languages, Megaphone, MessageSquare, Send, ShieldBan } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Badge, Button, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
@@ -46,15 +46,20 @@ export function SettingsView() {
   const cfg = state.config;
   const locales = cfg.locales?.length ? cfg.locales : ['es', 'en'];
   const exp = cfg.export;
+  const canViewBans = !isLite && state.player?.capabilities?.includes('ban.view');
+  const canChat = !isLite && state.player?.capabilities?.includes('staff.chat');
   return (
     <main className={lay.main}>
       <ViewHeader title={t('ui_nav_settings')} subtitle={t('ui_settings_sub')} />
       <div className={cx(lay.viewBody, ui.scroll)}>
         <div className={v.settings}>
-          {!isLite && state.player?.capabilities?.includes('ban.view') && <div className={v.settingsTools}>
-            <Button size="small" onClick={() => dispatch({ type: 'banReview', open: true })}>
+          {(canViewBans || canChat) && <div className={v.settingsTools}>
+            {canViewBans && <Button size="small" onClick={() => dispatch({ type: 'staffDialog', dialog: 'ban.view' })}>
               <ShieldBan size={15} aria-hidden />{t('ban_review_title')}
-            </Button>
+            </Button>}
+            {canChat && <Button size="small" onClick={() => dispatch({ type: 'staffDialog', dialog: 'staff.chat' })}>
+              <MessageSquare size={15} aria-hidden />{t('ui_staff_chat')}
+            </Button>}
           </div>}
           {!isLite && state.player?.capabilities?.includes('staff.announce') && <AnnouncementForm />}
           <section className={cx(ui.card, v.setCard)}>

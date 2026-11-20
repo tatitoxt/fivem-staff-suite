@@ -299,6 +299,38 @@ function T.test_server_boots_from_manifest_without_reading_lua()
   assert(not ok and err:find('core.no_registrado', 1, true) and #s.reads == 2)
 end
 
+function T.test_staff_chat_checks_sender_and_recipients_and_saves_before_delivery()
+  local s = serverSandbox()
+  local result, message = 'staff_suite:staffChatResult', 'staff_suite:staffChatMessage'
+  local function send(body, req) s.event('staffChat', body, req) end
+  send('Hola', 1)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('no_permission'))
+  s.ace.support = true
+  local model = s.api.GetState().perms
+  perms.revoke(model, 'license:account19', 'staff.chat')
+  s.env.Config.Limits.message_body = 8
+  send('   ', 2)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('staff_chat_empty'))
+  send(string.rep('ñ', 5), 3)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('input_too_long', { max = 8 }))
+  s.failWrites = true
+  send('Falla', 4)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('mod_save_failed') and not s.sent[message])
+  s.failWrites = false
+  send(' Hola ', 5)
+  assert(s.sent[result].ok and s.recipients[17][message] and s.recipients[18][message] and not s.recipients[19])
+  s.api.Flush()
+  local entries = s.files[s.env.Config.JsonFile].chain.entries
+  local requestEntry, resultEntry = entries[#entries - 1], entries[#entries]
+  local requestData, resultData = s.payloads[tonumber(requestEntry.payload)], s.payloads[tonumber(resultEntry.payload)]
+  assert(requestEntry.action == 'staff_chat_request' and requestData.bytes == 4 and requestData.body == nil)
+  assert(resultEntry.action == 'staff_chat_result' and resultData.request_seq == requestEntry.seq and resultData.recipients == 2)
+  local failed = s.payloads[tonumber(entries[#entries - 2].payload)]
+  assert(entries[#entries - 2].action == 'staff_chat_result' and not failed.ok and failed.recipients == 0)
+  send('Otra', 6)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
+end
+
 function T.test_server_enforces_mapped_capabilities_and_overrides()
   local server = serverSandbox()
   local ace, commands, api, sent = server.ace, server.commands, server.api, server.sent

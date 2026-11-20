@@ -79,7 +79,7 @@ export function BanReview({ onClose }: { onClose: () => void }) {
                 {ban.status === 'active' && !ban.id && <p className={v.setHint}>{t('ban_review_legacy')}</p>}
                 {canRevoke && ban.status === 'active' && ban.id && (
                   revoke === ban.id ? (
-                    <form className={v.banReason} onSubmit={submit}>
+                    <form className={v.actionForm} onSubmit={submit}>
                       <input className={ui.input} aria-label={t('ban_review_reason')} value={reason} disabled={busy}
                         onChange={(event) => setReason(event.target.value)} />
                       <LimitHint text={reason} max={max} />

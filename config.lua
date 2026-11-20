@@ -77,6 +77,7 @@ Config.RateLimit = {
   default = { burst = 10, per_second = 2 },
   ['staff_suite:ticketCreate'] = { burst = 5, per_second = 1 / 60 },
   ['staff_suite:ticketMessage'] = { burst = 10, per_second = 1 },
+  ['staff_suite:staffChat'] = { burst = 5, per_second = 0.5 },
   ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
   ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
   ['staff_suite:ticketEvidence'] = { burst = 3, per_second = 1 / 20 },

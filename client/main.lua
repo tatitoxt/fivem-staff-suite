@@ -236,6 +236,17 @@ if not lite then
   ticketRequest('ticket_export', 'staff_suite:ticketExportResult', 'ticket_export_unconfirmed', function(d, req)
     TriggerServerEvent('staff_suite:ticketExport', d.id, req)
   end, nil, 40000)
+  ticketResult('staff_suite:staffChatResult')
+  ticketRequest('staff_chat', 'staff_suite:staffChatResult', 'staff_chat_failed', function(d, req)
+    TriggerServerEvent('staff_suite:staffChat', d.body, req)
+  end)
+  RegisterNetEvent('staff_suite:staffChatMessage', function(name, body)
+    if source ~= 65535 or type(name) ~= 'string' or type(body) ~= 'string' then return end
+    local label = ('%s · %s'):format(t('ui_staff_chat'), name)
+    local chat = GetResourceState('chat') == 'started'
+    if chat then TriggerEvent('chat:addMessage', { args = { label, body } }) end
+    if panelOpen or not chat then nui('toast', { kind = 'info', text = label .. ': ' .. body, outside = not chat }) end
+  end)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
     if not panelOpen then SetNuiFocus(false, false) end
