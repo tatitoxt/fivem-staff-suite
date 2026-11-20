@@ -24,6 +24,7 @@ The server only sends the data the player's capabilities allow (see [Ranks and p
 | Reports | `report.view` | Ticket queue, ticket chat, internal notes and the moderation rail. |
 | My reports | none | Your open reports and their public conversations with staff. |
 | Dashboard | `staff.analytics` | KPIs (open, resolved, response time, staff on duty), leaderboard and alerts, such as a broken audit chain. |
+| Players | `player.online.view` | ID, name, ping and playtime. Search by name or ID. Staff with `report.view` also see open ticket counts. Quick actions use their existing moderation permissions. |
 | Duty | `staff.duty` | Button to go on or off duty (same as `/duty`), your hours and sessions, and the team's status. |
 | Settings | none | Panel language (ES/EN), open key, export status (webhook, file, anchor every N entries), version, your rank and persistence. In Core, `staff.chat` enables staff chat. |
 

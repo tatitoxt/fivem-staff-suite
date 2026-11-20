@@ -24,6 +24,7 @@ El server solo manda los datos que permiten las capabilities del jugador (ver [R
 | Reportes | `report.view` | Cola de tickets, chat del ticket, notas internas y panel de moderación. |
 | Mis reportes | ninguna | Tus reportes abiertos y sus conversaciones públicas con el staff. |
 | Dashboard | `staff.analytics` | KPIs (abiertos, resueltos, tiempo de respuesta, staff en servicio), leaderboard y alertas, como la de cadena de auditoría rota. |
+| Jugadores | `player.online.view` | ID, nombre, ping y tiempo conectado. Buscá por nombre o ID. Con `report.view` también muestra los tickets abiertos. Las acciones rápidas conservan sus permisos de moderación. |
 | Servicio | `staff.duty` | Botón para entrar o salir de servicio (equivale a `/duty`), tus horas y sesiones, y el estado del equipo. |
 | Ajustes | ninguna | Idioma del panel (ES/EN), tecla para abrirlo, estado del export (webhook, archivo, ancla cada N entradas), versión, tu rango y la persistencia. En Core, `staff.chat` habilita el chat de staff. |
 

@@ -240,6 +240,7 @@ local function serverSandbox(options)
     return players
   end
   env.GetPlayerName = function(src) return online[tostring(src)] and 'Alex RP' end
+  env.GetPlayerPing = function(src) return src * 2 end
   server = {
     env = env, ace = ace, api = api, sent = sent, recipients = recipients,
     event = function(name, ...) return events['staff_suite:' .. name](...) end,
@@ -417,6 +418,41 @@ function T.test_profile_playtime_counts_live_and_restored_sessions_without_offli
   assert(s.sent[view].data.played_seconds == 85)
   s.hook('onResourceStop', 'staff_suite')
   assert(s.files[s.env.Config.JsonFile].playtime[target] == 85000 and s.api.Verify())
+end
+
+function T.test_online_players_are_authorized_audited_and_bound_to_the_current_session()
+  local s = serverSandbox()
+  local result = 'staff_suite:onlinePlayersResult'
+  s.event('onlinePlayers', 0)
+  assert(not s.sent[result])
+  s.event('onlinePlayers', 1)
+  assert(not s.sent[result].ok and not s.sent[result].data)
+  s.ace.mod = true
+  s.api.CreateTicket({ reporter = 'license:account18', description = 'Reporte abierto' })
+  s.now = s.now + 60
+  s.event('onlinePlayers', 2)
+  assert(s.sent[result].ok and #s.sent[result].data == 3)
+  local target
+  for _, row in ipairs(s.sent[result].data) do
+    if row.id == 18 then target = row end
+  end
+  assert(target.ping == 36 and target.played_seconds == 60 and target.tickets == 1 and not target.identifier)
+  assert(s.api.GetChain()[2].action == 'player_online_view')
+  s.event('onlinePlayers', 3)
+  s.event('onlinePlayers', 4)
+  assert(not s.sent[result].ok and #s.api.GetChain() == 2)
+
+  local ref = { id = target.id, key = target.key }
+  s.event('modAction', 'goto', ref)
+  assert(s.sent['staff_suite:tp'].x == 180 and s.api.GetChain()[3].target == 'license:account18')
+  s.env.source = 18
+  s.hook('playerDropped')
+  s.identifiers['18'] = 'license:replacement'
+  s.hook('playerJoining')
+  s.env.source = 17
+  s.event('modAction', 'goto', ref)
+  assert(s.recipients[17]['staff_suite:notify'] == s.env.Locale.es.online_player_changed)
+  assert(#s.api.GetChain() == 3 and s.api.Verify())
 end
 
 function T.test_playtime_schedules_one_checkpoint_while_players_are_connected()

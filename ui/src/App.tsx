@@ -18,6 +18,7 @@ import { SettingsView } from './views/SettingsView';
 import { StaffChatComposer } from './views/StaffChatComposer';
 import { TicketsView } from './views/TicketsView';
 import { MyReportsView } from './views/MyReportsView';
+import { OnlinePlayersView } from './views/OnlinePlayersView';
 
 function CurrentView() {
   const { state, dispatch, t, send } = useApp();
@@ -52,6 +53,7 @@ function CurrentView() {
     case 'myReports': return <MyReportsView />;
     case 'dashboard': return isLite ? null : <DashboardView />;
     case 'duty': return isLite ? null : <DutyView />;
+    case 'players': return isLite ? null : <OnlinePlayersView />;
     case 'settings': return <SettingsView />;
   }
 }

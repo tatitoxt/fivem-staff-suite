@@ -29,6 +29,7 @@ local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
 local waypointRequests = {}
+local onlineRefs, onlineViewedAt, onlineRefSeq = {}, {}, 0
 local profileHistory = {}
 local profileAuditIntact = true
 local playtime, activePlaytime, playtimeSources = {}, {}, {}
@@ -599,7 +600,17 @@ local function doMod(src, action, tgt, reason, duration, templateId)
     if not template or template.action ~= action then return false, t('sanction_template_invalid') end
     reason, duration = template.reason, template.duration
   end
-  tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
+  if type(tgt) == 'table' then
+    if not can(player, 'player.online.view') then return false, t('no_permission') end
+    local id = positiveInteger(tgt.id)
+    local ref = onlineRefs[id]
+    if not ref or ref.key ~= tgt.key or ref.identifier ~= getPlayer(id).identifier then
+      return false, t('online_player_changed')
+    end
+    tgt = id
+  else
+    tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
+  end
   if not tgt or not GetPlayerName(tgt) then
     return false, t('mod_invalid_target')
   end
@@ -780,12 +791,16 @@ RegisterNetEvent('staff_suite:staffChat', function(body, req)
   end)
 end)
 
+local function playedSeconds(identifier, now)
+  local session = activePlaytime[identifier]
+  local elapsed = session and math.max(now - session.since, 0) or 0
+  return ((playtime[identifier] or 0) + elapsed) // 1000
+end
+
 local function recentPlayerProfile(identifier)
   local profile = profileHistory[identifier] or {}
-  local session = activePlaytime[identifier]
-  local elapsed = session and math.max(GetGameTimer() - session.since, 0) or 0
   local result = { warns = profile.warns or {}, bans = profile.bans or {}, notes = profile.notes or {}, tickets = {},
-    played_seconds = ((playtime[identifier] or 0) + elapsed) // 1000 }
+    played_seconds = playedSeconds(identifier, GetGameTimer()) }
   -- Los IDs de ticket son monotónicos y el almacenamiento puede tener huecos.
   for _, ticket in pairs(store.tickets) do
     if ticket.reporter == identifier then
@@ -835,6 +850,49 @@ profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResu
       reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
     end)
   end)
+
+RegisterNetEvent('staff_suite:onlinePlayers', function(req)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, errorKey, rows)
+    TriggerClientEvent('staff_suite:onlinePlayersResult', src, { req = req, ok = ok,
+      error = errorKey and t(errorKey), data = rows })
+  end
+  if not allowRate(src, 'staff_suite:onlinePlayers') then return reply(false, 'rate_limited') end
+  if not ready then return reply(false, 'persistence_starting') end
+  local viewer = getPlayer(src)
+  if not viewer.identifier or not can(viewer, 'player.online.view') then return reply(false, 'no_permission') end
+  local counts = {}
+  local canSeeTickets = can(viewer, 'report.view')
+  if canSeeTickets then
+    for _, ticket in pairs(store.tickets) do
+      if tickets.is_open(ticket) then counts[ticket.reporter] = (counts[ticket.reporter] or 0) + 1 end
+    end
+  end
+  local rows, now = {}, GetGameTimer()
+  for _, entry in ipairs(GetPlayers()) do
+    local id = tonumber(entry)
+    local identifier = playtimeSources[id]
+    local ref = onlineRefs[id]
+    if identifier and (not ref or ref.identifier ~= identifier) then
+      onlineRefSeq = onlineRefSeq + 1
+      ref = { identifier = identifier, key = onlineRefSeq }
+      onlineRefs[id] = ref
+    end
+    rows[#rows + 1] = { id = id, name = GetPlayerName(id) or tostring(id), ping = GetPlayerPing(id), self = id == src,
+      key = identifier and ref.key or nil,
+      played_seconds = identifier and playedSeconds(identifier, now) or 0,
+      tickets = canSeeTickets and (counts[identifier] or 0) or nil }
+  end
+  local ts = os.time()
+  -- Limita la auditoría de las lecturas repetidas por la actualización del panel.
+  if not onlineViewedAt[src] or ts - onlineViewedAt[src] >= 300 then
+    onlineViewedAt[src] = ts
+    record('player_online_view', viewer.identifier, '', '', { count = #rows })
+  end
+  reply(true, nil, rows)
+end)
 
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
@@ -1410,6 +1468,7 @@ end)
 
 AddEventHandler('playerDropped', function()
   local src = tonumber(source)
+  onlineRefs[src], onlineViewedAt[src] = nil, nil
   local request = waypointRequests[src]
   if request then
     waypointRequests[src] = nil

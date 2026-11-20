@@ -227,11 +227,12 @@ export interface OutgoingPayloads {
   ticket_message: { id: number; body: string; internal: boolean };
   ticket_export: { id: number };
   staff_chat: { body: string };
+  online_players: Record<string, never>;
   player_profile: { id: number };
   player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
-  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number; template?: string };
+  mod_action: { action: ModAction; target: string | OnlinePlayerRef; reason: string; ticket?: number; duration?: number; template?: string };
   announce: { body: string };
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
@@ -246,6 +247,17 @@ export interface OutgoingPayloads {
 
 export type OutgoingAction = keyof OutgoingPayloads;
 
+export interface OnlinePlayerRef { id: number; key: number }
+export interface OnlinePlayer {
+  id: number;
+  key?: number;
+  self?: boolean;
+  name: string;
+  ping: number;
+  played_seconds: number;
+  tickets?: number;
+}
+
 export interface BanRow {
   id?: number;
   identifier: string;
@@ -259,4 +271,4 @@ export interface BanRow {
 
 export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
 
-export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'settings';
+export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'players' | 'settings';
