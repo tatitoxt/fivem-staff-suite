@@ -112,6 +112,23 @@ describe('NUI rediseño', () => {
     expect(screen.queryByPlaceholderText(/Respondé al staff/)).not.toBeInTheDocument();
   });
 
+  it('avisos con el panel cerrado: arriba a la derecha, máximo 3 y se van solos', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('chain-status')).not.toBeInTheDocument());
+    act(() => {
+      for (let i = 1; i <= 4; i++) {
+        window.dispatchEvent(new MessageEvent('message', { data: { type: 'notice', payload: { kind: 'reply', text: `Aviso ${i}`, duration: 300, max: 3 } } }));
+      }
+    });
+    const region = await screen.findByRole('status', { name: 'Avisos' });
+    expect(within(region).getAllByText(/^Aviso \d$/)).toHaveLength(3);
+    expect(within(region).queryByText('Aviso 1')).not.toBeInTheDocument();
+    expect(within(region).getAllByText('Respuesta del staff')).toHaveLength(3);
+    await waitFor(() => expect(screen.queryByRole('status', { name: 'Avisos' })).not.toBeInTheDocument(), { timeout: 2000 });
+  });
+
   it('dailySeries agrupa por día terminando hoy', () => {
     const now = 10 * 86400 + 3600;
     expect(dailySeries([now, now - 60, now - 86400, now - 8 * 86400], 7, now)).toEqual([0, 0, 0, 0, 0, 1, 2]);

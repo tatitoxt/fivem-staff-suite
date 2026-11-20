@@ -263,6 +263,26 @@ local function stopPlaytime(src)
   end
 end
 
+local function checkpointPlaytime()
+  local now, dirty = GetGameTimer(), false
+  for identifier, session in pairs(activePlaytime) do
+    if accountPlaytime(identifier, session, now) then dirty = true end
+  end
+  if dirty then storage.save() end
+end
+
+local playtimeCheckpointScheduled = false
+local function schedulePlaytimeCheckpoint()
+  if playtimeCheckpointScheduled then return end
+  playtimeCheckpointScheduled = true
+  SetTimeout(60000, function()
+    playtimeCheckpointScheduled = false
+    if not next(activePlaytime) then return end
+    checkpointPlaytime()
+    schedulePlaytimeCheckpoint()
+  end)
+end
+
 local function startPlaytime(src)
   src = tonumber(src)
   local player = getPlayer(src)
@@ -277,14 +297,7 @@ local function startPlaytime(src)
     activePlaytime[identifier] = session
   end
   session.connections = session.connections + 1
-end
-
-local function checkpointPlaytime()
-  local now, dirty = GetGameTimer(), false
-  for identifier, session in pairs(activePlaytime) do
-    if accountPlaytime(identifier, session, now) then dirty = true end
-  end
-  if dirty then storage.save() end
+  schedulePlaytimeCheckpoint()
 end
 
 local function actorId(player, src)
@@ -386,7 +399,7 @@ local function updateReporter(ticket, notify)
   local src = findPlayerByIdentifier(ticket.reporter)
   if not src then return end
   sendReporterTickets(src, ticket.reporter)
-  if notify then TriggerClientEvent('staff_suite:notify', src, t('ticket_staff_reply', { id = ticket.id })) end
+  if notify then TriggerClientEvent('staff_suite:notify', src, t('ticket_staff_reply', { id = ticket.id }), { kind = 'reply' }) end
 end
 
 -- ===== Tickets: analytics, rating y evidencia =====
@@ -478,7 +491,7 @@ local modActions = {
   end },
   warn = { protected = true, reason = true, run = function(m)
     m.onSaved = afterSanction(m, function()
-      TriggerClientEvent('staff_suite:notify', m.tgt, t('warn_received', { reason = m.reason }))
+      TriggerClientEvent('staff_suite:notify', m.tgt, t('warn_received', { reason = m.reason }), { kind = 'warn' })
     end)
   end },
   ban = { protected = true, reason = true, run = function(m)
@@ -684,6 +697,14 @@ local function createReport(src, category, priority, body)
   })
   record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = category, priority = priority })
   TriggerClientEvent('staff_suite:notify', src, t('report_created', { id = ticket.id }))
+  local catKey, priKey = 'cat_' .. category, 'pri_' .. priority
+  local notice = t('report_new_staff', { id = ticket.id, category = t(catKey), priority = t(priKey) })
+  for _, candidate in ipairs(GetPlayers()) do
+    local staff = tonumber(candidate)
+    if staff ~= src and can(getPlayer(staff), 'report.view') then
+      TriggerClientEvent('staff_suite:notify', staff, notice, { kind = 'report', priority = priority })
+    end
+  end
   sendTickets(src, player)
   sendReporterTickets(src, player.identifier)
   return true, nil, ticket
@@ -1378,12 +1399,6 @@ CreateThread(function()
     restore(data)
     ready = true
     for _, src in ipairs(GetPlayers()) do startPlaytime(src) end
-    CreateThread(function()
-      while true do
-        Wait(60000)
-        checkpointPlaytime()
-      end
-    end)
     capture.install(Config, bridges.select, getIdentifier, record)
     print(t('console_started', { n = #chain.entries, persistence = backend, framework = bridges.select(Config) }))
   end)
