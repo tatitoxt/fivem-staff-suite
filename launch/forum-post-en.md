@@ -41,7 +41,7 @@ Players report with `/report`. Your staff opens the panel with F6, claims the ti
 
 ## Performance
 * Client resmon: [RESMON PENDIENTE]
-* Tested on a real FXServer: 29/29 E2E checks.
+* Tested on a real FXServer: 32/32 E2E checks.
 * No per-tick loops on the server.
 
 ## Installation

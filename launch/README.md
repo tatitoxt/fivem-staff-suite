@@ -62,7 +62,7 @@ Cada feature mencionada en estos materiales sale de esta tabla. Lo que no esté 
 | Dato | Valor | Fuente |
 |---|---|---|
 | Tests unitarios | 83 Lua + 18 de la NUI | `lua5.4 tests/run_all.lua`, `cd ui && npm test` |
-| E2E en FXServer real | Core 30/30 · Lite 29/29 | `scripts/e2e-fxserver.sh` (dato de la corrida informada por el equipo) |
+| E2E en FXServer real | Core 30/30 · Lite 32/32 | `scripts/e2e-fxserver.sh` (dato de la corrida informada por el equipo) |
 | Costo por llamada (server) | `Record` 0.09 ms · `GetState` 0.30 ms | métricas del E2E; no es costo por tick: el server no tiene loops por tick |
 | resmon de cliente | **[RESMON PENDIENTE]** | medir a mano |
 | Líneas | Core ~2.400 Lua sin tests ni locales + panel React · Lite ~700 Lua + panel | recontar al empaquetar |
