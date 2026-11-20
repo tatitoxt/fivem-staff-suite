@@ -331,6 +331,88 @@ function T.test_staff_chat_checks_sender_and_recipients_and_saves_before_deliver
   assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
 end
 
+function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_audited()
+  local s = serverSandbox()
+  local view, note = 'staff_suite:playerProfileResult', 'staff_suite:playerProfileNoteResult'
+  local reporter = 'license:account18'
+  local id = s.api.CreateTicket({ reporter = reporter, description = 'Consulta' })
+  local second = s.api.CreateTicket({ reporter = reporter, description = 'Seguimiento' })
+  s.api.CreateTicket({ reporter = 'license:account19', description = 'Otro jugador' })
+  s.api.Record('mod_warn', 'staff', reporter, 'Advertencia de prueba')
+  s.api.Record('mod_ban', 'staff', reporter, 'Sanción de prueba')
+  s.api.Record('player_profile_note', 'staff', 'license:account19', 'Nota de otro jugador')
+  s.ace.support = true
+  s.event('playerProfile', id, 1)
+  assert(s.sent[view].error == s.env.StaffSuiteTranslate('no_permission'))
+  s.ace.mod = true
+  s.event('playerProfile', 999, 2)
+  assert(s.sent[view].error == s.env.StaffSuiteTranslate('player_profile_missing'))
+  s.event('playerProfile', id, 3)
+  local data = s.sent[view].data
+  assert(data.warns[1].text == 'Advertencia de prueba' and data.bans[1].text == 'Sanción de prueba')
+  assert(data.tickets[1].id == second and #data.tickets == 2 and #data.notes == 0)
+  s.event('playerProfile', id, 4)
+  assert(s.sent[view].error == s.env.StaffSuiteTranslate('rate_limited'))
+  local model = s.api.GetState().perms
+  perms.revoke(model, 'license:account17', 'player.profile.note')
+  s.event('playerProfileNote', id, 5, 'Denegada')
+  assert(s.sent[note].error == s.env.StaffSuiteTranslate('no_permission'))
+  perms.grant(model, 'license:account17', 'player.profile.note')
+  s.env.Config.Limits.message_body = 8
+  s.event('playerProfileNote', id, 6, 'ñññññ')
+  assert(s.sent[note].error == s.env.StaffSuiteTranslate('input_too_long', { max = 8 }))
+  s.now = s.now + 10
+  s.failWrites = true
+  s.event('playerProfileNote', id, 7, ' Revisar ')
+  assert(not s.sent[note].ok and not s.sent[note].data)
+  s.failWrites = false
+  s.event('playerProfileNote', id, 8, ' Revisar ')
+  assert(s.sent[note].ok and s.sent[note].data.notes[1].text == 'Revisar' and #s.sent[note].data.notes == 1)
+  local reboot = serverSandbox({ files = s.files })
+  reboot.ace.mod = true
+  reboot.event('playerProfile', id, 1)
+  assert(reboot.sent[view].data.notes[1].text == 'Revisar' and #reboot.sent[view].data.notes == 1 and reboot.api.Verify())
+  reboot.api.Record('player_profile_note', 'resource', reporter, 'Nota vía API')
+  reboot.event('playerProfile', id, 2)
+  assert(reboot.sent[view].data.notes[1].text == 'Nota vía API' and #reboot.sent[view].data.notes == 2)
+  reboot.failWrites = true
+  reboot.api.Record('player_profile_note', 'resource', reporter, 'Nota con reintento')
+  reboot.failWrites = false
+  reboot.api.Flush()
+  reboot.now = reboot.now + 2
+  reboot.event('playerProfile', id, 3)
+  assert(reboot.sent[view].data.notes[1].text == 'Nota con reintento' and #reboot.sent[view].data.notes == 3)
+end
+
+function T.test_profile_notes_keep_audit_order_when_callbacks_complete_out_of_order()
+  local callbacks = {}
+  local s = serverSandbox({ setup = function(server)
+    local persist = server.env.StaffSuiteModules['server.persist']
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb, retry)
+        if cb and #callbacks < 2 then
+          callbacks[#callbacks + 1] = cb
+          return save()
+        end
+        return save(cb, retry)
+      end
+      return storage
+    end
+  end })
+  s.ace.mod = true
+  local id = s.api.CreateTicket({ reporter = 'license:account18', description = 'Caso' })
+  s.event('playerProfileNote', id, 1, 'Primera')
+  s.api.Record('player_profile_note', 'resource', 'license:account18', 'Segunda')
+  callbacks[2](true)
+  callbacks[1](true)
+  s.event('playerProfile', id, 2)
+  local notes = s.sent['staff_suite:playerProfileResult'].data.notes
+  assert(notes[1].text == 'Segunda' and notes[2].text == 'Primera')
+end
+
 function T.test_server_enforces_mapped_capabilities_and_overrides()
   local server = serverSandbox()
   local ace, commands, api, sent = server.ace, server.commands, server.api, server.sent

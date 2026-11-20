@@ -23,6 +23,21 @@ export interface VerifyResult {
 export type TicketState = 'open' | 'claimed' | 'in_progress' | 'resolved' | 'closed' | 'reopened';
 export type Priority = 'low' | 'normal' | 'high' | 'urgent';
 
+export interface PlayerProfileEntry {
+  seq: number;
+  ts: number;
+  actor: string;
+  text: string;
+  failed?: boolean;
+}
+
+export interface PlayerProfile {
+  warns: PlayerProfileEntry[];
+  bans: PlayerProfileEntry[];
+  notes: PlayerProfileEntry[];
+  tickets: { id: number; state: TicketState; ts: number }[];
+}
+
 export interface Msg {
   author: string;
   body: string;
@@ -199,6 +214,8 @@ export interface OutgoingPayloads {
   ticket_message: { id: number; body: string; internal: boolean };
   ticket_export: { id: number };
   staff_chat: { body: string };
+  player_profile: { id: number };
+  player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };

@@ -247,6 +247,14 @@ if not lite then
     if chat then TriggerEvent('chat:addMessage', { args = { label, body } }) end
     if panelOpen or not chat then nui('toast', { kind = 'info', text = label .. ': ' .. body, outside = not chat }) end
   end)
+  ticketResult('staff_suite:playerProfileResult')
+  ticketResult('staff_suite:playerProfileNoteResult')
+  ticketRequest('player_profile', 'staff_suite:playerProfileResult', 'player_profile_failed', function(d, req)
+    TriggerServerEvent('staff_suite:playerProfile', d.id, req)
+  end)
+  ticketRequest('player_profile_note', 'staff_suite:playerProfileNoteResult', 'player_profile_note_failed', function(d, req)
+    TriggerServerEvent('staff_suite:playerProfileNote', d.id, req, d.body)
+  end)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
     if not panelOpen then SetNuiFocus(false, false) end

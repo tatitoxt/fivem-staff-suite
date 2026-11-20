@@ -28,6 +28,27 @@ local entry_count = 0
 local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
+local profileHistory = {}
+local profileAuditIntact = true
+local profileKinds = { mod_warn = 'warns', mod_ban = 'bans', mod_ban_failed = 'bans',
+  player_profile_note = 'notes' }
+
+local function indexProfileEntry(entry)
+  local kind = profileKinds[entry.action]
+  if not kind then return end
+  local profile = profileHistory[entry.target]
+  if not profile then
+    profile = { warns = {}, bans = {}, notes = {} }
+    profileHistory[entry.target] = profile
+  end
+  local rows = profile[kind]
+  local position = 1
+  while rows[position] and rows[position].seq > entry.seq do position = position + 1 end
+  if position > 20 then return end
+  table.insert(rows, position, { seq = entry.seq, ts = entry.ts, actor = entry.actor, text = entry.reason,
+    failed = entry.action == 'mod_ban_failed' or nil })
+  rows[21] = nil
+end
 
 -- ===== Persistencia =====
 local function snapshot()
@@ -117,7 +138,21 @@ local function restore(data)
     chain.head = type(last) == 'table' and type(last.hash) == 'string' and last.hash or audit.GENESIS
     local verified, ok, at = pcall(audit.verify, chain)
     validChain = verified and ok
-    if not verified or not ok then print(t('console_chain_broken', { at = at or '?' })) end
+    profileAuditIntact = validChain
+    if profileAuditIntact then
+      local failedNotes = {}
+      for _, entry in ipairs(chain.entries) do
+        if entry.action == 'player_profile_note_failed' then
+          local seq = tonumber(entry.reason)
+          if seq then failedNotes[seq] = true end
+        end
+      end
+      for _, entry in ipairs(chain.entries) do
+        if entry.action ~= 'player_profile_note' or not failedNotes[entry.seq] then indexProfileEntry(entry) end
+      end
+    else
+      print(t('console_chain_broken', { at = at or '?' }))
+    end
   end
   if data.tickets then
     store.next_id = data.tickets.next_id or 1
@@ -146,8 +181,23 @@ local function record(action, actor, target, reason, payload, onSaved)
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
+  local retryCallback
+  if action == 'player_profile_note' then
+    local reply = onSaved
+    retryCallback = reply == nil
+    onSaved = function(saved)
+      if saved and profileAuditIntact then
+        indexProfileEntry(e)
+      elseif not saved and reply then
+        record('player_profile_note_failed', e.actor, e.target, tostring(e.seq))
+      end
+      if reply then reply(saved) end
+    end
+  elseif profileAuditIntact then
+    indexProfileEntry(e)
+  end
   if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
-  storage.save(onSaved)
+  storage.save(onSaved, retryCallback)
   return e
 end
 
@@ -552,6 +602,59 @@ RegisterNetEvent('staff_suite:staffChat', function(body, req)
     end
   end)
 end)
+
+local function recentPlayerProfile(identifier)
+  local profile = profileHistory[identifier] or {}
+  local result = { warns = profile.warns or {}, bans = profile.bans or {}, notes = profile.notes or {}, tickets = {} }
+  -- Los IDs de ticket son monotónicos y el almacenamiento puede tener huecos.
+  for _, ticket in pairs(store.tickets) do
+    if ticket.reporter == identifier then
+      result.tickets[#result.tickets + 1] = { id = ticket.id, state = ticket.state, ts = ticket.created_ts }
+    end
+  end
+  table.sort(result.tickets, function(a, b) return a.id > b.id end)
+  for i = #result.tickets, 21, -1 do result.tickets[i] = nil end
+  return result
+end
+
+local function profileEvent(name, action, cap, fn)
+  RegisterNetEvent(name, function(id, req, body)
+    local src = source
+    req = positiveInteger(req)
+    if not req then return end
+    local function reply(ok, err, data)
+      TriggerClientEvent(action, src, { req = req, ok = ok, error = err, data = data })
+    end
+    if not allowRate(src, name) then return reply(false, t('rate_limited')) end
+    if not ready then return reply(false, t('persistence_starting')) end
+    local player = getPlayer(src)
+    if not player.identifier or not can(player, 'report.view') or not can(player, 'player.profile.view')
+      or not can(player, cap) then return reply(false, t('no_permission')) end
+    id = positiveInteger(id)
+    local ticket = id and store.tickets[id]
+    if not ticket then return reply(false, t('player_profile_missing')) end
+    if not profileAuditIntact then return reply(false, t('player_profile_audit_broken')) end
+    fn(ticket.reporter, player, body, function(ok, err, data)
+      if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then reply(ok, err, data) end
+    end)
+  end)
+end
+
+profileEvent('staff_suite:playerProfile', 'staff_suite:playerProfileResult', 'player.profile.view',
+  function(identifier, player, _, reply)
+    record('player_profile_view', player.identifier, identifier, '', nil, function(saved)
+      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
+    end)
+  end)
+
+profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResult', 'player.profile.note',
+  function(identifier, player, body, reply)
+    local text, err = cleanText(body, limit('message_body') or 1000)
+    if not text or text == '' then return reply(false, err or t('player_profile_note_empty')) end
+    record('player_profile_note', player.identifier, identifier, text, nil, function(saved)
+      reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
+    end)
+  end)
 
 local function net(name, fn)
   RegisterNetEvent(name, function(...)

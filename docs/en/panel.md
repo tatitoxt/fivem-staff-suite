@@ -59,6 +59,8 @@ In Core, open **Ban list** from **Settings** or with **Ctrl+K** to see who issue
 
 The initial language is `Config.Locale`. From Settings each player changes it for their own panel only; it is not saved between sessions. Strings come from `locales/es.lua` and `locales/en.lua` (`ui_*` keys), so you can edit them without rebuilding.
 
+In Core, **Player profile** in the ticket actions shows up to 20 recent entries of each kind for the reporter, including warnings, bans, reports, and notes. This requires `report.view` and `player.profile.view`. `player.profile.note` allows staff to add notes up to `Config.Limits.message_body` bytes. Profile views and notes are recorded in the audit chain.
+
 ## Development
 
 `cd ui && npm run dev` serves the panel in the browser with demo data and a mocked backend. See `ui/README.md`.

@@ -248,6 +248,22 @@ export class MockBackend {
         this.emitAudit(false);
         return;
       }
+      case 'player_profile':
+      case 'player_profile_note': {
+        const { id, body } = p as { id: number; body?: string };
+        const ticket = this.tickets.find((item) => item.id === id);
+        if (!ticket) return { ok: false, error: this.s('player_profile_missing') };
+        const player = ticket.reporter;
+        this.record(ME, action === 'player_profile' ? 'player_profile_view' : 'player_profile_note', player, body);
+        this.emitAudit(false);
+        const recent = (event: string) => this.entries.filter((entry) => entry.action === event && entry.target === player)
+          .slice(-20).reverse().map(({ seq, ts, actor, reason }) => ({ seq, ts, actor, text: reason }));
+        return { ok: true, data: {
+          warns: recent('mod_warn'), bans: recent('mod_ban'), notes: recent('player_profile_note'),
+          tickets: this.tickets.filter((item) => item.reporter === player).slice(0, 20)
+            .map(({ id, state, created_ts: ts }) => ({ id, state, ts })),
+        } };
+      }
       case 'audit_verify': {
         const res = verify(this.entries);
         this.record(ME, 'audit_verify', '', res.ok ? 'ok' : `broken:${res.broken_at}`);
