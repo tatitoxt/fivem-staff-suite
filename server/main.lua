@@ -1368,7 +1368,10 @@ net('staff_suite:spectateEnded', function(key)
 end)
 
 local function monitorStaffMode(src, mode, modes, state)
+  if state.monitoring then return end
+  state.monitoring = true
   SetTimeout(5000, function()
+    state.monitoring = false
     if staffModes[src] ~= modes or modes[mode] ~= state then return end
     if can(getPlayer(src), staffModeCaps[mode]) then return monitorStaffMode(src, mode, modes, state) end
     modes[mode] = nil
@@ -1395,6 +1398,7 @@ net('staff_suite:staffMode', function(mode)
     if staffModes[src] ~= modes or modes[mode] ~= state then return end
     if not saved or not GetPlayerName(src) or getPlayer(src).identifier ~= player.identifier then
       modes[mode] = previous
+      if previous and previous.enabled then monitorStaffMode(src, mode, modes, previous) end
       return TriggerClientEvent('staff_suite:notify', src, t('mod_save_failed'))
     end
     state.pending = false
@@ -1407,11 +1411,14 @@ net('staff_suite:staffMode', function(mode)
   end)
 end)
 
-net('staff_suite:staffModeEnded', function(mode, key)
+net('staff_suite:staffModeEnded', function(mode, key, outcome)
+  if outcome ~= 'ended' and outcome ~= 'unavailable' then return end
   local src = tonumber(source)
   local modes = staffModes[src]
   local state = modes and modes[mode]
-  if state and not state.pending and state.key == key then modes[mode] = nil end
+  if not state or not state.enabled or state.pending or state.key ~= key then return end
+  modes[mode] = nil
+  record('staff_mode_result', state.actor, state.actor, outcome, { mode = mode, key = key })
 end)
 
 local waypointMessages = { ok = 'waypoint_ok', no_marker = 'waypoint_no_marker',

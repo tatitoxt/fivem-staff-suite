@@ -148,7 +148,7 @@ local function stopMode(mode, state)
       SetEntityCollision(state.ped, not state.noCollision, false)
     end
   end
-  TriggerServerEvent('staff_suite:staffModeEnded', mode, state.key)
+  TriggerServerEvent('staff_suite:staffModeEnded', mode, state.key, 'ended')
 end
 
 local function fly(ped)
@@ -176,7 +176,7 @@ RegisterNetEvent('staff_suite:staffMode', function(mode, enabled, key)
   if not enabled then return end
   local ped = PlayerPedId()
   if observing or streamingWaypoint or not canStartMode(ped) then
-    TriggerServerEvent('staff_suite:staffModeEnded', mode, key)
+    TriggerServerEvent('staff_suite:staffModeEnded', mode, key, 'unavailable')
     TriggerEvent('chat:addMessage', { args = { t('notify_title'), t('staff_mode_unavailable') } })
     return
   end
