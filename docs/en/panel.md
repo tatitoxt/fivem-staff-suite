@@ -63,6 +63,8 @@ In Core, **Player profile** in the ticket actions shows up to 20 recent entries 
 
 The profile also shows the time connected since this version was installed, including time spent AFK. Totals are saved every minute, on disconnect and on resource shutdown. An abrupt shutdown can lose the time since the last save.
 
+In Core, **Sanction templates** appear in ticket moderation for staff with `mod.template` and the corresponding sanction permission. The server-side `Config.SanctionTemplates` defines an action, an ES/EN reason key and, for bans, a duration in seconds. The confirmation shows the reason and duration. The audit entry includes the template ID.
+
 ## Development
 
 `cd ui && npm run dev` serves the panel in the browser with demo data and a mocked backend. See `ui/README.md`.

@@ -477,12 +477,44 @@ local modActions = {
   end },
 }
 
-local function doMod(src, action, tgt, reason, duration)
+local function sanctionTemplate(id)
+  if type(id) ~= 'string' or #id > 32 or not id:match('^[%w_%-]+$') then return end
+  local template = (Config.SanctionTemplates or {})[id]
+  if type(template) ~= 'table' or type(template.reason_key) ~= 'string' then return end
+  local action, duration = template.action, template.duration
+  if action ~= 'warn' and action ~= 'kick' and action ~= 'ban' then return end
+  if action == 'ban' and (type(duration) ~= 'number' or duration ~= 0
+    and (not positiveInteger(duration) or duration > 31536000)) then return end
+  local reason = cleanText(t(template.reason_key), limit('reason') or 300)
+  if not reason or reason == '' or reason == template.reason_key then return end
+  return { id = id, action = action, reason = reason, duration = duration }
+end
+
+local function sanctionTemplates(player)
+  local list = {}
+  if can(player, 'mod.template') then
+    for id in pairs(Config.SanctionTemplates or {}) do
+      local item = sanctionTemplate(id)
+      if item and can(player, 'mod.' .. item.action) then list[#list + 1] = item end
+    end
+    table.sort(list, function(a, b) return a.id < b.id end)
+  end
+  return list
+end
+
+local function doMod(src, action, tgt, reason, duration, templateId)
   if type(action) ~= 'string' then return false, t('mod_unavailable') end
   local player = getPlayer(src)
   local spec = modActions[action]
   if not can(player, spec and spec.cap or ('mod.' .. action)) then return false, t('no_permission') end
   if not spec then return false, t('mod_unavailable') end
+  local template
+  if templateId ~= nil then
+    if not can(player, 'mod.template') then return false, t('no_permission') end
+    template = sanctionTemplate(templateId)
+    if not template or template.action ~= action then return false, t('sanction_template_invalid') end
+    reason, duration = template.reason, template.duration
+  end
   tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
   if not tgt or not GetPlayerName(tgt) then
     return false, t('mod_invalid_target')
@@ -498,7 +530,7 @@ local function doMod(src, action, tgt, reason, duration)
     return false, t('reason_required')
   end
   local ctx = { src = tonumber(src), tgt = tgt, actor = actorId(player, src), target = getIdentifier(tgt),
-    reason = reason, duration = duration, payload = { action = action } }
+    reason = reason, duration = duration, payload = { action = action, template = template and template.id } }
   local ok, err = spec.run(ctx)
   if ok == false then return false, err end
   record('mod_' .. action, ctx.actor, ctx.target, reason, ctx.payload, ctx.onSaved)
@@ -895,7 +927,7 @@ net('staff_suite:getState', function()
   local player = getPlayer(src)
   local capabilities = {}
   for _, cap in ipairs(perms.CAPS) do
-    local available = cap:sub(1, 4) ~= 'mod.' or modActions[cap:sub(5)]
+    local available = cap:sub(1, 4) ~= 'mod.' or cap == 'mod.template' or modActions[cap:sub(5)]
     if available and can(player, cap) then capabilities[#capabilities + 1] = cap end
   end
   local rank = player.rank or 'player'
@@ -929,6 +961,7 @@ net('staff_suite:getState', function()
     verify = verify,
     alerts = alerts,
     evidenceEnabled = evidenceAvailable(),
+    sanctionTemplates = sanctionTemplates(player),
     player = { name = player.name, rank = rank, identifier = player.identifier or '', capabilities = capabilities },
     rank = rank, locale = Config.Locale,
   })
@@ -1118,9 +1151,10 @@ net('staff_suite:evidenceGet', function(id, n)
   TriggerLatentClientEvent('staff_suite:evidence', src, 250000, { id = id, n = n, data = data, ok = ok })
 end)
 
-net('staff_suite:modAction', function(action, tgt, reason, duration)
+net('staff_suite:modAction', function(action, tgt, reason, duration, templateId)
   local src = source
-  local ok, err = doMod(src, action, tgt, reason, duration)
+  if templateId ~= nil and not allowRate(src, 'staff_suite:modTemplate') then return end
+  local ok, err = doMod(src, action, tgt, reason, duration, templateId)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end
 end)
 

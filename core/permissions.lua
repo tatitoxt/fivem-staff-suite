@@ -9,6 +9,7 @@ M.CAPS = {
   "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
   "mod.revive", "mod.kick", "mod.warn", "mod.ban",
   "ban.view", "ban.revoke",
+  "mod.template",
   "audit.view", "audit.verify", "audit.export",
   "staff.duty", "staff.analytics", "staff.announce", "staff.chat",
   "player.profile.view", "player.profile.note",
@@ -25,6 +26,7 @@ local RANK_CAPS = {
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.kick", "mod.warn", "audit.view", "staff.duty", "staff.chat",
     "player.profile.view", "player.profile.note",
+    "mod.template",
   },
   admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
@@ -34,6 +36,7 @@ local RANK_CAPS = {
     "audit.view", "audit.verify", "staff.duty", "staff.analytics", "staff.announce", "staff.chat",
     "ban.view",
     "player.profile.view", "player.profile.note",
+    "mod.template",
   },
   senior_admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
@@ -41,6 +44,7 @@ local RANK_CAPS = {
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
     "ban.view", "ban.revoke",
+    "mod.template",
     "audit.view", "audit.verify", "audit.export",
     "staff.duty", "staff.analytics", "staff.announce", "staff.chat", "admin.config",
     "player.profile.view", "player.profile.note",

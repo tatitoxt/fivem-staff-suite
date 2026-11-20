@@ -444,6 +444,35 @@ function T.test_profile_notes_keep_audit_order_when_callbacks_complete_out_of_or
   assert(notes[1].text == 'Segunda' and notes[2].text == 'Primera')
 end
 
+function T.test_sanction_templates_require_both_capabilities_and_fix_the_reason_and_duration()
+  local s = serverSandbox()
+  s.ace.mod = true
+  s.event('getState')
+  local state = s.sent['staff_suite:state']
+  assert(#state.sanctionTemplates == 1 and state.sanctionTemplates[1].id == 'rp_warning')
+  local hasCap
+  for _, cap in ipairs(state.player.capabilities) do if cap == 'mod.template' then hasCap = true end end
+  assert(hasCap)
+  s.event('modAction', 'ban', 18, 'manual', 0, 'rp_warning')
+  assert(#s.api.GetChain() == 0 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('no_permission'))
+  s.ace.admin = true
+  s.event('modAction', 'ban', 18, 'manual', 0, 'rp_warning')
+  assert(#s.api.GetChain() == 0 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('sanction_template_invalid'))
+  s.event('modAction', 'ban', 18, 'manual', 0, 'evasion_day')
+  local chain = s.api.GetChain()
+  assert(#chain == 1 and chain[1].reason == s.env.StaffSuiteTranslate('sanction_reason_evasion'))
+  local auditPayload = s.payloads[tonumber(chain[1].payload)]
+  assert(auditPayload.template == 'evasion_day' and auditPayload.expires_at == s.now + 86400)
+  s.event('modAction', 'warn', 19, 'otro', nil, 'rp_warning')
+  assert(#chain == 1 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('rate_limited'))
+  s.now = s.now + 2
+  perms.revoke(s.api.GetState().perms, 'license:account17', 'mod.template')
+  s.event('modAction', 'warn', 19, 'otro', nil, 'rp_warning')
+  assert(#chain == 1 and s.sent['staff_suite:notify'] == s.env.StaffSuiteTranslate('no_permission'))
+  s.event('modAction', 'warn', 19, 'Manual')
+  assert(#chain == 2 and chain[2].reason == 'Manual')
+end
+
 function T.test_server_enforces_mapped_capabilities_and_overrides()
   local server = serverSandbox()
   local ace, commands, api, sent = server.ace, server.commands, server.api, server.sent

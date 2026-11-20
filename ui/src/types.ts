@@ -39,6 +39,13 @@ export interface PlayerProfile {
   tickets: { id: number; state: TicketState; ts: number }[];
 }
 
+export interface SanctionTemplate {
+  id: string;
+  action: 'warn' | 'kick' | 'ban';
+  reason: string;
+  duration?: number;
+}
+
 export interface Msg {
   author: string;
   body: string;
@@ -157,6 +164,7 @@ export interface UiConfig {
   transfer_targets?: TransferTarget[];
   canned?: CannedResponse[];
   evidence?: boolean;
+  sanction_templates?: SanctionTemplate[];
   limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number; announcement?: number };
 }
 
@@ -219,7 +227,7 @@ export interface OutgoingPayloads {
   player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
-  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
+  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number; template?: string };
   announce: { body: string };
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
