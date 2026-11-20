@@ -21,7 +21,7 @@ Lectura del brief: panel de staff in-game para servidores RP. Es una herramienta
 - **Formas:** radio 14 px en el panel, 10 px en cards, 8 px en controles y 6 px en badges. Pills solo en contadores.
 - **Profundidad:** hairlines de 1 px; las sombras quedan solo para lo que flota (panel, diálogos, palette, toasts).
 - **Movimiento:** 120 ms para hover y press, 160 ms para que aparezcan overlays, `cubic-bezier(0.33, 1, 0.68, 1)`. Nada supera 200 ms y con `prefers-reduced-motion` se desactiva.
-- **Dashboard:** una tira de 5 KPIs con delta y sparkline de 7 días, actividad de tickets en barras de 7 días, ranking en una tabla densa y alertas como lista.
+- **Dashboard:** una tira de 5 KPIs, con sparkline de 7 días en abiertos y resueltos, actividad de tickets en barras de 7 días, ranking en una tabla densa y alertas como lista.
 - **Teclado:** `Ctrl+K` abre la command palette con acciones de staff (ir a una vista, servicio, verificar la cadena, nuevo reporte, idioma). `1`–`6` cambia de vista, `N` abre un reporte nuevo y `Esc` cierra.
 - **Jugador:** el reporte rápido se hace en un modal con categorías en tiles, descripción con contador y la opción de adjuntar una captura (solo si screenshot-basic está activo). "Mis reportes" muestra el estado como progreso: Enviado → En curso → Resuelto.
 - **Bundle:** sin librerías nuevas. Iconos de lucide (tree-shaken) y gráficos en SVG propio.
