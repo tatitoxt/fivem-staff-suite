@@ -9,8 +9,9 @@ export const ALL_CAPS = [
   'report.export',
   'mod.goto', 'mod.bring', 'mod.spectate', 'mod.freeze', 'mod.heal',
   'mod.revive', 'mod.kick', 'mod.warn', 'mod.ban',
+  'ban.view', 'ban.revoke',
   'audit.view', 'audit.verify', 'audit.export',
-  'staff.duty', 'staff.analytics', 'admin.config', 'admin.permissions',
+  'staff.duty', 'staff.analytics', 'staff.announce', 'admin.config', 'admin.permissions',
 ];
 
 const P = {

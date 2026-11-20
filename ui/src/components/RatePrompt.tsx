@@ -41,7 +41,7 @@ export function RatePrompt() {
               className={cx(v.rateStar, n <= score && v.rateStarOn)}
               onClick={() => setScore(n)}
             >
-              <Star size={32} fill={n <= score ? 'currentColor' : 'none'} />
+              <Star size={28} fill={n <= score ? 'currentColor' : 'none'} />
             </button>
           ))}
         </div>

@@ -23,7 +23,7 @@ export function DutyView() {
       <ViewHeader title={t('ui_nav_duty')} subtitle={t('ui_duty_sub')} />
       <div className={lay.viewBody}>
         <section className={cx(ui.card, v.dutyHero, onDuty && v.dutyHeroOn)} aria-live="polite">
-          <div className={v.dutyIcon}><Clock3 size={30} /></div>
+          <div className={v.dutyIcon}><Clock3 size={18} /></div>
           <div className={v.dutyText}>
             <h2>{onDuty ? t('ui_duty_on') : t('ui_duty_off')}</h2>
             <p>{t('ui_duty_hint')}</p>
@@ -70,14 +70,14 @@ export function DutyView() {
                       <td className={v.num}>{s.sessions}</td>
                       <td className={v.num}>{s.resolved}</td>
                       <td className={v.num}>{formatDuration(s.avg_response)}</td>
-                      <td className={v.num}><span className={v.ratingCell}><Star size={14} fill="currentColor" />{formatNumber(s.avg_rating, loc)}</span></td>
+                      <td className={v.num}><span className={v.ratingCell}><Star size={13} fill="currentColor" />{formatNumber(s.avg_rating, loc)}</span></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <Empty icon={<Users size={22} />}>{t('ui_duty_empty')}</Empty>
+            <Empty icon={<Users size={18} />}>{t('ui_duty_empty')}</Empty>
           )}
         </section>
       </div>

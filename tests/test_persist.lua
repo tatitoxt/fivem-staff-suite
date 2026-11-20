@@ -173,7 +173,8 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   duty.record_resolved(state.duty, 'license:staff', 50)
   duty.record_rating(state.duty, 'license:staff', 4)
   perms.grant(state.perms, 'license:staff', 'mod.warn')
-  state.bans['license:player'] = { actor = 'license:staff', reason = "O'Brien", created_at = 10, expires_at = 20 }
+  state.bans['license:player'] = { actor = 'license:staff', reason = "O'Brien",
+    created_at = 10, expires_at = 20, id = 1, revoked_at = 12 }
   storage.save()
   storage.save()
   assert(#db.calls == 0)
@@ -191,6 +192,7 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   assert(restored.duty.staff['license:staff'].since == 5 and restored.duty.staff['license:staff'].ratings_n == 1)
   assert(restored.duty.staff['license:staff'].response_sum == 50)
   assert(restored.bans['license:player'].expires_at == 20 and perms.can(restored.perms, 'license:staff', nil, 'mod.warn'))
+  assert(restored.bans['license:player'].id == 1 and restored.bans['license:player'].revoked_at == 12)
   append(restored, 'segunda entrada')
   nextStorage.save()
   nextFlush()
@@ -268,18 +270,21 @@ function T.test_migrations_apply_once_and_are_recorded()
   local _, _, backend = boot(fresh(), memory, db)
   assert(backend == 'oxmysql')
   assert(db.schema[1] == 'sql/001_staff_suite.sql' and db.schema[2] == 'sql/002_tickets_f2.sql')
-  assert(db.alters == 2 and db.tables.staff_evidence and db.tables.staff_tickets)
+  assert(db.schema[3] == 'sql/003_ban_review.sql')
+  assert(db.alters == 4 and db.tables.staff_evidence and db.tables.staff_tickets)
   local creates = count(db.queries, 'CREATE TABLE IF NOT EXISTS staff_tickets')
   local _, _, again = boot(fresh(), memory, db)
-  assert(again == 'oxmysql' and db.alters == 2)
+  assert(again == 'oxmysql' and db.alters == 4)
   assert(count(db.queries, 'CREATE TABLE IF NOT EXISTS staff_tickets') == creates, 'no reaplica migraciones registradas')
 
-  -- Instalación que ya aplicó la 002 a mano antes de staff_schema.
+  -- Instalación que ya aplicó 002 y 003 a mano antes de staff_schema.
   local manual = sqlMock()
   manual.columns['staff_tickets.first_response_ts'] = true
   manual.columns['staff_tickets.resolved_by'] = true
+  manual.columns['staff_bans.ban_id'] = true
+  manual.columns['staff_bans.revoked_at'] = true
   local _, _, manualBackend = boot(fresh(), {}, manual)
-  assert(manualBackend == 'oxmysql' and manual.alters == 0 and manual.schema[2])
+  assert(manualBackend == 'oxmysql' and manual.alters == 0 and manual.schema[2] and manual.schema[3])
 end
 
 function T.test_failed_migration_falls_back_to_json_with_clear_error()
@@ -299,7 +304,7 @@ function T.test_failed_migration_falls_back_to_json_with_clear_error()
 
   db.failOn = nil
   local _, _, recovered = boot(fresh(), memory, db)
-  assert(recovered == 'oxmysql' and db.schema[2] and db.alters == 2)
+  assert(recovered == 'oxmysql' and db.schema[2] and db.schema[3] and db.alters == 4)
 end
 
 function T.test_manual_schema_without_create_privilege()

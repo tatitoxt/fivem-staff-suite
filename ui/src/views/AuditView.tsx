@@ -33,7 +33,7 @@ function EntryRow({ e, brokenAt }: { e: AuditEntry; brokenAt: number | null }) {
         <span className={v.entryTime} title={formatDateTime(e.ts, state.locale)}>
           {formatRelative(e.ts, state.locale)}
         </span>
-        <ChevronDown size={18} className={cx(v.chev, open && v.chevOpen)} />
+        <ChevronDown size={16} className={cx(v.chev, open && v.chevOpen)} />
       </button>
       {open && (
         <dl className={v.entryDetail}>
@@ -102,7 +102,7 @@ export function AuditView() {
           data-testid="chain-status"
         >
           <div className={v.chainIcon}>
-            {status === 'ok' ? <ShieldCheck size={28} /> : status === 'bad' ? <ShieldAlert size={28} /> : <Shield size={28} />}
+            {status === 'ok' ? <ShieldCheck size={16} /> : status === 'bad' ? <ShieldAlert size={18} /> : <Shield size={18} />}
           </div>
           <div className={v.chainText}>
             <div className={v.chainTitle}>
@@ -127,7 +127,7 @@ export function AuditView() {
             disabled={checking || !can('audit.verify')}
             onClick={runVerify}
           >
-            <ShieldCheck size={18} />
+            <ShieldCheck size={16} />
             {checking ? t('ui_verifying') : t('audit_verify')}
           </Button>
         </section>
@@ -174,7 +174,7 @@ export function AuditView() {
               {rows.map((e) => <EntryRow key={e.seq} e={e} brokenAt={brokenAt} />)}
             </ul>
           ) : (
-            <Empty icon={<SearchX size={22} />}>{entries.length ? t('ui_audit_no_match') : t('audit_empty')}</Empty>
+            <Empty icon={<SearchX size={18} />}>{entries.length ? t('ui_audit_no_match') : t('audit_empty')}</Empty>
           )}
         </section>
       </div>
