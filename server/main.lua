@@ -30,6 +30,7 @@ local limiter = ratelimit.new()
 local verifyCache = {}
 local profileHistory = {}
 local profileAuditIntact = true
+local playtime, activePlaytime, playtimeSources = {}, {}, {}
 local profileKinds = { mod_warn = 'warns', mod_ban = 'bans', mod_ban_failed = 'bans',
   player_profile_note = 'notes' }
 
@@ -58,6 +59,7 @@ local function snapshot()
     perms = pmodel,
     duty = dreg,
     bans = bans,
+    playtime = playtime,
   }
 end
 
@@ -170,6 +172,7 @@ local function restore(data)
       recoverRevokedBans()
     end
   end
+  if data.playtime then playtime = data.playtime end
   entry_count = #chain.entries
 end
 
@@ -204,6 +207,49 @@ end
 -- ===== Permisos / rangos =====
 local function getPlayer(src)
   return bridges.resolve(src, Config)
+end
+
+local function accountPlaytime(identifier, session, now)
+  if now <= session.since then return false end
+  playtime[identifier] = (playtime[identifier] or 0) + now - session.since
+  session.since = now
+  return true
+end
+
+local function stopPlaytime(src)
+  local identifier = playtimeSources[src]
+  if not identifier then return end
+  playtimeSources[src] = nil
+  local session = activePlaytime[identifier]
+  session.connections = session.connections - 1
+  if session.connections == 0 then
+    activePlaytime[identifier] = nil
+    if accountPlaytime(identifier, session, GetGameTimer()) then storage.save() end
+  end
+end
+
+local function startPlaytime(src)
+  src = tonumber(src)
+  local player = getPlayer(src)
+  local identifier = player.identifier
+  if playtimeSources[src] == identifier then return end
+  stopPlaytime(src)
+  if not identifier then return end
+  playtimeSources[src] = identifier
+  local session = activePlaytime[identifier]
+  if not session then
+    session = { since = GetGameTimer(), connections = 0 }
+    activePlaytime[identifier] = session
+  end
+  session.connections = session.connections + 1
+end
+
+local function checkpointPlaytime()
+  local now, dirty = GetGameTimer(), false
+  for identifier, session in pairs(activePlaytime) do
+    if accountPlaytime(identifier, session, now) then dirty = true end
+  end
+  if dirty then storage.save() end
 end
 
 local function actorId(player, src)
@@ -605,7 +651,10 @@ end)
 
 local function recentPlayerProfile(identifier)
   local profile = profileHistory[identifier] or {}
-  local result = { warns = profile.warns or {}, bans = profile.bans or {}, notes = profile.notes or {}, tickets = {} }
+  local session = activePlaytime[identifier]
+  local elapsed = session and math.max(GetGameTimer() - session.since, 0) or 0
+  local result = { warns = profile.warns or {}, bans = profile.bans or {}, notes = profile.notes or {}, tickets = {},
+    played_seconds = ((playtime[identifier] or 0) + elapsed) // 1000 }
   -- Los IDs de ticket son monotónicos y el almacenamiento puede tener huecos.
   for _, ticket in pairs(store.tickets) do
     if ticket.reporter == identifier then
@@ -1172,16 +1221,32 @@ CreateThread(function()
   storage.load(function(data, backend)
     restore(data)
     ready = true
+    for _, src in ipairs(GetPlayers()) do startPlaytime(src) end
+    CreateThread(function()
+      while true do
+        Wait(60000)
+        checkpointPlaytime()
+      end
+    end)
     capture.install(Config, bridges.select, getIdentifier, record)
     print(t('console_started', { n = #chain.entries, persistence = backend, framework = bridges.select(Config) }))
   end)
 end)
 
+AddEventHandler('playerJoining', function()
+  if ready then startPlaytime(source) end
+end)
+
 AddEventHandler('playerDropped', function()
-  ratelimit.forget(limiter, tonumber(source))
+  local src = tonumber(source)
+  stopPlaytime(src)
+  ratelimit.forget(limiter, src)
 end)
 
 -- Los lotes pendientes se respaldan antes de apagar el recurso.
 AddEventHandler('onResourceStop', function(res)
-  if ready and res == GetCurrentResourceName() then storage.stop() end
+  if ready and res == GetCurrentResourceName() then
+    checkpointPlaytime()
+    storage.stop()
+  end
 end)

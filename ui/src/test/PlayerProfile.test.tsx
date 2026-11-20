@@ -25,6 +25,7 @@ afterEach(() => {
 it('loads only the selected reporter and lets eligible staff add a bounded note', async () => {
   window.GetParentResourceName = () => 'staff_suite';
   const history: PlayerProfile = {
+    played_seconds: 3720,
     warns: [{ seq: 1, ts: 1, actor: 'staff', text: 'Advertencia previa' }],
     bans: [], notes: [], tickets: [{ id: 42, state: 'open', ts: 1 }],
   };
@@ -47,6 +48,7 @@ it('loads only the selected reporter and lets eligible staff add a bounded note'
   fireEvent.click(screen.getByRole('button', { name: strings.ui_player_profile }));
   const dialog = within(screen.getByRole('dialog', { name: strings.ui_player_profile }));
   expect(await dialog.findByText('Advertencia previa')).toBeInTheDocument();
+  expect(dialog.getByText(`${strings.ui_player_profile_playtime} · 1 h 2 min`)).toBeInTheDocument();
   expect(dialog.queryByRole('textbox')).not.toBeInTheDocument();
   profile(['report.view', 'player.profile.view', 'player.profile.note']);
   const input = dialog.getByRole('textbox', { name: strings.ui_player_profile_note });

@@ -61,6 +61,8 @@ The initial language is `Config.Locale`. From Settings each player changes it fo
 
 In Core, **Player profile** in the ticket actions shows up to 20 recent entries of each kind for the reporter, including warnings, bans, reports, and notes. This requires `report.view` and `player.profile.view`. `player.profile.note` allows staff to add notes up to `Config.Limits.message_body` bytes. Profile views and notes are recorded in the audit chain.
 
+The profile also shows the time connected since this version was installed, including time spent AFK. Totals are saved every minute, on disconnect and on resource shutdown. An abrupt shutdown can lose the time since the last save.
+
 ## Development
 
 `cd ui && npm run dev` serves the panel in the browser with demo data and a mocked backend. See `ui/README.md`.

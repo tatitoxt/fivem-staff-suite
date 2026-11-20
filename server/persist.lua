@@ -90,7 +90,18 @@ function M.new(config, snapshot)
         if ok then
           useDb, cache = true, dbCache
           local recover = not state or extends(backup, state)
-          cb(recover and backup or state, 'oxmysql')
+          local restored = recover and backup or state
+          -- Un checkpoint puede avanzar el tiempo de juego sin agregar una entrada de auditoría.
+          if not recover and backup and backup.database_checkpoint and backup.chain and state.chain
+            and backup.chain.head == state.chain.head and type(backup.playtime) == 'table' then
+            state.playtime = state.playtime or {}
+            for identifier, elapsed in pairs(backup.playtime) do
+              if type(elapsed) == 'number' and elapsed > (state.playtime[identifier] or 0) then
+                state.playtime[identifier] = elapsed
+              end
+            end
+          end
+          cb(restored, 'oxmysql')
           -- Importa el snapshot legado o el checkpoint antes de la próxima escritura.
           storage.save()
         else
