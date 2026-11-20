@@ -17,21 +17,21 @@ interface ProfileResult {
 function History({ title, items }: { title: string; items: PlayerProfileEntry[] }) {
   const { state, t } = useApp();
   return (
-    <section>
+    <section className={v.profileSection}>
       <h3>{title}</h3>
       {Array.isArray(items) && items.length > 0 ? (
-        <ul className={v.evidenceList}>
+        <ul className={v.profileEntries}>
           {items.map((item) => (
             <li key={item.seq}>
               <div>
                 <strong>{item.failed ? t('ui_player_profile_ban_failed') : item.text}</strong>
                 {item.failed && <div>{item.text}</div>}
-                <div>{shortId(item.actor)} · {formatDateTime(item.ts, state.locale)}</div>
+                <div className={v.setHint}>{shortId(item.actor)} · {formatDateTime(item.ts, state.locale)}</div>
               </div>
             </li>
           ))}
         </ul>
-      ) : <p>{t('ui_player_profile_empty')}</p>}
+      ) : <p className={v.setHint}>{t('ui_player_profile_empty')}</p>}
     </section>
   );
 }
@@ -70,36 +70,38 @@ export function PlayerProfileButton({ id }: { id: number }) {
 
   return (
     <>
-      <Button className={v.railWide} onClick={() => void load()} disabled={busy}>
-        <UserRound size={16} />{t('ui_player_profile')}
+      <Button size="small" className={v.railWide} onClick={() => void load()} disabled={busy}>
+        <UserRound size={15} aria-hidden />{t('ui_player_profile')}
       </Button>
       {open && (
         <Dialog title={t('ui_player_profile')} onClose={() => setOpen(false)}
           footer={<Button onClick={() => setOpen(false)}>{t('close')}</Button>}>
-          {busy && !profile && <p role="status">{t('ui_evidence_loading')}</p>}
-          {profile && <div className={cx(v.rows, v.profileScroll, ui.scroll)} tabIndex={0}>
+          {busy && !profile && <p role="status">{t('ui_loading')}</p>}
+          {profile && <div className={cx(v.profileScroll, ui.scroll)} tabIndex={0}>
             <History title={t('ui_player_profile_warns')} items={profile.warns} />
             <History title={t('ui_player_profile_bans')} items={profile.bans} />
-            <section>
+            <section className={v.profileSection}>
               <h3>{t('ui_player_profile_tickets')}</h3>
               {Array.isArray(profile.tickets) && profile.tickets.length > 0 ? (
-                <ul className={v.evidenceList}>
+                <ul className={v.profileEntries}>
                   {profile.tickets.map((item) => (
                     <li key={item.id}>
                       <span>#{item.id} · {stateLabel(t, item.state)} · {formatDateTime(item.ts, state.locale)}</span>
                     </li>
                   ))}
                 </ul>
-              ) : <p>{t('ui_player_profile_empty')}</p>}
+              ) : <p className={v.setHint}>{t('ui_player_profile_empty')}</p>}
             </section>
             <History title={t('ui_player_profile_notes')} items={profile.notes} />
             {can('player.profile.note') && (
-              <form onSubmit={(e) => { e.preventDefault(); void saveNote(); }}>
-                <textarea className={ui.input} aria-label={t('ui_player_profile_note')}
-                  placeholder={t('ui_player_profile_note')} value={note} disabled={busy}
-                  onChange={(e) => setNote(e.target.value)} />
+              <form className={v.actionForm} onSubmit={(e) => { e.preventDefault(); void saveNote(); }}>
+                <label className={ui.field}>
+                  <span className={ui.label}>{t('ui_player_profile_note')}</span>
+                  <textarea className={ui.input} value={note} disabled={busy}
+                    onChange={(e) => setNote(e.target.value)} />
+                </label>
                 <LimitHint text={note} max={max} />
-                <Button type="submit" disabled={busy || !note.trim() || overLimit(note, max)}>
+                <Button size="small" type="submit" disabled={busy || !note.trim() || overLimit(note, max)}>
                   {t('ui_player_profile_save')}
                 </Button>
               </form>

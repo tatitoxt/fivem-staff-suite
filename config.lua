@@ -67,6 +67,7 @@ Config.Moderation = {
 Config.Limits = {
   ticket_body = 1000,
   message_body = 1000,
+  announcement = 300,
   reason = 300,
   open_tickets_per_player = 3,
 }
@@ -76,9 +77,14 @@ Config.RateLimit = {
   default = { burst = 10, per_second = 2 },
   ['staff_suite:ticketCreate'] = { burst = 5, per_second = 1 / 60 },
   ['staff_suite:ticketMessage'] = { burst = 10, per_second = 1 },
+  ['staff_suite:staffChat'] = { burst = 5, per_second = 0.5 },
   ['staff_suite:playerProfile'] = { burst = 3, per_second = 0.5 },
   ['staff_suite:playerProfileNote'] = { burst = 2, per_second = 0.2 },
   ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
   ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
   ['staff_suite:ticketEvidence'] = { burst = 3, per_second = 1 / 20 },
+  ['staff_suite:announce'] = { burst = 1, per_second = 1 / 30 },
+  ['staff_suite:banList'] = { burst = 5, per_second = 1 },
+  ['staff_suite:banRevoke'] = { burst = 2, per_second = 1 / 10 },
+  ['staff_suite:ticketExport'] = { burst = 1, per_second = 1 / 30 },
 }
