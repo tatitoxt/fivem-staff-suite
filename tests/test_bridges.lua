@@ -989,6 +989,12 @@ function T.test_ticket_export_checks_permission_saves_audit_and_omits_private_da
   s.failWrites = false
   s.event('ticketExport', id, 4)
   assert(request and s.sent[result].req == 3)
+  local mentionsOff = false
+  for _, value in ipairs(s.payloads) do
+    if type(value) == 'table' and value.attachments and type(value.allowed_mentions) == 'table'
+      and next(value.allowed_mentions.parse) == nil then mentionsOff = true end
+  end
+  assert(mentionsOff, 'el webhook no debe poder mencionar @everyone ni roles')
   s.event('ticketExport', id, 5)
   assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
   request(200)
@@ -1420,7 +1426,7 @@ function T.test_evidence_detected_captured_and_verified()
   assert(ticket.evidence == nil)
 
   local files, requested, latent = {}, nil, nil
-  local shot = 'data:image/jpeg;base64,AAAA'
+  local shot = 'data:image/jpeg;base64,/9j/AAAA'
   s.states['screenshot-basic'] = 'started'
   s.env.exports['screenshot-basic'] = {
     requestClientScreenshot = function(_, src, opts, cb)
@@ -1458,7 +1464,7 @@ function T.test_evidence_detected_captured_and_verified()
   assert(latent.event == 'staff_suite:evidence' and latent.src == 17)
   assert(latent.data.ok == true and latent.data.data == shot)
   assert(item.audit_seq == #entries)
-  local forged = 'data:image/jpeg;base64,BBBB'
+  local forged = 'data:image/jpeg;base64,/9j/BBBB'
   files['staff_suite_evidence_' .. id .. '_1.txt'] = forged
   item.sha256 = s.env.StaffSuiteModules.loadmod('core.sha256').hex(forged)
   s.event('evidenceGet', id, 1)
@@ -1522,7 +1528,7 @@ function T.test_report_with_attached_screenshot()
   local shots = 0
   s.states['screenshot-basic'] = 'started'
   s.env.exports['screenshot-basic'] = {
-    requestClientScreenshot = function(_, src, _, cb) shots = shots + 1; assert(src == 21); cb(false, 'data:image/jpeg;base64,CCCC') end,
+    requestClientScreenshot = function(_, src, _, cb) shots = shots + 1; assert(src == 21); cb(false, 'data:image/jpeg;base64,/9j/CCCC') end,
   }
   s.env.SaveResourceFile = function() return true end
   s.event('ticketCreate', 'player', 'normal', 'Me chocaron a propósito', 1, true)
@@ -1558,6 +1564,53 @@ function T.test_new_report_notifies_staff_with_priority()
   assert(seen[17] and seen[17].kind == 'report' and seen[17].priority == 'urgent', 'el staff recibe el aviso con prioridad')
   assert(s.recipients[17]['staff_suite:notify']:find('#1', 1, true))
   assert(not seen[19], 'el reporter no recibe el aviso de staff')
+end
+
+function T.test_ban_revoke_respects_rank_of_original_banner()
+  local s = serverSandbox()
+  s.env.Config.Framework = 'standalone'
+  s.ace['staff_suite.owner'] = true
+  s.event('modAction', 'ban', 18, 'grave', 0)
+  s.api.Flush()
+  local banId
+  for _, e in ipairs(s.api.GetChain()) do if e.action == 'mod_ban' then banId = e.seq end end
+  assert(banId, 'el ban quedó auditado')
+  s.ace['staff_suite.owner'] = nil
+  s.ace['staff_suite.senior_admin'] = true
+  s.event('banRevoke', banId, 'Apelación', 1)
+  local result = s.sent['staff_suite:banRevokeResult']
+  assert(result and result.req == 1 and not result.ok and result.error == s.env.Locale.es.mod_target_protected, result and tostring(result.error) or "sin respuesta")
+  s.ace['staff_suite.senior_admin'] = nil
+  s.ace['staff_suite.owner'] = true
+  s.event('banRevoke', banId, 'Apelación', 2)
+  s.api.Flush()
+  result = s.sent['staff_suite:banRevokeResult']
+  assert(result.req == 2 and result.ok, tostring(result.error))
+end
+
+function T.test_attached_screenshot_rejects_oversized_or_non_jpeg_data()
+  local s = serverSandbox()
+  s.env.source = 21
+  local saved, data = 0, nil
+  s.states['screenshot-basic'] = 'started'
+  s.env.exports['screenshot-basic'] = { requestClientScreenshot = function(_, _, _, cb) cb(false, data) end }
+  s.env.SaveResourceFile = function() saved = saved + 1; return true end
+  s.env.Config.Limits.evidence_bytes = 64
+  s.env.Config.Limits.open_tickets_per_player = nil
+  s.env.Config.RateLimit['staff_suite:ticketCreate'] = nil
+  data = 'data:image/jpeg;base64,' .. string.rep('A', 100)
+  s.event('ticketCreate', 'player', 'normal', 'Captura enorme', 1, true)
+  data = '<script>alert(1)</script>'
+  s.event('ticketCreate', 'player', 'normal', 'Captura falsa', 2, true)
+  data = 'data:image/jpeg;base64,PHNjcmlwdD4='
+  s.event('ticketCreate', 'player', 'normal', 'Base64 no JPEG', 4, true)
+  data = 'data:image/jpeg;base64,/9j/<b>'
+  s.event('ticketCreate', 'player', 'normal', 'Base64 inválido', 5, true)
+  assert(saved == 0, 'no se guarda evidencia inválida')
+  for _, tk in pairs(s.api.GetState().tickets.tickets) do assert(tk.evidence == nil) end
+  data = 'data:image/jpeg;base64,/9j/CCCC'
+  s.event('ticketCreate', 'player', 'normal', 'Captura válida', 3, true)
+  assert(saved == 1)
 end
 
 return T

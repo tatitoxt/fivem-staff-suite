@@ -79,6 +79,8 @@ Config.Limits = {
   announcement = 300,
   reason = 300,
   open_tickets_per_player = 3,
+  -- Tamaño máximo de una captura de screenshot-basic (data URI JPEG), en bytes.
+  evidence_bytes = 3 * 1024 * 1024,
 }
 
 -- Rate limit por jugador y evento: burst acciones seguidas, luego per_second por segundo.
