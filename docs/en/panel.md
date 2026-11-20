@@ -27,7 +27,7 @@ The server only sends the data the player's capabilities allow (see [Ranks and p
 | Duty | `staff.duty` | Button to go on or off duty (same as `/duty`), your hours and sessions, and the team's status. |
 | Settings | none | Panel language (ES/EN), open key, export status (webhook, file, anchor every N entries), version, your rank and persistence. In Core, `staff.chat` enables staff chat. |
 
-Staff messages appear in the FiveM chat for connected players with `staff.chat`. A notification also appears when their panel is open or the `chat` resource is stopped. The audit chain stores each request and result without the message text. Messages follow `Config.Limits.message_body` and `Config.RateLimit['staff_suite:staffChat']`.
+Open **Staff chat** from **Settings** or with **Ctrl+K**. Staff messages appear in the FiveM chat for connected players with `staff.chat`. A notification also appears when their panel is open or the `chat` resource is stopped. The audit chain stores each request and result without the message text. Messages follow `Config.Limits.message_body` and `Config.RateLimit['staff_suite:staffChat']`.
 
 Create reports with `/report`. In My reports, you can read and reply to the public thread of each open report. You get a notification when staff replies. Public chat is available in Core and Lite.
 
@@ -52,6 +52,8 @@ The ticket's moderation rail acts on the player who filed the report. Freeze and
 - Ban and warn always require a reason. Bans can be temporary or permanent, and warned players get an in-game notification.
 - Spectate requires the target to be in the same instance. Press Backspace to exit.
 - Revive uses the framework's medical integration when available, with a standalone implementation for other setups.
+
+In Core, open **Ban list** from **Settings** or with **Ctrl+K** to see who issued each ban, its status, expiry and the number of linked identifiers. `ban.view` grants access to admins and above. `ban.revoke` allows senior admins and above to revoke a ban with a reason. Legacy bans can be revoked when the audit history identifies their aliases.
 
 ## Language
 

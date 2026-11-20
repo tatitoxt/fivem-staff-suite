@@ -40,9 +40,15 @@ it('shows the composer to staff and preserves the draft after a rejected send', 
   render(<App />);
   profile([]);
   dispatch({ type: 'open', payload: { view: 'settings' } });
-  expect(screen.queryByRole('form', { name: strings.ui_staff_chat })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: strings.ui_staff_chat })).not.toBeInTheDocument();
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  const palette = screen.getByRole('combobox', { name: strings.ui_cmd_placeholder });
+  expect(screen.queryByRole('option', { name: strings.ui_staff_chat })).not.toBeInTheDocument();
   profile(['staff.chat']);
-  const form = within(await screen.findByRole('form', { name: strings.ui_staff_chat }));
+  expect(screen.getByRole('button', { name: strings.ui_staff_chat })).toBeInTheDocument();
+  fireEvent.change(palette, { target: { value: strings.ui_staff_chat } });
+  fireEvent.keyDown(palette, { key: 'Enter' });
+  const form = within(await screen.findByRole('dialog', { name: strings.ui_staff_chat }));
   const input = form.getByRole('textbox');
   const send = form.getByRole('button', { name: strings.ui_send });
   fireEvent.change(input, { target: { value: 'ñññññ' } });

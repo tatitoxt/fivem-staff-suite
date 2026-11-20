@@ -57,6 +57,7 @@ local function sendInit()
       export = (exportStatus and {
         webhook = exportStatus.webhook == true,
         file = exportStatus.file == true,
+        tickets = exportStatus.tickets == true,
         anchor_every = exportStatus.anchor_every,
       }) or (Config.Export and {
         webhook = (Config.Export.webhook or '') ~= '',
@@ -182,14 +183,14 @@ on('ticket_close', ticketAction('close'))
 on('ticket_reopen', ticketAction('reopen'))
 -- Los callbacks esperan al servidor para conservar el borrador si falla el envío.
 local pendingRequests, requestSeq = {}, 0
-local function ticketRequest(action, result, failure, send, afterSuccess)
+local function ticketRequest(action, result, failure, send, afterSuccess, timeout)
   RegisterNUICallback(action, function(d, cb)
     requestSeq = requestSeq % 2147483647 + 1
     local req = requestSeq
     local pending = { result = result, cb = cb, afterSuccess = afterSuccess }
     pendingRequests[req] = pending
     send(d or {}, req)
-    SetTimeout(10000, function()
+    SetTimeout(timeout or 10000, function()
       if pendingRequests[req] == pending then
         pendingRequests[req] = nil
         cb({ ok = false, error = t(failure) })
@@ -203,14 +204,14 @@ local function ticketResult(result)
     local pending = pendingRequests[res.req]
     if not pending or pending.result ~= result then return end
     pendingRequests[res.req] = nil
-    pending.cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil })
+    pending.cb({ ok = res.ok == true, error = type(res.error) == 'string' and res.error or nil, data = res.data })
     if res.ok == true and pending.afterSuccess then pending.afterSuccess() end
   end)
 end
 ticketResult('staff_suite:ticketCreateResult')
 ticketResult('staff_suite:ticketMessageResult')
 ticketRequest('ticket_create', 'staff_suite:ticketCreateResult', 'report_failed', function(d, req)
-  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''), req)
+  TriggerServerEvent('staff_suite:ticketCreate', d.category or 'other', d.priority or 'normal', tostring(d.body or ''), req, d.attach == true)
 end, refreshSoon)
 ticketRequest('ticket_message', 'staff_suite:ticketMessageResult', 'ticket_message_failed', function(d, req)
   TriggerServerEvent('staff_suite:ticketMessage', d.id, d.body, d.internal == true, req)
@@ -219,6 +220,22 @@ ticketRequest('ticket_reply', 'staff_suite:ticketMessageResult', 'ticket_message
   TriggerServerEvent('staff_suite:ticketReply', d.id, d.body, req)
 end)
 if not lite then
+  ticketResult('staff_suite:announceResult')
+  ticketRequest('announce', 'staff_suite:announceResult', 'announcement_failed', function(d, req)
+    TriggerServerEvent('staff_suite:announce', d.body, req)
+  end)
+  ticketResult('staff_suite:banListResult')
+  ticketResult('staff_suite:banRevokeResult')
+  ticketRequest('ban_list', 'staff_suite:banListResult', 'ban_review_failed', function(d, req)
+    TriggerServerEvent('staff_suite:banList', d.page, req)
+  end)
+  ticketRequest('ban_revoke', 'staff_suite:banRevokeResult', 'ban_review_failed', function(d, req)
+    TriggerServerEvent('staff_suite:banRevoke', d.id, d.reason, req)
+  end)
+  ticketResult('staff_suite:ticketExportResult')
+  ticketRequest('ticket_export', 'staff_suite:ticketExportResult', 'ticket_export_unconfirmed', function(d, req)
+    TriggerServerEvent('staff_suite:ticketExport', d.id, req)
+  end, nil, 40000)
   ticketResult('staff_suite:staffChatResult')
   ticketRequest('staff_chat', 'staff_suite:staffChatResult', 'staff_chat_failed', function(d, req)
     TriggerServerEvent('staff_suite:staffChat', d.body, req)
@@ -327,6 +344,16 @@ RegisterNetEvent('staff_suite:notify', function(msg)
 end)
 
 if not lite then
+  RegisterNetEvent('staff_suite:announcement', function(message)
+    if source ~= 65535 or type(message) ~= 'string' then return end
+    local title = strings(uiLocale).announcement_title or t('announcement_title')
+    if panelOpen then
+      nui('toast', { kind = 'info', text = title .. ' · ' .. message })
+    else
+      TriggerEvent('chat:addMessage', { args = { title, message } })
+    end
+  end)
+
   -- Valoración del reporter al resolverse su ticket (el panel puede estar cerrado).
   RegisterNetEvent('staff_suite:ratePrompt', function(p)
     if type(p) ~= 'table' or not p.id then return end

@@ -8,6 +8,8 @@ import type {
 
 export interface Toast { id: number; kind: ToastKind; text: string; outside?: boolean }
 
+type StaffDialog = 'ban.view' | 'staff.chat';
+
 export interface AppState {
   ready: boolean;
   visible: boolean;
@@ -34,6 +36,9 @@ export interface AppState {
   ratePrompt: number | null;
   evidence: EvidencePayload | null;
   dataState: 'idle' | 'loading' | 'ready' | 'error';
+  palette: boolean;
+  reportOpen: boolean;
+  staffDialog: StaffDialog | null;
 }
 
 type Action =
@@ -46,7 +51,10 @@ type Action =
   | { type: 'rateDone' }
   | { type: 'evidenceClose' }
   | { type: 'loadTimeout' }
-  | { type: 'retry' };
+  | { type: 'retry' }
+  | { type: 'palette'; open: boolean }
+  | { type: 'report'; open: boolean }
+  | { type: 'staffDialog'; dialog: StaffDialog | null };
 
 let toastSeq = 0;
 
@@ -67,7 +75,8 @@ export function initialState(visible: boolean): AppState {
     dashboard: null,
     duty: null,
     toasts: [],
-    auditActor: '', ratePrompt: null, evidence: null, dataState: 'idle',
+    auditActor: '', ratePrompt: null, evidence: null, dataState: 'idle', palette: false, reportOpen: false,
+    staffDialog: null,
   };
 }
 
@@ -93,6 +102,12 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, view: action.view, auditActor: action.auditActor ?? state.auditActor };
     case 'setAuditActor':
       return { ...state, auditActor: action.actor };
+    case 'palette':
+      return { ...state, palette: action.open };
+    case 'report':
+      return { ...state, reportOpen: action.open, view: action.open ? 'myReports' : state.view };
+    case 'staffDialog':
+      return { ...state, staffDialog: action.dialog };
     case 'checking':
       return { ...state, audit: { ...state.audit, checking: true } };
     case 'dismissToast':
@@ -121,6 +136,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
       return {
         ...state, ready: true, locale: p.locale, strings: p.strings ?? {}, version: p.version ?? '',
         player: p.player ?? null, config: p.config ?? {},
+        staffDialog: state.staffDialog && p.player?.capabilities?.includes(state.staffDialog) ? state.staffDialog : null,
       };
     }
     case 'audit': {
@@ -163,7 +179,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'open':
       return { ...state, visible: true, view: msg.payload?.view ?? state.view, dataState: state.dataState === 'ready' ? 'ready' : 'loading' };
     case 'close':
-      return { ...state, visible: false };
+      return { ...state, visible: false, palette: false, staffDialog: null };
   }
 }
 

@@ -2,7 +2,7 @@ import { fmt } from '../format';
 import { version } from '../../package.json';
 import { sha256Hex } from './sha256';
 import type {
-  AuditEntry, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
+  AuditEntry, BanRow, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
 } from '../types';
 import { append, verify } from './chain';
 import { ALL_CAPS, ME, STAFF, TAMPER_SEQ, buildAlerts, buildAudit, buildStaff, buildTickets } from './demo';
@@ -51,6 +51,7 @@ export class MockBackend {
   locale = 'es';
   now = Date.now() / 1000;
   entries: AuditEntry[] = buildAudit(this.now);
+  bans: BanRow[] = [];
   tickets: Ticket[] = buildTickets(this.now);
   staff: StaffStat[] = buildStaff();
   alerts = buildAlerts(this.now);
@@ -89,7 +90,7 @@ export class MockBackend {
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
-          export: { webhook: true, file: true, anchor_every: 20 },
+          export: { webhook: true, file: true, anchor_every: 20, tickets: true },
           canned: ['greeting', 'investigating', 'need_info', 'resolved']
             .map((id) => ({ id, title: this.s(`canned_${id}_title`), text: this.s(`canned_${id}`) })),
           evidence: true,
@@ -192,8 +193,7 @@ export class MockBackend {
   handle<A extends OutgoingAction>(action: A, payload: OutgoingPayloads[A]): Promise<unknown> {
     return new Promise((resolve) => {
       setTimeout(() => {
-        this.dispatch(action, payload);
-        resolve({ ok: true });
+        resolve(this.dispatch(action, payload) ?? { ok: true });
       }, action === 'audit_verify' ? this.latency * 4 : this.latency);
     });
   }
@@ -214,6 +214,33 @@ export class MockBackend {
         return;
       case 'audit_filter':
         return;
+      case 'announce': {
+        const { body } = p as OutgoingPayloads['announce'];
+        this.record(ME, 'staff_announce', 'server', body);
+        this.emitAudit(false);
+        this.toast('info', `${this.s('announcement_title')} · ${body}`);
+        return { ok: true };
+      }
+      case 'ban_list': {
+        const { page } = p as OutgoingPayloads['ban_list'];
+        return { ok: true, data: { rows: this.bans.slice((page - 1) * 20, page * 20), hasMore: this.bans.length > page * 20 } };
+      }
+      case 'ban_revoke': {
+        const { id, reason } = p as OutgoingPayloads['ban_revoke'];
+        const ban = this.bans.find((row) => row.id === id && row.status === 'active');
+        if (!ban) return { ok: false, error: this.s('ban_not_active') };
+        ban.status = 'revoked';
+        this.record(ME, 'mod_unban', ban.identifier, reason, { ban_id: id });
+        this.emitAudit(false);
+        return { ok: true };
+      }
+      case 'ticket_export': {
+        const { id } = p as OutgoingPayloads['ticket_export'];
+        this.record(ME, 'ticket_export_request', `ticket:${id}`);
+        this.record(ME, 'ticket_export_result', `ticket:${id}`, '', { ok: true, status: 200 });
+        this.emitAudit(false);
+        return { ok: true };
+      }
       case 'staff_chat': {
         const { body } = p as OutgoingPayloads['staff_chat'];
         this.record(ME, 'staff_chat_request', 'staff', '', { bytes: new TextEncoder().encode(body).length });
@@ -258,7 +285,7 @@ export class MockBackend {
         return;
       }
       case 'ticket_create': {
-        const { category, priority, body } = p as OutgoingPayloads['ticket_create'];
+        const { category, priority, body, attach } = p as OutgoingPayloads['ticket_create'];
         const ts = Math.round(Date.now() / 1000);
         const id = Math.max(0, ...this.tickets.map((t) => t.id)) + 1;
         this.tickets.push({
@@ -266,6 +293,12 @@ export class MockBackend {
           description: body, messages: [], resolution: null, rating: null,
         });
         this.record(ME, 'ticket_create', ME, '', { ticket: id, category });
+        if (attach) {
+          const data = demoScreenshot(id, 1);
+          this.evidenceData.set(`${id}:1`, data);
+          this.tickets[this.tickets.length - 1].evidence = [{ n: 1, ts, by: ME, sha256: sha256Hex(data), size: data.length }];
+          this.record(ME, 'ticket_evidence', `ticket:${id}`, '', { n: 1 });
+        }
         this.emitTickets();
         this.emitAudit(false);
         this.emitDuty();
@@ -320,6 +353,11 @@ export class MockBackend {
           action: mod,
           ...(mod === 'ban' && { expires_at: duration === 0 ? 0 : Math.round(Date.now() / 1000) + (duration ?? 86400) }),
         });
+        if (mod === 'ban') {
+          const now = Math.round(Date.now() / 1000);
+          this.bans.unshift({ id: this.entries.length, identifier: target, actor: ME, reason: reason.trim(),
+            created_at: now, expires_at: duration === 0 ? 0 : now + (duration ?? 86400), status: 'active', aliases: 1 });
+        }
         this.emitAudit(false);
         this.toast('ok', this.s('ui_toast_mod_done', { action: this.s(`mod_${mod}`) }));
         return;

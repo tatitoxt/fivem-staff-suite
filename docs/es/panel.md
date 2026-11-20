@@ -27,7 +27,7 @@ El server solo manda los datos que permiten las capabilities del jugador (ver [R
 | Servicio | `staff.duty` | Botón para entrar o salir de servicio (equivale a `/duty`), tus horas y sesiones, y el estado del equipo. |
 | Ajustes | ninguna | Idioma del panel (ES/EN), tecla para abrirlo, estado del export (webhook, archivo, ancla cada N entradas), versión, tu rango y la persistencia. En Core, `staff.chat` habilita el chat de staff. |
 
-El mensaje llega al chat de FiveM de los jugadores conectados con `staff.chat`. Si el panel está abierto o el recurso `chat` está apagado, también aparece un aviso. La auditoría guarda la solicitud y el resultado de cada envío sin el texto del mensaje. Aplican `Config.Limits.message_body` y `Config.RateLimit['staff_suite:staffChat']`.
+Abrí **Chat de staff** desde **Ajustes** o con **Ctrl+K**. El mensaje llega al chat de FiveM de los jugadores conectados con `staff.chat`. Si el panel está abierto o el recurso `chat` está apagado, también aparece un aviso. La auditoría guarda la solicitud y el resultado de cada envío sin el texto del mensaje. Aplican `Config.Limits.message_body` y `Config.RateLimit['staff_suite:staffChat']`.
 
 Creá reportes con `/report`. En Mis reportes podés leer y responder el hilo público de cada reporte abierto. Recibís una notificación cuando el staff responde. El chat público está disponible en Core y Lite.
 
@@ -52,6 +52,8 @@ El panel de moderación del ticket actúa sobre quien hizo el reporte. Congelar 
 - Ban y warn siempre piden una razón. El ban puede ser temporal o permanente y el warn se notifica al jugador en el juego.
 - Spectate requiere que el objetivo esté en la misma instancia. Usá Retroceso para salir.
 - Revive usa la integración médica del framework si está disponible, con una implementación standalone para los demás casos.
+
+En Core, abrí **Lista de baneos** desde **Ajustes** o con **Ctrl+K** para consultar quién aplicó cada baneo, su estado, su vigencia y cuántos identificadores abarca. `ban.view` habilita la consulta desde admin. `ban.revoke` habilita la revocación con motivo desde senior admin. Un baneo anterior se puede revocar si el historial de auditoría permite identificar sus aliases.
 
 ## Idioma
 

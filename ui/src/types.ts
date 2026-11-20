@@ -137,11 +137,11 @@ export interface UiConfig {
   priorities?: Priority[];
   require_reason?: boolean;
   persistence?: string;
-  export?: { webhook: boolean; file: boolean; anchor_every?: number };
+  export?: { webhook: boolean; file: boolean; anchor_every?: number; tickets?: boolean };
   transfer_targets?: TransferTarget[];
   canned?: CannedResponse[];
   evidence?: boolean;
-  limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number };
+  limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number; announcement?: number };
 }
 
 export interface InitPayload {
@@ -197,10 +197,14 @@ export interface OutgoingPayloads {
   ticket_close: { id: number };
   ticket_reopen: { id: number };
   ticket_message: { id: number; body: string; internal: boolean };
+  ticket_export: { id: number };
   staff_chat: { body: string };
   ticket_reply: { id: number; body: string };
-  ticket_create: { category: string; priority: Priority; body: string };
+  ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
+  announce: { body: string };
+  ban_list: { page: number };
+  ban_revoke: { id: number; reason: string };
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };
@@ -210,6 +214,17 @@ export interface OutgoingPayloads {
 }
 
 export type OutgoingAction = keyof OutgoingPayloads;
+
+export interface BanRow {
+  id?: number;
+  identifier: string;
+  actor: string;
+  reason: string;
+  created_at: number;
+  expires_at: number;
+  status: 'active' | 'expired' | 'revoked';
+  aliases: number;
+}
 
 export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
 

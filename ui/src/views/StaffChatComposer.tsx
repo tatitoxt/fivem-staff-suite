@@ -1,12 +1,12 @@
-import { MessageSquare, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { useState } from 'react';
-import { Button, cx, ui } from '../components/ui';
+import { Button, Dialog, ui } from '../components/ui';
 import { useApp } from '../store';
 import type { TicketCreateResult } from '../types';
 import { LimitHint, overLimit } from './TicketChat';
 import v from './views.module.css';
 
-export function StaffChatComposer() {
+export function StaffChatComposer({ onClose }: { onClose: () => void }) {
   const { state, t, send } = useApp();
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
@@ -27,20 +27,21 @@ export function StaffChatComposer() {
   }
 
   return (
-    <form className={cx(ui.card, v.setCard)} aria-labelledby="staff-chat-heading"
-      onSubmit={(e) => { e.preventDefault(); void submit(); }}>
-      <div className={v.setHead}>
-        <span className={v.setIcon}><MessageSquare size={20} /></span>
-        <h2 id="staff-chat-heading">{t('ui_staff_chat')}</h2>
-      </div>
-      <textarea className={ui.input} aria-label={t('ui_staff_chat_message')}
-        placeholder={t('ui_staff_chat_message')} value={body} disabled={sending}
-        onChange={(e) => setBody(e.target.value)} />
-      <LimitHint text={body} max={max} />
-      {result && <p className={v.setHint} role={result.ok ? 'status' : 'alert'}>{result.text}</p>}
-      <Button variant="primary" size="small" type="submit" disabled={!canSend}>
-        <Send size={16} />{t('ui_send')}
+    <Dialog title={t('ui_staff_chat')} onClose={onClose} footer={<>
+      <Button size="small" onClick={onClose}>{t('close')}</Button>
+      <Button variant="primary" size="small" type="submit" form="staff-chat-form" disabled={!canSend}>
+        <Send size={15} aria-hidden />{t('ui_send')}
       </Button>
-    </form>
+    </>}>
+      <form id="staff-chat-form" className={v.actionForm} onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <label className={ui.field}>
+          <span className={ui.label}>{t('ui_staff_chat_message')}</span>
+          <textarea className={ui.input} value={body} disabled={sending}
+            onChange={(e) => setBody(e.target.value)} />
+        </label>
+        <LimitHint text={body} max={max} />
+        {result && <p className={v.setHint} role={result.ok ? 'status' : 'alert'}>{result.text}</p>}
+      </form>
+    </Dialog>
   );
 }
