@@ -343,6 +343,13 @@ function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_au
   reboot.api.Record('player_profile_note', 'resource', reporter, 'Nota vía API')
   reboot.event('playerProfile', id, 2)
   assert(reboot.sent[view].data.notes[1].text == 'Nota vía API' and #reboot.sent[view].data.notes == 2)
+  reboot.failWrites = true
+  reboot.api.Record('player_profile_note', 'resource', reporter, 'Nota con reintento')
+  reboot.failWrites = false
+  reboot.api.Flush()
+  reboot.now = reboot.now + 2
+  reboot.event('playerProfile', id, 3)
+  assert(reboot.sent[view].data.notes[1].text == 'Nota con reintento' and #reboot.sent[view].data.notes == 3)
 end
 
 function T.test_server_enforces_mapped_capabilities_and_overrides()

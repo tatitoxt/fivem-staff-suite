@@ -110,12 +110,14 @@ local function record(action, actor, target, reason, payload, onSaved)
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
+  local retryCallback
   if action == 'player_profile_note' then
     local reply = onSaved
+    retryCallback = reply == nil
     onSaved = function(saved)
       if saved and profileAuditIntact then
         indexProfileEntry(e)
-      elseif not saved then
+      elseif not saved and reply then
         record('player_profile_note_failed', e.actor, e.target, tostring(e.seq))
       end
       if reply then reply(saved) end
@@ -124,7 +126,7 @@ local function record(action, actor, target, reason, payload, onSaved)
     indexProfileEntry(e)
   end
   if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
-  storage.save(onSaved)
+  storage.save(onSaved, retryCallback)
   return e
 end
 

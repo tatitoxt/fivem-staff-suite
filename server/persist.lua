@@ -21,7 +21,7 @@ end
 function M.new(config, snapshot)
   local storage = {}
   local useDb, busy, scheduled, dirty, stopped = false, false, false, false, false
-  local cache, waiting = nil, {}
+  local cache, waiting, durable = nil, {}, {}
   -- revision sube con cada cambio; saved es la última revisión confirmada en disco/DB.
   local revision, saved = 0, 0
   local wantsDb = config.Persistence == 'oxmysql'
@@ -50,8 +50,8 @@ function M.new(config, snapshot)
   flush = function()
     if busy or not dirty or stopped then return end
     busy, dirty = true, false
-    local waiters = waiting
-    waiting = {}
+    local waiters, durableWaiters = waiting, durable
+    waiting, durable = {}, {}
     local state = snapshot()
     local stateRevision = revision
     local jsonOK = checkpoint(state)
@@ -64,6 +64,9 @@ function M.new(config, snapshot)
       if not ok then
         dirty = true
         print(StaffSuiteTranslate('persistence_save_failed'))
+      end
+      for _, cb in ipairs(durableWaiters) do
+        if ok then cb(true) else durable[#durable + 1] = cb end
       end
       for _, cb in ipairs(waiters) do cb(ok) end
       if #waiting > 0 then flush() else schedule(not ok and 60000 or nil) end
@@ -101,10 +104,13 @@ function M.new(config, snapshot)
     end
   end
 
-  function storage.save(cb)
+  function storage.save(cb, retryCallback)
     dirty = true
     revision = revision + 1
-    if cb then waiting[#waiting + 1] = cb end
+    if cb then
+      local queue = retryCallback and durable or waiting
+      queue[#queue + 1] = cb
+    end
     if cb then flush() else schedule() end
   end
 
