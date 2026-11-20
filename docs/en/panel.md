@@ -51,7 +51,7 @@ The ticket's moderation rail acts on the player who filed the report. Freeze and
 - Spectate requires the target to be in the same instance. Press Backspace to exit.
 - Revive uses the framework's medical integration when available, with a standalone implementation for other setups.
 
-In Core, **Settings → Ban list** shows who issued each ban, its status, expiry and the number of linked identifiers. `ban.view` grants access to admins and above. `ban.revoke` allows senior admins and above to revoke a ban with a reason. Legacy bans can be revoked when the audit history identifies their aliases.
+In Core, open **Ban list** from **Settings** or with **Ctrl+K** to see who issued each ban, its status, expiry and the number of linked identifiers. `ban.view` grants access to admins and above. `ban.revoke` allows senior admins and above to revoke a ban with a reason. Legacy bans can be revoked when the audit history identifies their aliases.
 
 ## Language
 

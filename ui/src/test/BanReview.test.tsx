@@ -35,9 +35,15 @@ it('lists bans for reviewers and requires a bounded reason for revocation', asyn
   dispatch({ type: 'open', payload: { view: 'settings' } });
   expect(await screen.findByRole('heading', { name: strings.ui_nav_settings })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: strings.ban_review_title })).not.toBeInTheDocument();
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  const palette = screen.getByRole('combobox', { name: strings.ui_cmd_placeholder });
+  expect(screen.queryByRole('option', { name: strings.ban_review_title })).not.toBeInTheDocument();
 
   profile(['ban.view']);
-  fireEvent.click(screen.getByRole('button', { name: strings.ban_review_title }));
+  expect(screen.getByRole('button', { name: strings.ban_review_title })).toBeInTheDocument();
+  fireEvent.change(palette, { target: { value: strings.ban_review_title } });
+  fireEvent.keyDown(palette, { key: 'Enter' });
+  expect(await screen.findByRole('dialog', { name: strings.ban_review_title })).toBeInTheDocument();
   expect(await screen.findByText('Abuso')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: strings.ban_review_revoke })).not.toBeInTheDocument();
 

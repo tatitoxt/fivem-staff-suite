@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { CommandPalette } from './components/CommandPalette';
 import { DevHarness } from './components/DevHarness';
 import { RatePrompt } from './components/RatePrompt';
 import { Sidebar, useNav } from './components/Sidebar';
@@ -9,6 +10,7 @@ import { useMock } from './nui';
 import { isLite } from './edition';
 import { AppProvider, useApp } from './store';
 import { AuditView } from './views/AuditView';
+import { BanReview } from './views/BanReview';
 import { DashboardView } from './views/DashboardView';
 import { DutyView } from './views/DutyView';
 import { SettingsView } from './views/SettingsView';
@@ -67,14 +69,32 @@ function Shell() {
     document.documentElement.lang = state.locale;
   }, [state.locale]);
 
+  const nav = useNav();
   useEffect(() => {
     if (!state.visible) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') void send('close_ui');
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (state.ready && (state.palette || !document.querySelector('[role="dialog"]'))) dispatch({ type: 'palette', open: !state.palette });
+        return;
+      }
+      if (e.key === 'Escape') { void send('close_ui'); return; }
+      const el = e.target as HTMLElement | null;
+      const typing = !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
+      if (typing || e.ctrlKey || e.metaKey || e.altKey || state.palette || state.reportOpen || !state.ready) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      const n = Number(e.key);
+      if (Number.isInteger(n) && n >= 1 && n <= nav.length) {
+        e.preventDefault();
+        dispatch({ type: 'view', view: nav[n - 1].id });
+      } else if (e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        dispatch({ type: 'report', open: true });
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [state.visible, send]);
+  }, [state.visible, state.ready, state.palette, state.reportOpen, nav, dispatch, send]);
 
   return (
     <>
@@ -88,6 +108,10 @@ function Shell() {
               </>
             ) : (
               <div className={s.loading} aria-busy="true"><span className={s.spinner} aria-hidden /></div>
+            )}
+            {state.ready && state.palette && <CommandPalette />}
+            {!isLite && state.banReviewOpen && state.player?.capabilities?.includes('ban.view') && (
+              <BanReview onClose={() => dispatch({ type: 'banReview', open: false })} />
             )}
             <Toasts />
           </div>

@@ -273,6 +273,8 @@ local function evidenceAvailable()
   return GetResourceState('screenshot-basic') == 'started'
 end
 
+local captureEvidence
+
 local function evidenceFile(id, n)
   return ('staff_suite_evidence_%d_%d.txt'):format(id, n)
 end
@@ -477,7 +479,7 @@ local function createReport(src, category, priority, body)
   TriggerClientEvent('staff_suite:notify', src, t('report_created', { id = ticket.id }))
   sendTickets(src, player)
   sendReporterTickets(src, player.identifier)
-  return true
+  return true, nil, ticket
 end
 
 local function command(name, fn, rateKey)
@@ -525,19 +527,46 @@ local function net(name, fn)
 end
 
 -- `req` es opcional: si viene, el panel recibe ok/error en staff_suite:ticketCreateResult.
-RegisterNetEvent('staff_suite:ticketCreate', function(category, priority, body, req)
+RegisterNetEvent('staff_suite:ticketCreate', function(category, priority, body, req, attach)
   local src = source
-  local ok, err = false
+  local ok, err, ticket = false
   if not allowRate(src, 'staff_suite:ticketCreate') then
     err = t('rate_limited')
   elseif not ready then
     err = t('persistence_starting')
     TriggerClientEvent('staff_suite:notify', src, err)
   else
-    ok, err = createReport(src, category, priority, body)
+    ok, err, ticket = createReport(src, category, priority, body)
+    if ok and ticket and attach == true and evidenceAvailable() then
+      captureEvidence(ticket, src, ticket.reporter, src)
+    end
   end
   req = positiveInteger(req)
   if req then TriggerClientEvent('staff_suite:ticketCreateResult', src, { req = req, ok = ok == true, error = err }) end
+end)
+
+RegisterNetEvent('staff_suite:announce', function(body, req)
+  local src = source
+  req = positiveInteger(req)
+  local function reply(ok, err)
+    if req then TriggerClientEvent('staff_suite:announceResult', src, { req = req, ok = ok, error = err }) end
+  end
+
+  if not allowRate(src, 'staff_suite:announce', { burst = 1, per_second = 1 / 30 }) then
+    return reply(false, t('rate_limited'))
+  end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'staff.announce') then return reply(false, t('no_permission')) end
+  local message, err = cleanText(body, limit('announcement') or 300)
+  if not message or message == '' then return reply(false, err or t('announcement_empty')) end
+
+  record('staff_announce', player.identifier, 'server', message, nil, function(saved)
+    if saved then TriggerClientEvent('staff_suite:announcement', -1, message) end
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+      reply(saved, not saved and t('announcement_failed') or nil)
+    end
+  end)
 end)
 
 local function banRequest(src, name, req, cap, rate)
@@ -796,6 +825,28 @@ net('staff_suite:ticketRate', function(id, score)
   TriggerClientEvent('staff_suite:notify', src, t('rating_thanks'))
 end)
 
+-- Captura la pantalla de `targetSrc` y la guarda como evidencia del ticket, con su hash auditado.
+function captureEvidence(ticket, targetSrc, by, notifySrc)
+  local id = ticket.id
+  exports['screenshot-basic']:requestClientScreenshot(targetSrc, { encoding = 'jpg', quality = 0.6 }, function(err, data)
+    if err or type(data) ~= 'string' or data == '' then
+      TriggerClientEvent('staff_suite:notify', notifySrc, t('evidence_failed'))
+      return
+    end
+    ticket.evidence = ticket.evidence or {}
+    local n = #ticket.evidence + 1
+    if not SaveResourceFile(GetCurrentResourceName(), evidenceFile(id, n), data, -1) then
+      TriggerClientEvent('staff_suite:notify', notifySrc, t('evidence_failed'))
+      return
+    end
+    local item = { n = n, ts = os.time(), by = by, sha256 = sha256.hex(data), size = #data, audit_seq = #chain.entries + 1 }
+    ticket.evidence[n] = item
+    record('ticket_evidence', by, 'ticket:' .. id, '', { n = n, sha256 = item.sha256, size = item.size })
+    TriggerClientEvent('staff_suite:notify', notifySrc, t('evidence_saved', { n = n }))
+    sendTickets(notifySrc, getPlayer(notifySrc))
+  end)
+end
+
 net('staff_suite:ticketEvidence', function(id)
   local src = source
   local player = getPlayer(src)
@@ -811,24 +862,7 @@ net('staff_suite:ticketEvidence', function(id)
     TriggerClientEvent('staff_suite:notify', src, t('evidence_offline'))
     return
   end
-  local by = actorId(player, src)
-  exports['screenshot-basic']:requestClientScreenshot(targetSrc, { encoding = 'jpg', quality = 0.6 }, function(err, data)
-    if err or type(data) ~= 'string' or data == '' then
-      TriggerClientEvent('staff_suite:notify', src, t('evidence_failed'))
-      return
-    end
-    ticket.evidence = ticket.evidence or {}
-    local n = #ticket.evidence + 1
-    if not SaveResourceFile(GetCurrentResourceName(), evidenceFile(id, n), data, -1) then
-      TriggerClientEvent('staff_suite:notify', src, t('evidence_failed'))
-      return
-    end
-    local item = { n = n, ts = os.time(), by = by, sha256 = sha256.hex(data), size = #data, audit_seq = #chain.entries + 1 }
-    ticket.evidence[n] = item
-    record('ticket_evidence', by, 'ticket:' .. id, '', { n = n, sha256 = item.sha256, size = item.size })
-    TriggerClientEvent('staff_suite:notify', src, t('evidence_saved', { n = n }))
-    sendTickets(src, player)
-  end)
+  captureEvidence(ticket, targetSrc, actorId(player, src), src)
 end)
 
 net('staff_suite:evidenceGet', function(id, n)
