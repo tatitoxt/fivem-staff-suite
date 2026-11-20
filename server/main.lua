@@ -32,6 +32,7 @@ local waypointRequests = {}
 local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local staffModes, staffModeSeq = {}, 0
 local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
+local emergency, emergencyChange
 local onlineRefs, onlineViewedAt, onlineRefSeq = {}, {}, 0
 local profileHistory = {}
 local profileAuditIntact = true
@@ -450,9 +451,46 @@ local function afterSanction(ctx, fn)
   end
 end
 
+local function enforceEmergency(session)
+  if emergency ~= session then return end
+  local function freeze(entity, wasSpectating)
+    if entity == 0 or not DoesEntityExist(entity) then return end
+    local network = NetworkGetNetworkIdFromEntity(entity)
+    local current = session.entities[entity]
+    if not current or current.network ~= network then
+      session.entities[entity] = { network = network, frozen = not wasSpectating and IsEntityPositionFrozen(entity) }
+    end
+    if not IsEntityPositionFrozen(entity) then FreezeEntityPosition(entity, true) end
+  end
+  for _, player in ipairs(GetPlayers()) do
+    local src = tonumber(player)
+    local ped = GetPlayerPed(src)
+    if ped ~= 0 then
+      freeze(ped, session.spectators[src] == ped)
+      freeze(GetVehiclePedIsIn(ped, false))
+    end
+  end
+  for entity in pairs(session.entities) do
+    if not DoesEntityExist(entity) then session.entities[entity] = nil end
+  end
+  SetTimeout(1000, function() enforceEmergency(session) end)
+end
+
+local function releaseEmergency()
+  if not emergency then return end
+  local session = emergency
+  emergency = nil
+  for entity, saved in pairs(session.entities) do
+    if DoesEntityExist(entity) and NetworkGetNetworkIdFromEntity(entity) == saved.network then
+      FreezeEntityPosition(entity, saved.frozen)
+    end
+  end
+end
+
 local function setFrozen(m, frozen)
   local ped = GetPlayerPed(m.tgt)
   if ped == 0 then return false, t('mod_invalid_target') end
+  if emergency then return false, t('emergency_individual_blocked') end
   FreezeEntityPosition(ped, frozen)
   for _, player in ipairs(GetPlayers()) do
     local src = tonumber(player)
@@ -516,7 +554,7 @@ local modActions = {
   end },
   spectate = { run = function(m)
     local ped = GetPlayerPed(m.tgt)
-    if m.src == m.tgt or ped == 0 or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
+    if emergency or m.src == m.tgt or ped == 0 or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
       return false, t('spectate_unavailable')
     end
     spectateSequence = spectateSequence + 1
@@ -526,7 +564,7 @@ local modActions = {
       if pendingSpectators[m.src] ~= session then return end
       pendingSpectators[m.src] = nil
       local currentPed = GetPlayerPed(m.tgt)
-      if not saved or not GetPlayerName(m.src) or currentPed == 0
+      if not saved or emergency or not GetPlayerName(m.src) or currentPed == 0
         or getIdentifier(m.tgt) ~= m.target
         or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
         TriggerClientEvent('staff_suite:notify', m.src, t(saved and 'spectate_unavailable' or 'mod_save_failed'))
@@ -965,6 +1003,51 @@ RegisterNetEvent('staff_suite:staffWeekly', function(req, exporting)
   end)
 end)
 
+RegisterNetEvent('staff_suite:emergencyFreeze', function(req, enabled, reason)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, key)
+    TriggerClientEvent('staff_suite:emergencyFreezeResult', src, { req = req, ok = ok, error = key and t(key),
+      data = ok and { enabled = emergency ~= nil } or nil })
+  end
+  if not allowRate(src, 'staff_suite:emergencyFreeze') then return reply(false, 'rate_limited') end
+  if not ready then return reply(false, 'persistence_starting') end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'mod.emergency_freeze') then return reply(false, 'no_permission') end
+  if enabled == nil then return reply(true) end
+  if type(enabled) ~= 'boolean' then return reply(false, 'mod_unavailable') end
+  if emergencyChange then return reply(false, 'emergency_pending') end
+  if enabled == (emergency ~= nil) then return reply(true) end
+  local cleaned, err = cleanText(reason, limit('reason') or 300)
+  if err then
+    TriggerClientEvent('staff_suite:emergencyFreezeResult', src, { req = req, ok = false, error = err })
+    return
+  end
+  if not cleaned or cleaned == '' then return reply(false, 'reason_required') end
+  emergencyChange = true
+  record('mod_emergency_freeze', player.identifier, 'server', cleaned, { enabled = enabled }, function(saved)
+    emergencyChange = nil
+    local current = GetPlayerName(src) and getPlayer(src)
+    if not current or current.identifier ~= player.identifier then return end
+    if not saved then return reply(false, 'mod_save_failed') end
+    if not can(current, 'mod.emergency_freeze') then return reply(false, 'no_permission') end
+    if enabled then
+      emergency = { entities = {}, spectators = {} }
+      for observer, session in pairs(spectators) do
+        emergency.spectators[observer] = GetPlayerPed(observer)
+        spectators[observer] = nil
+        TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+      end
+      enforceEmergency(emergency)
+    else
+      releaseEmergency()
+    end
+    TriggerClientEvent('staff_suite:notify', -1, t(enabled and 'emergency_started' or 'emergency_released'), { kind = 'announce' })
+    reply(true)
+  end)
+end)
+
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
     if not allowRate(source, name) then return end
@@ -1155,7 +1238,7 @@ net('staff_suite:getState', function()
   local player = getPlayer(src)
   local capabilities = {}
   for _, cap in ipairs(perms.CAPS) do
-    local available = cap:sub(1, 4) ~= 'mod.' or cap == 'mod.template' or modActions[cap:sub(5)]
+    local available = cap:sub(1, 4) ~= 'mod.' or cap == 'mod.template' or cap == 'mod.emergency_freeze' or modActions[cap:sub(5)]
       or cap == 'mod.warn_escalate' and canEscalate(player)
     if available and can(player, cap) then capabilities[#capabilities + 1] = cap end
   end
@@ -1625,6 +1708,7 @@ end)
 -- Los lotes pendientes se respaldan antes de apagar el recurso.
 AddEventHandler('onResourceStop', function(res)
   if ready and res == GetCurrentResourceName() then
+    releaseEmergency()
     checkpointPlaytime()
     storage.stop()
   end

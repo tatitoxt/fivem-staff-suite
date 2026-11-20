@@ -388,6 +388,15 @@ export class MockBackend {
         return { ok: true };
       case 'staff_mode':
         return { ok: true };
+      case 'emergency_freeze': {
+        const { enabled, reason } = p as OutgoingPayloads['emergency_freeze'];
+        const last = [...this.entries].reverse().find((entry) => entry.action === 'mod_emergency_freeze');
+        if (enabled !== undefined) {
+          this.record(ME, 'mod_emergency_freeze', 'server', reason, { enabled });
+          this.emitAudit(false);
+        }
+        return { ok: true, data: { enabled: enabled ?? (last?.payload?.includes('"enabled":true') ?? false) } };
+      }
       case 'mod_action': {
         const { action: mod, target: destination, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
         const target = typeof destination === 'string' ? destination : `src:${destination.id}`;

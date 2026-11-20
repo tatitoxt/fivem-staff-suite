@@ -49,12 +49,13 @@ export function SettingsView() {
   const canViewBans = !isLite && state.player?.capabilities?.includes('ban.view');
   const canChat = !isLite && state.player?.capabilities?.includes('staff.chat');
   const canWaypoint = !isLite && can('staff.waypoint');
+  const canEmergency = !isLite && can('mod.emergency_freeze');
   return (
     <main className={lay.main}>
       <ViewHeader title={t('ui_nav_settings')} subtitle={t('ui_settings_sub')} />
       <div className={cx(lay.viewBody, ui.scroll)}>
         <div className={v.settings}>
-          {(canViewBans || canChat || canWaypoint) && <div className={v.settingsTools}>
+          {(canViewBans || canChat || canWaypoint || canEmergency) && <div className={v.settingsTools}>
             {canViewBans && <Button size="small" onClick={() => dispatch({ type: 'staffDialog', dialog: 'ban.view' })}>
               <ShieldBan size={15} aria-hidden />{t('ban_review_title')}
             </Button>}
@@ -63,6 +64,9 @@ export function SettingsView() {
             </Button>}
             {canWaypoint && <Button size="small" onClick={() => void send('goto_waypoint')}>
               <MapPin size={15} aria-hidden />{t('ui_waypoint_go')}
+            </Button>}
+            {canEmergency && <Button size="small" onClick={() => dispatch({ type: 'staffDialog', dialog: 'mod.emergency_freeze' })}>
+              {t('ui_emergency_title')}
             </Button>}
           </div>}
           {!isLite && state.player?.capabilities?.includes('staff.announce') && <AnnouncementForm />}

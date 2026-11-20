@@ -38,6 +38,10 @@ export function useCommands(): Cmd[] {
     if (!isLite && can('staff.waypoint')) {
       list.push({ id: 'waypoint', group: act, label: t('ui_waypoint_go'), icon: <MapPin size={16} />, run: () => void send('goto_waypoint') });
     }
+    if (!isLite && can('mod.emergency_freeze')) {
+      list.push({ id: 'emergency-freeze', group: act, label: t('ui_emergency_title'), icon: <ShieldCheck size={16} />,
+        run: () => dispatch({ type: 'staffDialog', dialog: 'mod.emergency_freeze' }) });
+    }
     if (!isLite && can('mod.spectate')) {
       list.push({ id: 'spectate-stop', group: act, label: t('spectate_stop'), icon: <X size={16} />,
         run: () => void send('spectate_stop') });

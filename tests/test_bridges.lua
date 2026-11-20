@@ -852,6 +852,32 @@ function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result(
   assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
+function T.test_emergency_freeze_preserves_previous_state_and_catches_new_peds()
+  local s = serverSandbox()
+  s.env.DoesEntityExist = function(entity) return entity > 0 end
+  s.env.NetworkGetNetworkIdFromEntity = function(entity) return entity + 1 end
+  s.env.GetVehiclePedIsIn = function(ped) return ped == 180 and 350 or 0 end
+  local frozen, result = s.env.IsEntityPositionFrozen, 'staff_suite:emergencyFreezeResult'
+  s.env.FreezeEntityPosition(190, true)
+  s.event('emergencyFreeze', 1, true, 'alerta')
+  assert(not s.sent[result].ok and not frozen(170))
+  s.ace.superadmin = true
+  s.event('emergencyFreeze', 2, true, '')
+  assert(not s.sent[result].ok and not frozen(170))
+  s.event('emergencyFreeze', 3, true, 'alerta')
+  assert(s.sent[result].ok and s.sent[result].data.enabled and frozen(170) and frozen(350))
+  s.online['20'] = true
+  for i, delay in ipairs(s.delays) do
+    if delay == 1000 then s.timers[i](); break end
+  end
+  assert(frozen(200))
+  s.now = s.now + 10
+  s.event('emergencyFreeze', 4, false, 'resuelto')
+  assert(s.sent[result].ok and not s.sent[result].data.enabled)
+  assert(not frozen(170) and not frozen(350) and not frozen(200) and frozen(190))
+  assert(s.api.GetChain()[1].action == 'mod_emergency_freeze' and s.api.Verify())
+end
+
 function T.test_vehicle_actions_use_the_targets_vehicle_and_persist_before_effects()
   local s = serverSandbox()
   s.env.GetVehiclePedIsIn = function(ped) return ped == 180 and 350 or 0 end
