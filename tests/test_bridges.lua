@@ -201,7 +201,7 @@ local function serverSandbox(options)
   options = options or {}
   local env, states, ace = sandbox()
   local events, commands, api, sent, recipients, payloads = {}, {}, {}, {}, {}, {}
-  local threads, reads, hooks, timers = {}, {}, {}, {}
+  local threads, reads, hooks, timers, delays = {}, {}, {}, {}, {}
   local files = options.files or {}
   local server
   states.qbx_core = 'started'
@@ -225,12 +225,15 @@ local function serverSandbox(options)
   end
   env.GetInvokingResource = function() return server.invoker end
   env.CreateThread = function(handler) threads[#threads + 1] = handler end
-  env.SetTimeout = function(_, handler) timers[#timers + 1] = handler end
+  env.SetTimeout = function(ms, handler)
+    timers[#timers + 1] = handler
+    delays[#timers] = ms
+  end
   env.GetPlayerIdentifiers = function(src)
     local identifier = server.identifiers[tostring(src)]
     return identifier == false and {} or { identifier or ('license:account' .. src) }
   end
-  local online = { ['17'] = true, ['18'] = true, ['19'] = true }
+  local online = options.online or { ['17'] = true, ['18'] = true, ['19'] = true }
   env.GetPlayers = function()
     local players = {}
     for src in pairs(online) do players[#players + 1] = src end
@@ -244,7 +247,8 @@ local function serverSandbox(options)
       for _, fn in ipairs(hooks[name] or {}) do fn(...) end
     end,
     commands = commands, online = online, payloads = payloads,
-    threads = threads, timers = timers, reads = reads, states = states, identifiers = {}, files = files, now = 10000,
+    threads = threads, timers = timers, delays = delays, reads = reads, states = states,
+    identifiers = {}, files = files, now = 10000,
   }
   env.GetPlayerPed = function(src) return online[tostring(src)] and src * 10 or 0 end
   local frozen = {}
@@ -413,6 +417,32 @@ function T.test_profile_playtime_counts_live_and_restored_sessions_without_offli
   assert(s.sent[view].data.played_seconds == 85)
   s.hook('onResourceStop', 'staff_suite')
   assert(s.files[s.env.Config.JsonFile].playtime[target] == 85000 and s.api.Verify())
+end
+
+function T.test_playtime_schedules_one_checkpoint_while_players_are_connected()
+  local s = serverSandbox({ online = {} })
+  assert(#s.timers == 0)
+  s.online['17'], s.online['18'] = true, true
+  s.hook('playerJoining')
+  s.env.source = 18
+  s.hook('playerJoining')
+  assert(#s.timers == 1 and s.delays[1] == 60000)
+
+  s.now = s.now + 60
+  s.timers[1]()
+  assert(#s.timers == 3 and s.delays[2] == 1000 and s.delays[3] == 60000)
+  s.timers[2]()
+  local saved = s.files[s.env.Config.JsonFile].playtime
+  assert(saved['license:account17'] == 60000 and saved['license:account18'] == 60000)
+
+  s.hook('playerDropped')
+  s.env.source = 17
+  s.hook('playerDropped')
+  s.now = s.now + 60
+  s.timers[3]()
+  assert(#s.timers == 3)
+  s.hook('playerJoining')
+  assert(#s.timers == 4 and s.delays[4] == 60000)
 end
 
 function T.test_profile_notes_keep_audit_order_when_callbacks_complete_out_of_order()
@@ -706,7 +736,7 @@ function T.test_failed_ban_does_not_block_connections_or_return_on_retry()
   assert(not s.cancelled)
 
   s.failWrites = false
-  s.timers[1]()
+  s.timers[#s.timers]()
   local saved = s.files[s.env.Config.JsonFile]
   assert(not saved.bans['license:account18'])
   assert(saved.chain.entries[2].action == 'mod_ban_failed' and s.api.Verify())

@@ -92,7 +92,7 @@ E2E_WORK_DIR=/tmp/e2e scripts/e2e-fxserver.sh --dry-run
 
 ## CI
 
-`.github/workflows/e2e.yml` runs on every PR and every push to `main`, and can also be started by hand (`workflow_dispatch`). If the repo has no `FIVEM_LICENSE_KEY` secret, the job leaves a notice and does nothing else. If it does, it packages the ZIP with `scripts/build-release.sh`, runs the E2E against that ZIP and uploads `fxserver.log` and `profile.json` as an artifact.
+`.github/workflows/e2e.yml` runs on every PR and every push to `main`, and can also be started by hand (`workflow_dispatch`). Each edition builds its own ZIP with `scripts/build-release.sh`, tests it in FXServer, and uploads its own logs. If the repo has no `FIVEM_LICENSE_KEY` secret, each job leaves a notice and skips the FXServer run.
 
 To enable it: **Settings → Secrets and variables → Actions → New repository secret**, named `FIVEM_LICENSE_KEY`. PRs from forks do not get the secret, so the job is skipped there.
 

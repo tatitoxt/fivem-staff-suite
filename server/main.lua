@@ -263,6 +263,26 @@ local function stopPlaytime(src)
   end
 end
 
+local function checkpointPlaytime()
+  local now, dirty = GetGameTimer(), false
+  for identifier, session in pairs(activePlaytime) do
+    if accountPlaytime(identifier, session, now) then dirty = true end
+  end
+  if dirty then storage.save() end
+end
+
+local playtimeCheckpointScheduled = false
+local function schedulePlaytimeCheckpoint()
+  if playtimeCheckpointScheduled then return end
+  playtimeCheckpointScheduled = true
+  SetTimeout(60000, function()
+    playtimeCheckpointScheduled = false
+    if not next(activePlaytime) then return end
+    checkpointPlaytime()
+    schedulePlaytimeCheckpoint()
+  end)
+end
+
 local function startPlaytime(src)
   src = tonumber(src)
   local player = getPlayer(src)
@@ -277,14 +297,7 @@ local function startPlaytime(src)
     activePlaytime[identifier] = session
   end
   session.connections = session.connections + 1
-end
-
-local function checkpointPlaytime()
-  local now, dirty = GetGameTimer(), false
-  for identifier, session in pairs(activePlaytime) do
-    if accountPlaytime(identifier, session, now) then dirty = true end
-  end
-  if dirty then storage.save() end
+  schedulePlaytimeCheckpoint()
 end
 
 local function actorId(player, src)
@@ -1378,12 +1391,6 @@ CreateThread(function()
     restore(data)
     ready = true
     for _, src in ipairs(GetPlayers()) do startPlaytime(src) end
-    CreateThread(function()
-      while true do
-        Wait(60000)
-        checkpointPlaytime()
-      end
-    end)
     capture.install(Config, bridges.select, getIdentifier, record)
     print(t('console_started', { n = #chain.entries, persistence = backend, framework = bridges.select(Config) }))
   end)

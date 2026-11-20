@@ -128,6 +128,8 @@ set staff_suite_e2e_autoquit true
 set staff_suite_e2e_profile_file "$profile"
 add_ace resource.staff_suite_tests command.quit allow
 add_ace resource.staff_suite_tests command.profiler allow
+add_ace resource.staff_suite_tests command.record allow
+add_ace resource.staff_suite_tests command.saveJSON allow
 ensure staff_suite
 ensure staff_suite_tests
 CFG

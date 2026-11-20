@@ -248,11 +248,19 @@ local function testLite(ss)
   check('Lite claim asigna el ticket', claimed.state == 'claimed' and claimed.claimer == 'license:e2e_staff')
   probe(actionEvent, 'staff', 1, 'transfer', { to = 'license:e2e_reporter' })
   check('Lite ignora transferencias', state('staff').tickets[1].claimer == 'license:e2e_staff')
-  probe(actionEvent, 'staff', 1, 'resolve', { resolution = 'Revisado' })
+  local resolved = probe(actionEvent, 'staff', 1, 'resolve', { resolution = 'Revisado' })
   check('Lite resolve registra la resolución', state('staff').tickets[1].resolution == 'Revisado')
-  check('Lite solo muestra tickets activos al reportante', not next(state('reporter').myTickets))
-  probe(actionEvent, 'staff', 1, 'close')
-  check('Lite close cierra el ticket', state('staff').tickets[1].state == 'closed')
+  local resolvedUpdate = resolved.reporter[stateEvent].myTickets[1]
+  local resolvedState = state('reporter').myTickets[1]
+  local lateReply = probe('staff_suite:ticketReply', 'reporter', 1, 'Ya resuelto', 4)
+  check('Lite muestra el ticket resuelto en modo lectura',
+    resolvedUpdate and resolvedUpdate.id == 1 and resolvedUpdate.state == 'resolved'
+    and resolvedState and resolvedState.id == 1 and resolvedState.state == 'resolved'
+    and lateReply.reporter[messageResult].ok == false)
+  local closed = probe(actionEvent, 'staff', 1, 'close')
+  check('Lite close cierra el ticket y lo quita de Mis reportes',
+    state('staff').tickets[1].state == 'closed' and not next(closed.reporter[stateEvent].myTickets)
+    and not next(state('reporter').myTickets))
   probe(actionEvent, 'staff', 1, 'reopen')
   local verify = probe(verifyEvent, 'staff').staff[resultEvent]
   check('Lite verify valida la cadena', verify and verify.ok == true and verify.at == nil)
