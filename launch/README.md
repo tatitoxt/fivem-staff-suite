@@ -29,24 +29,26 @@ Cada feature mencionada en estos materiales sale de esta tabla. Lo que no esté 
 | Cadena SHA-256 de lo que pasa por el panel, visor con filtros y "Verificar cadena" (`/audit` o consola) | ✅ | `core/audit_chain.lua`, `AuditView.tsx` |
 | Standalone, un solo permiso ACE (`staff_suite.lite`), JSON, ES/EN | ✅ | `editions/lite/` |
 | Rate limit y límites de texto | ✅ | `core/ratelimit.lua`, `tests/test_lite.lua` |
+| Mis reportes: el jugador ve sus reportes abiertos y responde el hilo público; el staff contesta desde la cola y al jugador le llega un aviso | ✅ | `server/lite.lua` (`staff_suite:ticketReply`), `MyReportsView.tsx` |
 | Licencia MIT, Lua editable | ✅ | `editions/lite/LICENSE` |
-| Lite **no** tiene: transferir, prioridades, notas, moderación, duty, dashboard, anclaje a Discord/archivo, frameworks, oxmysql, exports | — | `editions/lite/fxmanifest.lua` (no carga `server/main.lua` ni `export.lua`) |
+| Lite **no** tiene: transferir, prioridades, notas internas, moderación, duty, dashboard, anclaje a Discord/archivo, frameworks, oxmysql, exports | — | `editions/lite/fxmanifest.lua` (no carga `server/main.lua` ni `export.lua`) |
 
 ### Core (Tebex + Cfx Asset Escrow)
 | Feature | Estado | Código |
 |---|---|---|
 | Todo Lite + ciclo completo: reclamar, liberar, transferir (a staff conectado que puede reclamar), en curso, resolver, cerrar, reabrir | ✅ | `core/tickets.lua`, `server/main.lua` (`transferTargets`) |
-| Prioridades, mensajes y notas internas del staff | ✅ | `Config.Priorities`, `staff_suite:ticketMessage` |
+| Prioridades y notas internas (solo las ve el staff) | ✅ | `Config.Priorities`, `staff_suite:ticketMessage` |
+| Chat con el jugador en Mis reportes: hilo público por reporte abierto, sin notas internas ni identificadores del staff; aviso en el juego cuando responde el staff | ✅ | `tickets.reporter_view`, `staff_suite:ticketReply`, `TicketChat.tsx` |
 | Respuestas predefinidas (4 por defecto, configurables) | ✅ | `Config.CannedResponses`, `TicketsView.tsx` |
 | Calificación 1–5 del jugador al resolverse su ticket | ✅ | `afterTransition` → `ratePrompt`, `staff_suite:ticketRate`, `RatePrompt` |
 | Evidencia: captura de pantalla del jugador con screenshot-basic; SHA-256 en la cadena y se verifica al abrirla | ✅ (si `screenshot-basic` está iniciado) | `staff_suite:ticketEvidence` / `evidenceGet` |
 | Analytics por staff: resueltos, tiempo de primera respuesta, rating promedio, horas, sesiones, leaderboard | ✅ | `duty.record_resolved` / `record_rating`, `DashboardView.tsx`, `DutyView.tsx` |
-| Moderación desde el ticket: goto, bring, freeze, heal, kick, warn, ban, spectate, revive | ✅ | `server/main.lua` (`modActions`), `client/moderation.lua` |
+| Moderación desde el ticket: goto, bring, freeze, unfreeze, heal, kick, warn, ban, spectate, revive | ✅ | `server/main.lua` (`modActions`), `client/moderation.lua` |
 | Ban temporal o permanente, por license + license2/fivem/steam/discord/xbl/live (+ tokens de hardware), se extiende a cuentas nuevas que compartan un identificador; sin IP | ✅ | `ban`, `playerConnecting`, `bridges.ban_identifiers` |
 | Warn notificado en el juego; ban y warn con razón obligatoria; kick con razón (configurable) | ✅ | `modActions` |
 | Spectate en la misma instancia; revive con el sistema médico del framework o standalone | ✅ | `bridges.revive`, `client/moderation.lua` |
 | Jerarquía: no se puede traer, congelar, expulsar, advertir ni banear a un rango superior | ✅ | `perms.outranks` |
-| Unfreeze | ⏳ próximamente | `docs/es/faq.md` |
+| Unfreeze con el mismo permiso que freeze (`mod.freeze`); el panel muestra quién está congelado | ✅ | `modActions.unfreeze`, `frozenPlayers` |
 | Duty (`/duty` o botón), dashboard, alerta de cadena rota | ✅ | `core/duty.lua`, vistas |
 | 5 rangos, 20 capabilities, overrides; ESX/QBCore/Qbox (auto) o ACE; nadie es staff por defecto | ✅ | `core/permissions.lua`, `server/bridges/` |
 | Captura de eventos: ESX (job, grupo, items, dinero), QBCore/Qbox (job, dinero, grupos) y txAdmin (ban, kick, warn, heal) | ✅ | `server/capture.lua` |
@@ -54,7 +56,6 @@ Cada feature mencionada en estos materiales sale de esta tabla. Lo que no esté 
 | JSON u oxmysql con migraciones automáticas al iniciar, transacciones y respaldo JSON; importa el JSON de Lite | ✅ | `server/persist_sql.lua`, `sql/001_*.sql`, `sql/002_*.sql` |
 | Exports: `Record`, `Verify`, `GetChain`, `CreateTicket`, `TicketAction`, `GetState`, `SetDuty`, `Flush`, `GetPersistence` (devuelven `false, código` en error) | ✅ | `server/main.lua` |
 | Rate limit por jugador y evento, límites de texto en bytes, 3 tickets abiertos por jugador | ✅ | `Config.RateLimit`, `Config.Limits` |
-| Chat con el jugador (que el reportante vea y responda mensajes) | ⏳ no incluido | los mensajes son solo entre staff |
 | Export de tickets a Discord, modo demo | ⏳ próximamente | roadmap F2 |
 
 ### Calidad y rendimiento

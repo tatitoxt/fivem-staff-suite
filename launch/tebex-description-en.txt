@@ -6,8 +6,9 @@ Every action goes into a SHA-256 chain: each entry stores the hash of the previo
 
 What's included:
 - Tickets with claim, transfer, priorities, internal notes, canned replies and a 1-5 player rating.
+- Chat with the player in "My reports": they reply in-game and get notified when staff writes back. Internal notes stay hidden.
 - Evidence with screenshot-basic: the capture is recorded in the chain and verified when you open it.
-- Moderation from the ticket: goto, bring, freeze, heal, kick, warn, ban, spectate and revive. Temporary or permanent bans that cover all of the player's accounts.
+- Moderation from the ticket: goto, bring, freeze, unfreeze, heal, kick, warn, ban, spectate and revive. Temporary or permanent bans that cover all of the player's accounts.
 - Nobody can sanction a higher rank. Bans and warnings need a reason.
 - Duty and per-staff stats: resolved tickets, response time, rating and hours.
 - Logs ESX, QBCore, Qbox and txAdmin events.

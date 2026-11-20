@@ -28,12 +28,13 @@ Cada acción queda en una cadena SHA-256. Cada entrada incluye el hash de la ant
 
 **Tickets**
 - `/report` o el panel (F6). Reclamar sin pisarse, liberar, transferir a otro staff conectado, resolver con texto, cerrar y reabrir.
-- Prioridades, mensajes entre el staff, notas internas y respuestas predefinidas que configurás en `config.lua`.
+- Prioridades, notas internas y respuestas predefinidas que configurás en `config.lua`.
+- Chat con el jugador: en "Mis reportes" ve sus reportes abiertos, responde y le llega un aviso cuando le escribe el staff. Las notas internas no las ve.
 - Al resolverse el ticket, el jugador califica la atención de 1 a 5.
 - Evidencia con screenshot-basic: se captura la pantalla del jugador, el hash va a la cadena y al abrir la captura el panel te dice si coincide.
 
 **Moderación desde el ticket**
-- Goto, bring, freeze, heal, kick, warn, ban, spectate y revive, cada una con su permiso.
+- Goto, bring, freeze y unfreeze, heal, kick, warn, ban, spectate y revive, cada una con su permiso. El panel muestra a quién congelaste.
 - Ban temporal o permanente. Cubre license, license2, FiveM, Steam, Discord, Xbox y tokens de hardware. Si el baneado vuelve con una cuenta nueva que comparte alguno, el ban se extiende. No usa IP.
 - Ban y warn siempre piden razón; kick también (configurable). El warn le llega al jugador en el juego.
 - Nadie puede traer, congelar, expulsar, advertir ni banear a alguien de rango superior.
@@ -56,7 +57,7 @@ Cada acción queda en una cadena SHA-256. Cada entrada incluye el hash de la ant
 - Español e inglés. `config.lua`, locales y `sql/` quedan abiertos; el resto con Cfx Asset Escrow.
 - Probado en un FXServer real: 30 de 30 checks E2E. Rendimiento en el cliente: **[RESMON PENDIENTE]**.
 
-**Lo que no hace:** no es un anticheat ni un menú de admin (noclip, god y spawn siguen en txAdmin). El jugador no ve el chat del ticket: los mensajes son entre el staff. No hay unfreeze todavía.
+**Lo que no hace:** no es un anticheat ni un menú de admin (noclip, god y spawn siguen en txAdmin).
 
 **Requisitos:** FXServer actualizado con OneSync. Opcional: oxmysql, ESX Legacy, QBCore o Qbox, screenshot-basic (para evidencia).
 
@@ -69,12 +70,13 @@ Every action goes into a SHA-256 chain. Each entry contains the hash of the prev
 
 **Tickets**
 - `/report` or the panel (F6). Claim without stepping on each other, unclaim, transfer to another online staff member, resolve with a note, close and reopen.
-- Priorities, staff messages, internal notes and canned replies you set up in `config.lua`.
+- Priorities, internal notes and canned replies you set up in `config.lua`.
+- Chat with the player: in "My reports" they see their open reports, reply, and get a notification when staff writes back. They never see internal notes.
 - When the ticket is resolved, the player rates the help from 1 to 5.
 - Evidence with screenshot-basic: the player's screen is captured, its hash goes into the chain, and when you open it the panel tells you whether it still matches.
 
 **Moderation from the ticket**
-- Goto, bring, freeze, heal, kick, warn, ban, spectate and revive, each behind its own permission.
+- Goto, bring, freeze and unfreeze, heal, kick, warn, ban, spectate and revive, each behind its own permission. The panel shows who's frozen.
 - Temporary or permanent bans. They cover license, license2, FiveM, Steam, Discord, Xbox and hardware tokens. If the banned player comes back on a new account that shares any of them, the ban extends to it. No IP bans.
 - Bans and warnings always need a reason; kicks too (configurable). Warnings are shown to the player in-game.
 - Nobody can bring, freeze, kick, warn or ban someone with a higher rank.
@@ -97,7 +99,7 @@ Every action goes into a SHA-256 chain. Each entry contains the hash of the prev
 - Spanish and English. `config.lua`, locales and `sql/` stay open; the rest uses Cfx Asset Escrow.
 - Tested on a real FXServer: 30 of 30 E2E checks. Client performance: **[RESMON PENDIENTE]**.
 
-**What it doesn't do:** it isn't an anticheat or an admin menu (noclip, god mode and spawning stay in txAdmin). Players don't see the ticket chat: messages are between staff. There's no unfreeze yet.
+**What it doesn't do:** it isn't an anticheat or an admin menu (noclip, god mode and spawning stay in txAdmin).
 
 **Requirements:** up-to-date FXServer with OneSync. Optional: oxmysql, ESX Legacy, QBCore or Qbox, screenshot-basic (for evidence).
 
@@ -108,11 +110,12 @@ Every action goes into a SHA-256 chain. Each entry contains the hash of the prev
 |---|---|---|
 | `/report` y cola de tickets en el panel | ✅ | ✅ |
 | Reclamar, resolver, cerrar, reabrir | ✅ | ✅ |
+| Chat con el jugador en Mis reportes | ✅ | ✅ |
 | Transferir, liberar, prioridades, notas internas | — | ✅ |
 | Respuestas predefinidas, calificación 1–5, evidencia con screenshot-basic | — | ✅ |
 | Auditoría SHA-256 con visor y verificación | ✅ (acciones del panel) | ✅ (todo, más eventos de framework y txAdmin) |
 | Anclaje del hash a Discord y archivo | — | ✅ |
-| Moderación: goto, bring, freeze, heal, kick, warn, ban, spectate, revive | — | ✅ |
+| Moderación: goto, bring, freeze, unfreeze, heal, kick, warn, ban, spectate, revive | — | ✅ |
 | Turnos, dashboard y estadísticas por staff | — | ✅ |
 | Permisos | 1 permiso ACE | 5 rangos, 20 permisos, ESX/QBCore/Qbox/ACE |
 | Persistencia | JSON | JSON u oxmysql con migraciones |
@@ -124,11 +127,12 @@ EN:
 |---|---|---|
 | `/report` and ticket queue in the panel | ✅ | ✅ |
 | Claim, resolve, close, reopen | ✅ | ✅ |
+| Chat with the player in My reports | ✅ | ✅ |
 | Transfer, unclaim, priorities, internal notes | — | ✅ |
 | Canned replies, 1–5 rating, screenshot-basic evidence | — | ✅ |
 | SHA-256 audit log with viewer and verification | ✅ (panel actions) | ✅ (everything, plus framework and txAdmin events) |
 | Hash anchor to Discord and file | — | ✅ |
-| Moderation: goto, bring, freeze, heal, kick, warn, ban, spectate, revive | — | ✅ |
+| Moderation: goto, bring, freeze, unfreeze, heal, kick, warn, ban, spectate, revive | — | ✅ |
 | Duty, dashboard and per-staff stats | — | ✅ |
 | Permissions | 1 ACE permission | 5 ranks, 20 permissions, ESX/QBCore/Qbox/ACE |
 | Storage | JSON | JSON or oxmysql with migrations |
