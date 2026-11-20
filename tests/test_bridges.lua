@@ -1560,4 +1560,26 @@ function T.test_new_report_notifies_staff_with_priority()
   assert(not seen[19], 'el reporter no recibe el aviso de staff')
 end
 
+function T.test_ban_revoke_respects_rank_of_original_banner()
+  local s = serverSandbox()
+  s.env.Config.Framework = 'standalone'
+  s.ace['staff_suite.owner'] = true
+  s.event('modAction', 'ban', 18, 'grave', 0)
+  s.api.Flush()
+  local banId
+  for _, e in ipairs(s.api.GetChain()) do if e.action == 'mod_ban' then banId = e.seq end end
+  assert(banId, 'el ban quedó auditado')
+  s.ace['staff_suite.owner'] = nil
+  s.ace['staff_suite.senior_admin'] = true
+  s.event('banRevoke', banId, 'Apelación', 1)
+  local result = s.sent['staff_suite:banRevokeResult']
+  assert(result and result.req == 1 and not result.ok and result.error == s.env.Locale.es.mod_target_protected, result and tostring(result.error) or "sin respuesta")
+  s.ace['staff_suite.senior_admin'] = nil
+  s.ace['staff_suite.owner'] = true
+  s.event('banRevoke', banId, 'Apelación', 2)
+  s.api.Flush()
+  result = s.sent['staff_suite:banRevokeResult']
+  assert(result.req == 2 and result.ok, tostring(result.error))
+end
+
 return T
