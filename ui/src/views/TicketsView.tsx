@@ -1,4 +1,4 @@
-import { Camera, Inbox, Plus, Star } from 'lucide-react';
+import { Camera, Inbox, Plus, Send, Star } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
@@ -46,6 +46,23 @@ interface DetailProps {
   openDialog: (d: DialogState) => void;
   reason: string;
   setReason: (r: string) => void;
+}
+
+function TicketExportButton({ id }: { id: number }) {
+  const { dispatch, t, send } = useApp();
+  const [pending, setPending] = useState(false);
+  async function exportTicket() {
+    setPending(true);
+    const result = await send('ticket_export', { id }) as TicketCreateResult | null;
+    setPending(false);
+    dispatch({ type: 'toast', kind: result?.ok ? 'ok' : 'error',
+      text: result?.ok ? t('ticket_export_sent') : result?.error ?? t('ticket_export_unconfirmed') });
+  }
+  return (
+    <Button size="small" disabled={pending} className={v.railWide} onClick={() => void exportTicket()}>
+      <Send size={16} />{t('ui_ticket_export')}
+    </Button>
+  );
 }
 
 function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
@@ -119,6 +136,8 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               <Button disabled={!canResolve} onClick={() => openDialog({ kind: 'resolve' })}>{t('resolve')}</Button>
               <Button disabled={!canClose} onClick={() => void send('ticket_close', { id: tk.id })}>{t('close')}</Button>
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
+              {!isLite && state.config.export?.tickets && state.player?.capabilities?.includes('report.export')
+                && <TicketExportButton key={tk.id} id={tk.id} />}
             </div>
           </section>
           {!isLite && (state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (

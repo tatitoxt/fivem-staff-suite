@@ -176,7 +176,7 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
   local convar_reads = 0
   local webhook = 'https://example.invalid/webhook'
   env.GetConvar = function(name)
-    assert(name == 'staff_suite_webhook')
+    assert(name == 'staff_suite_webhook' or name == 'staff_suite_ticket_webhook')
     convar_reads = convar_reads + 1
     return webhook
   end
@@ -187,7 +187,7 @@ function T.test_webhook_and_identifier_allowlist_only_loaded_on_server()
   assert(env.Config.Export == nil and env.Config.StandaloneRanks == nil and convar_reads == 0)
   assert(manifest.server[1] == 'server/config.lua')
   assert(loadfile(manifest.server[1], 't', env))()
-  assert(env.Config.Export.webhook == webhook and convar_reads == 1)
+  assert(env.Config.Export.webhook == webhook and env.Config.Export.ticket_webhook == webhook and convar_reads == 2)
 end
 
 local function clone(value)
@@ -649,10 +649,50 @@ function T.test_state_reports_export_flags_without_webhook_url()
   state = s.sent['staff_suite:state']
   assert(state.exportStatus.webhook == true and state.exportStatus.file == false)
   for key, value in pairs(state.exportStatus) do
-    assert(((key == 'file' or key == 'webhook') and type(value) == 'boolean')
+    assert(((key == 'file' or key == 'webhook' or key == 'tickets') and type(value) == 'boolean')
       or (key == 'anchor_every' and type(value) == 'number'))
   end
   assert(not state.export and not state.webhook)
+end
+
+function T.test_ticket_export_checks_permission_saves_audit_and_omits_private_data()
+  local s = serverSandbox()
+  local url, result = 'https://discord.com/api/webhooks/123456/demo-token', 'staff_suite:ticketExportResult'
+  s.env.Config.Export.ticket_webhook = url
+  local id = s.api.CreateTicket({ reporter = 'license:account18', description = 'Mi consulta' })
+  s.ace.admin = true
+  s.event('ticketMessage', id, 'Nota interna', true)
+  s.event('ticketMessage', id, 'Respuesta pública', false)
+  local request
+  s.env.PerformHttpRequest = function(uri, cb, method, body, headers, options)
+    local entries = s.files[s.env.Config.JsonFile].chain.entries
+    assert(entries[#entries].action == 'ticket_export_request')
+    assert(uri == url .. '?wait=true' and method == 'POST' and options.followLocation == false)
+    assert(headers['Content-Type']:match('^multipart/form%-data; boundary='))
+    assert(body:find('Mi consulta', 1, true) and body:find('Respuesta pública', 1, true))
+    assert(not body:find('Nota interna', 1, true) and not body:find('license:', 1, true))
+    request = cb
+  end
+  s.ace.admin = false
+  s.event('ticketExport', id, 2)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('no_permission') and not request)
+  s.ace.admin = true
+  s.event('getState')
+  assert(s.sent['staff_suite:state'].exportStatus.tickets == true)
+  s.now = s.now + 30
+  s.failWrites = true
+  s.event('ticketExport', id, 3)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('mod_save_failed') and not request)
+  s.now = s.now + 30
+  s.failWrites = false
+  s.event('ticketExport', id, 4)
+  assert(request and s.sent[result].req == 3)
+  s.event('ticketExport', id, 5)
+  assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
+  request(200)
+  assert(s.sent[result].ok and s.sent[result].req == 4)
+  local chain = s.api.GetChain()
+  assert(chain[#chain].action == 'ticket_export_result' and s.api.Verify())
 end
 
 function T.test_ticket_transfer_assigns_eligible_recipient()

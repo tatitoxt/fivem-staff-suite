@@ -5,6 +5,7 @@ local M = {}
 -- Capacidades atómicas. Cada acción de moderación/auditoría requiere una.
 M.CAPS = {
   "report.view", "report.claim", "report.resolve", "report.message",
+  "report.export",
   "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
   "mod.revive", "mod.kick", "mod.warn", "mod.ban",
   "audit.view", "audit.verify", "audit.export",
@@ -24,12 +25,14 @@ local RANK_CAPS = {
   },
   admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
+    "report.export",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
     "audit.view", "audit.verify", "staff.duty", "staff.analytics",
   },
   senior_admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
+    "report.export",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
     "audit.view", "audit.verify", "audit.export",

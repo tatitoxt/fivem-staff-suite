@@ -137,7 +137,7 @@ export interface UiConfig {
   priorities?: Priority[];
   require_reason?: boolean;
   persistence?: string;
-  export?: { webhook: boolean; file: boolean; anchor_every?: number };
+  export?: { webhook: boolean; file: boolean; anchor_every?: number; tickets?: boolean };
   transfer_targets?: TransferTarget[];
   canned?: CannedResponse[];
   evidence?: boolean;
@@ -197,6 +197,7 @@ export interface OutgoingPayloads {
   ticket_close: { id: number };
   ticket_reopen: { id: number };
   ticket_message: { id: number; body: string; internal: boolean };
+  ticket_export: { id: number };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string };
   mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
