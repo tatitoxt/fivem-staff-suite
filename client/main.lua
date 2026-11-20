@@ -57,6 +57,7 @@ local function sendInit()
       export = (exportStatus and {
         webhook = exportStatus.webhook == true,
         file = exportStatus.file == true,
+        tickets = exportStatus.tickets == true,
         anchor_every = exportStatus.anchor_every,
       }) or (Config.Export and {
         webhook = (Config.Export.webhook or '') ~= '',
@@ -182,14 +183,14 @@ on('ticket_close', ticketAction('close'))
 on('ticket_reopen', ticketAction('reopen'))
 -- Los callbacks esperan al servidor para conservar el borrador si falla el envío.
 local pendingRequests, requestSeq = {}, 0
-local function ticketRequest(action, result, failure, send, afterSuccess)
+local function ticketRequest(action, result, failure, send, afterSuccess, timeout)
   RegisterNUICallback(action, function(d, cb)
     requestSeq = requestSeq % 2147483647 + 1
     local req = requestSeq
     local pending = { result = result, cb = cb, afterSuccess = afterSuccess }
     pendingRequests[req] = pending
     send(d or {}, req)
-    SetTimeout(10000, function()
+    SetTimeout(timeout or 10000, function()
       if pendingRequests[req] == pending then
         pendingRequests[req] = nil
         cb({ ok = false, error = t(failure) })
@@ -231,6 +232,10 @@ if not lite then
   ticketRequest('ban_revoke', 'staff_suite:banRevokeResult', 'ban_review_failed', function(d, req)
     TriggerServerEvent('staff_suite:banRevoke', d.id, d.reason, req)
   end)
+  ticketResult('staff_suite:ticketExportResult')
+  ticketRequest('ticket_export', 'staff_suite:ticketExportResult', 'ticket_export_unconfirmed', function(d, req)
+    TriggerServerEvent('staff_suite:ticketExport', d.id, req)
+  end, nil, 40000)
   on('ticket_rate', function(d)
     TriggerServerEvent('staff_suite:ticketRate', d.id, d.score)
     if not panelOpen then SetNuiFocus(false, false) end

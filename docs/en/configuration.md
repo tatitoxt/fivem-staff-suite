@@ -94,6 +94,7 @@ Changes are saved in batches, with a JSON checkpoint for pending changes when th
 | Key | Default | Description |
 |---|---|---|
 | `webhook` | `GetConvar('staff_suite_webhook', '')` | Discord webhook URL. Set it in `server.cfg` with `set staff_suite_webhook "URL"`. Empty = disabled. |
+| `ticket_webhook` | `GetConvar('staff_suite_ticket_webhook', '')` | Text channel webhook URL at `https://discord.com/api/webhooks/…`. Set `set staff_suite_ticket_webhook "URL"` in `server.cfg`. Enables **Export thread to Discord** for staff with `report.export`. The transcript includes the ticket description and public messages in a text file of up to 64 KiB. |
 | `file` | `true` | Writes each anchor to `audit_export.log` (resource folder). |
 | `anchor_every` | `20` | Anchor the current hash every N entries. |
 | `webhook_retries` | `5` | Webhook attempts per anchor on 429, 5xx or no response. |

@@ -23,6 +23,7 @@ local bans = {}
 local revokedBans = {}
 local pendingBans = {}
 local pendingRevocations = {}
+local pendingExports = {}
 local entry_count = 0
 local ready = false
 local limiter = ratelimit.new()
@@ -661,6 +662,48 @@ RegisterNetEvent('staff_suite:banRevoke', function(id, reason, req)
   end)
 end)
 
+RegisterNetEvent('staff_suite:ticketExport', function(id, req)
+  local src = source
+  req = positiveInteger(req)
+  if not req then return end
+  local function reply(ok, err)
+    TriggerClientEvent('staff_suite:ticketExportResult', src, { req = req, ok = ok, error = err })
+  end
+  if not allowRate(src, 'staff_suite:ticketExport', { burst = 1, per_second = 1 / 30 }) then
+    return reply(false, t('rate_limited'))
+  end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'report.view') or not can(player, 'report.export') then
+    return reply(false, t('no_permission'))
+  end
+  local cfg = Config.Export
+  if not export.ticketEnabled(cfg) then return reply(false, t('ticket_export_unavailable')) end
+  id = positiveInteger(id)
+  local ticket = id and store.tickets[id]
+  if not ticket then return reply(false, t('ticket_export_missing')) end
+  if pendingExports[id] then return reply(false, t('ticket_export_pending')) end
+  pendingExports[id] = true
+  local target, seq = 'ticket:' .. id, #chain.entries + 1
+  local function finish(ok, status)
+    pendingExports[id] = nil
+    record('ticket_export_result', player.identifier, target, '', { request_seq = seq, ok = ok, status = status })
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+      reply(ok, not ok and t(status == 0 and 'ticket_export_unconfirmed' or 'ticket_export_failed') or nil)
+    end
+  end
+  record('ticket_export_request', player.identifier, target, '', nil, function(saved)
+    if saved then
+      export.ticket(ticket, cfg, finish)
+    else
+      pendingExports[id] = nil
+      if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
+        reply(false, t('mod_save_failed'))
+      end
+    end
+  end)
+end)
+
 net('staff_suite:getState', function()
   local src = source
   local player = getPlayer(src)
@@ -692,6 +735,7 @@ net('staff_suite:getState', function()
       webhook = type(exportConfig.webhook) == 'string' and exportConfig.webhook ~= '',
       file = exportConfig.file == true,
       anchor_every = exportConfig.anchor_every,
+      tickets = can(player, 'report.export') and export.ticketEnabled(exportConfig),
     },
     audit = canViewAudit and chain.entries or {},
     duty = canViewAnalytics and duty.snapshot(dreg, now) or {},

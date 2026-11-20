@@ -90,7 +90,7 @@ export class MockBackend {
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
-          export: { webhook: true, file: true, anchor_every: 20 },
+          export: { webhook: true, file: true, anchor_every: 20, tickets: true },
           canned: ['greeting', 'investigating', 'need_info', 'resolved']
             .map((id) => ({ id, title: this.s(`canned_${id}_title`), text: this.s(`canned_${id}`) })),
           evidence: true,
@@ -231,6 +231,13 @@ export class MockBackend {
         if (!ban) return { ok: false, error: this.s('ban_not_active') };
         ban.status = 'revoked';
         this.record(ME, 'mod_unban', ban.identifier, reason, { ban_id: id });
+        this.emitAudit(false);
+        return { ok: true };
+      }
+      case 'ticket_export': {
+        const { id } = p as OutgoingPayloads['ticket_export'];
+        this.record(ME, 'ticket_export_request', `ticket:${id}`);
+        this.record(ME, 'ticket_export_result', `ticket:${id}`, '', { ok: true, status: 200 });
         this.emitAudit(false);
         return { ok: true };
       }
