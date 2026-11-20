@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { LOCALES } from '../mock/locales';
@@ -55,4 +55,26 @@ it('schedules a vehicle cleanup with the chosen countdown and lets staff cancel 
   expect(await screen.findByRole('button', { name: strings.ui_cleanup_start })).toBeInTheDocument();
   expect(within(card).getByRole('status')).toHaveTextContent(strings.ui_cleanup_cancelled);
   expect(transport).toHaveBeenLastCalledWith('https://staff_suite/vehicle_cleanup_cancel', expect.anything());
+});
+
+it('keeps Cancel available after leaving Settings and when the server reports a pending cleanup', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn()
+    .mockResolvedValueOnce({ json: async () => ({ ok: true, data: { seconds: 60 } }) })
+    .mockResolvedValueOnce({ json: async () => ({ ok: true }) })
+    .mockResolvedValueOnce({ json: async () => ({ ok: false, error: strings.cleanup_pending, data: { remaining: 25 } }) });
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile(['world.cleanup']);
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  fireEvent.click(await screen.findByRole('button', { name: strings.ui_cleanup_start }));
+  await screen.findByRole('button', { name: strings.ui_cleanup_cancel });
+
+  dispatch({ type: 'open', payload: { view: 'audit' } });
+  await waitFor(() => expect(screen.queryByRole('heading', { name: strings.ui_cleanup_title })).not.toBeInTheDocument());
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  fireEvent.click(await screen.findByRole('button', { name: strings.ui_cleanup_cancel }));
+  fireEvent.click(await screen.findByRole('button', { name: strings.ui_cleanup_start }));
+  expect(await screen.findByRole('button', { name: strings.ui_cleanup_cancel })).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent(strings.cleanup_pending);
 });

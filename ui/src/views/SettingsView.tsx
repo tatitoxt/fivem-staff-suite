@@ -42,19 +42,23 @@ function AnnouncementForm() {
   );
 }
 
+// Sobrevive al desmontar Ajustes: el servidor sigue con la limpieza aunque se cambie de vista.
+let cleanupEndsAt: number | undefined;
+
 function VehicleCleanupForm() {
   const { state, t, send } = useApp();
   const options = state.config.cleanup_countdowns?.length ? state.config.cleanup_countdowns : [10, 30, 60];
   const [seconds, setSeconds] = useState(String(options[Math.min(1, options.length - 1)]));
   const [sending, setSending] = useState(false);
-  const [scheduled, setScheduled] = useState<number>();
+  const [endsAt, setEndsAtState] = useState(() => (cleanupEndsAt && cleanupEndsAt > Date.now() ? cleanupEndsAt : undefined));
   const [result, setResult] = useState<{ ok: boolean; text: string }>();
+  const setEndsAt = (next?: number) => { cleanupEndsAt = next; setEndsAtState(next); };
 
   useEffect(() => {
-    if (scheduled === undefined) return;
-    const timer = window.setTimeout(() => setScheduled(undefined), scheduled * 1000);
+    if (endsAt === undefined) return;
+    const timer = window.setTimeout(() => setEndsAt(undefined), Math.max(0, endsAt - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [scheduled]);
+  }, [endsAt]);
 
   async function run(action: 'vehicle_cleanup' | 'vehicle_cleanup_cancel') {
     setSending(true);
@@ -63,12 +67,16 @@ function VehicleCleanupForm() {
       ? await send(action, { seconds: Number(seconds) }) as TicketCreateResult | null
       : await send(action, {}) as TicketCreateResult | null;
     setSending(false);
-    if (!response?.ok) return setResult({ ok: false, text: response?.error ?? t('cleanup_failed') });
+    if (!response?.ok) {
+      const remaining = (response as { data?: { remaining?: number } } | null)?.data?.remaining;
+      if (typeof remaining === 'number') setEndsAt(Date.now() + remaining * 1000);
+      return setResult({ ok: false, text: response?.error ?? t('cleanup_failed') });
+    }
     if (action === 'vehicle_cleanup') {
-      setScheduled(Number(seconds));
+      setEndsAt(Date.now() + Number(seconds) * 1000);
       setResult({ ok: true, text: t('ui_cleanup_scheduled', { n: seconds }) });
     } else {
-      setScheduled(undefined);
+      setEndsAt(undefined);
       setResult({ ok: true, text: t('ui_cleanup_cancelled') });
     }
   }
@@ -83,7 +91,7 @@ function VehicleCleanupForm() {
         onChange={(next) => { setSeconds(next); setResult(undefined); }}
       />
       <p className={v.setHint}>{t('ui_cleanup_hint')}</p>
-      {scheduled === undefined
+      {endsAt === undefined
         ? <Button variant="primary" disabled={sending} onClick={() => void run('vehicle_cleanup')}>{t('ui_cleanup_start')}</Button>
         : <Button disabled={sending} onClick={() => void run('vehicle_cleanup_cancel')}>{t('ui_cleanup_cancel')}</Button>}
       {result && <p className={v.setHint} role={result.ok ? 'status' : 'alert'}>{result.text}</p>}
