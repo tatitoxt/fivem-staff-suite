@@ -80,7 +80,7 @@ describe('NUI dentro de FiveM', () => {
       const fromNui = (data: unknown) => window.dispatchEvent(new MessageEvent('message', { data, origin: 'https://nui-game-internal' }));
       fromNui({
         type: 'init',
-        payload: { locale: 'es', strings: LOCALES.es, version: '0.1.0', config: {}, player: { name: 'Fausto', rank: 'owner' } },
+        payload: { locale: 'es', strings: LOCALES.es, version: '0.2.0', config: {}, player: { name: 'Fausto', rank: 'owner' } },
       });
       fromNui({ type: 'open', payload: { view: 'tickets' } });
     });

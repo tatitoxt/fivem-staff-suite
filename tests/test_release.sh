@@ -10,6 +10,7 @@ unzip -q "$archive" -d "$stage"
 resource="$stage/staff_suite"
 test "$(find "$stage" -mindepth 1 -maxdepth 1 -printf '%f')" = staff_suite
 test -s "$resource/ui/dist/index.html"
+cmp CHANGELOG.md "$resource/CHANGELOG.md"
 test -s "$resource/third-party-licenses/react.txt"
 test ! -e "$resource/tests"
 test ! -e "$resource/plan"

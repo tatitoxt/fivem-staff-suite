@@ -46,9 +46,9 @@ Al terminar, el resource ejecuta `quit` (`set staff_suite_e2e_autoquit false` pa
 ```bash
 export FIVEM_LICENSE_KEY=cfxk_...      # https://portal.cfx.re/servers/registration-keys
 scripts/e2e-fxserver.sh                       # resource desde la carpeta del repo
-scripts/e2e-fxserver.sh --resource dist/staff_suite-0.1.0.zip   # o el ZIP de release
+scripts/e2e-fxserver.sh --resource dist/staff_suite-0.2.0.zip   # o el ZIP de release
 scripts/e2e-fxserver.sh --edition lite                        # compila y prueba el ZIP Lite
-scripts/e2e-fxserver.sh --edition lite --resource dist/staff_suite_lite-0.1.0.zip
+scripts/e2e-fxserver.sh --edition lite --resource dist/staff_suite_lite-0.2.0.zip
 ```
 
 Lite prueba los comandos y eventos del adapter con un reportante y un miembro del staff simulados. Verifica el ciclo del ticket, la cadena SHA-256, el JSON escrito por FXServer y la ausencia de handlers y exports de Core. El runner carga el código de prueba únicamente en la copia temporal que extrae del ZIP.

@@ -21,7 +21,7 @@
 ## Contrato NUI ↔ Lua (mensajes)
 **Entrantes (SendNUIMessage → window event `message`):**
 ```ts
-{type:"init", payload:{locale:"es", strings:{...}, version:"0.1.0", player:{name,rank,capabilities:string[]}, config:{...}}}
+{type:"init", payload:{locale:"es", strings:{...}, version:"0.2.0", player:{name,rank,capabilities:string[]}, config:{...}}}
 {type:"audit", payload:{entries:AuditEntry[], head:string, verify:{ok:boolean,broken_at:number|null}}}
 {type:"tickets", payload:{tickets:Ticket[]}}
 {type:"myTickets", payload:{tickets:ReporterTicket[]}}

@@ -13,7 +13,7 @@ hash = SHA-256( seq ␟ ts ␟ actor ␟ action ␟ target ␟ reason ␟ payloa
 
 Si alguien edita un campo, borra una entrada del medio o cambia el orden, los hashes dejan de coincidir y la verificación marca la primera entrada rota.
 
-## Qué se registra (0.1.0)
+## Qué se registra (0.2.0)
 
 | Acción | Origen |
 |---|---|

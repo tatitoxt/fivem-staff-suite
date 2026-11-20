@@ -4,13 +4,13 @@
 
 **El único que audita a tu staff.** Reportes, moderación dentro del ticket, duty y un audit log con hash-chain SHA-256 que delata cualquier edición o borrado. Español-first, también en inglés.
 
-Versión **0.1.0**. Lo marcado **(próximamente)** está planeado pero todavía no está implementado.
+Versión **0.2.0**. [Cambios y guía de actualización](CHANGELOG.md#020--español).
 
 ## Funciones de Core
 
 - **Reportes/tickets:** `/report`, máquina de estados (abierto → reclamado → en curso → resuelto → cerrado, reabrir), claim con lock, transferencia.
-- **Chat del ticket:** chat dentro del ticket con notas internas y transferencia a otro staff conectado.
-- **Moderación dentro del ticket.** Goto, bring, freeze, heal, kick, ban, warn, spectate y revive con permisos y auditoría. Los bans se comprueban al conectar.
+- **Chat del ticket:** el jugador sigue el hilo público en Mis reportes. El staff puede agregar notas internas y transferir el ticket.
+- **Moderación dentro del ticket.** Goto, bring, freeze, unfreeze, heal, kick, ban, warn, spectate y revive con permisos y auditoría. Los bans se comprueban al conectar.
 - **Duty:** `/duty`, horas y sesiones por staff.
 - **Panel NUI** (`F6`): auditoría, reportes, dashboard, servicio y ajustes; cada uno ve solo lo que su rango permite.
 - **Auditoría verificable:** cada acción queda encadenada con SHA-256; verificación desde consola, panel o export.
@@ -69,13 +69,13 @@ FIVEM_LICENSE_KEY=... scripts/e2e-fxserver.sh   # E2E en FXServer real, ver docs
 
 **The only one that audits your staff.** Reports, in-ticket moderation, duty and an audit log with a SHA-256 hash chain that exposes any edit or deletion. Spanish-first, also in English.
 
-Version **0.1.0**. Anything marked **(coming soon)** is planned but not implemented yet.
+Version **0.2.0**. [Changelog and upgrade guide](CHANGELOG.md#020--english).
 
 ### Core features
 
 - **Reports/tickets:** `/report`, state machine (open → claimed → in progress → resolved → closed, reopen), locked claim, transfer.
-- **Ticket chat:** in-ticket chat with internal notes and transfer to another online staff member.
-- **In-ticket moderation.** Goto, bring, freeze, heal, kick, ban, warn, spectate and revive with permission checks and audit entries. Bans are checked on connection.
+- **Ticket chat:** players follow the public thread in My reports. Staff can add internal notes and transfer the ticket.
+- **In-ticket moderation.** Goto, bring, freeze, unfreeze, heal, kick, ban, warn, spectate and revive with permission checks and audit entries. Bans are checked on connection.
 - **Duty:** `/duty`, hours and sessions per staff member.
 - **NUI panel** (`F6`): audit, reports, dashboard, duty and settings; each person only sees what their rank allows.
 - **Verifiable audit log:** every action is chained with SHA-256; verify from console, panel or export.

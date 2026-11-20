@@ -24,7 +24,7 @@ it('keeps audit and basic tickets visible while hiding Core screens and controls
       data: {
         type: 'init',
         payload: {
-          locale: 'es', strings: LOCALES.es, version: '0.1.0', config: { evidence: true },
+          locale: 'es', strings: LOCALES.es, version: '0.2.0', config: { evidence: true },
           player: { name: 'Staff', rank: 'lite_staff', capabilities: ['report.view', 'report.claim'] },
         },
       },
@@ -50,7 +50,7 @@ it('shows the player conversation in Lite', async () => {
   act(() => {
     window.dispatchEvent(new MessageEvent('message', { data: {
       type: 'init', payload: {
-        locale: 'en', strings: LOCALES.en, version: '0.1.0', config: {},
+        locale: 'en', strings: LOCALES.en, version: '0.2.0', config: {},
         player: { name: 'Player', rank: 'player', capabilities: [] },
       },
     } }));
@@ -77,7 +77,7 @@ it('opens the upgrade details and links to Tebex only when configured', async ()
   window.postMessage({
     type: 'init',
     payload: {
-      locale: 'es', strings: LOCALES.es, version: '0.1.0',
+      locale: 'es', strings: LOCALES.es, version: '0.2.0',
       config: { core_url: 'https://example.tebex.io/package/123' },
       player: { name: 'Staff', rank: 'lite_staff', capabilities: ['report.view', 'audit.view'] },
     },

@@ -86,11 +86,11 @@ Una transferencia solo se acepta si el destinatario está conectado y tiene `rep
 
 Cada acción pasa por: chequeo de capability → jugador objetivo conectado (por server id o identificador) → razón obligatoria para `ban` y `warn`, y para `kick` si `Config.Moderation.require_reason` → ejecución → entrada en la auditoría (`mod_<acción>`).
 
-| Acción | Estado en 0.1.0 |
+| Acción | Estado en 0.2.0 |
 |---|---|
 | `goto`, `bring`, `freeze`, `heal`, `kick` | Funcionan. |
 | `ban`, `warn`, `spectate`, `revive` | Disponibles en el panel para quien tenga la capability correspondiente. |
-| Descongelar (`unfreeze`) | **(próximamente)** |
+| Descongelar (`unfreeze`) | Disponible cuando el objetivo está congelado. Usa `mod.freeze`. |
 
 Noclip, god mode y spawn siguen en txAdmin o tu framework.
 

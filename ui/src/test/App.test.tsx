@@ -71,7 +71,7 @@ describe('NUI smoke', () => {
     await screen.findByTestId('chain-status');
     window.postMessage({
       type: 'init',
-      payload: { locale: 'es', strings: {}, version: '0.1.0', config: {}, player: { name: 'Fausto', rank: 'owner' } },
+      payload: { locale: 'es', strings: {}, version: '0.2.0', config: {}, player: { name: 'Fausto', rank: 'owner' } },
     }, '*');
     await nav(/ui_nav_settings/);
     expect(await screen.findAllByText('ui_export_unknown')).toHaveLength(2);
@@ -87,7 +87,7 @@ describe('NUI smoke', () => {
     window.postMessage({
       type: 'init',
       payload: {
-        locale: 'es', strings: LOCALES.es, version: '0.1.0', config: {},
+        locale: 'es', strings: LOCALES.es, version: '0.2.0', config: {},
         player: { name: 'Fausto', rank: 'mod', capabilities: ['report.view', 'report.claim'] },
       },
     }, '*');
@@ -122,7 +122,7 @@ describe('NUI smoke', () => {
     window.postMessage({
       type: 'init',
       payload: {
-        locale: 'es', strings: LOCALES.es, version: '0.1.0', config: { limits: { message_body: 10 } },
+        locale: 'es', strings: LOCALES.es, version: '0.2.0', config: { limits: { message_body: 10 } },
         player: { name: 'Fausto', rank: 'owner' },
       },
     }, '*');
@@ -206,7 +206,7 @@ describe('NUI smoke', () => {
     window.postMessage({
       type: 'init',
       payload: {
-        locale: 'es', strings: {}, version: '0.1.0', config: {},
+        locale: 'es', strings: {}, version: '0.2.0', config: {},
         player: { name: 'Lu.Helper', rank: 'helper', identifier: 'license:aa', capabilities: ['report.view', 'report.claim'] },
       },
     }, '*');

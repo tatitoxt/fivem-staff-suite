@@ -46,9 +46,9 @@ When it finishes, the resource runs `quit` (`set staff_suite_e2e_autoquit false`
 ```bash
 export FIVEM_LICENSE_KEY=cfxk_...      # https://portal.cfx.re/servers/registration-keys
 scripts/e2e-fxserver.sh                       # resource from the repo folder
-scripts/e2e-fxserver.sh --resource dist/staff_suite-0.1.0.zip   # or the release ZIP
+scripts/e2e-fxserver.sh --resource dist/staff_suite-0.2.0.zip   # or the release ZIP
 scripts/e2e-fxserver.sh --edition lite                        # builds and tests the Lite ZIP
-scripts/e2e-fxserver.sh --edition lite --resource dist/staff_suite_lite-0.1.0.zip
+scripts/e2e-fxserver.sh --edition lite --resource dist/staff_suite_lite-0.2.0.zip
 ```
 
 Lite exercises the adapter's commands and events with a simulated reporter and staff member. It verifies the ticket lifecycle, the SHA-256 chain, the JSON written by FXServer, and the absence of Core handlers and exports. The runner loads the test code only in the temporary copy extracted from the ZIP.

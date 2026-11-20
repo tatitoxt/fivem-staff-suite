@@ -55,9 +55,7 @@ See the editions table in the [README](../../README.md#editions).
 | "The selected player is not connected." | The target disconnected or the id does not exist. | Pick an online player. |
 | A ticket transfer fails | The recipient is offline or lacks `report.claim` + `report.view`. | Transfer to an online staff member with that rank. |
 
-## Known limitations in 0.1.0
+## Known limitations in 0.2.0
 
-- Unfreeze is unavailable **(coming soon)**.
-- Rating a ticket has no command or event yet **(coming soon)**.
-- `/reports` does nothing yet **(coming soon)**.
+- In Core, open the ticket queue from the panel. Lite also registers `/reports`.
 - `audit_export.log` stays on the same machine: copy it elsewhere for it to count as independent proof.

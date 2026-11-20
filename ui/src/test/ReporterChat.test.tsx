@@ -23,7 +23,7 @@ function setup() {
 const profile = (capabilities: string[]): IncomingMessage => ({
   type: 'init',
   payload: {
-    locale: 'es', strings: LOCALES.es, version: '0.1.0', config: { limits: { message_body: 10 } },
+    locale: 'es', strings: LOCALES.es, version: '0.2.0', config: { limits: { message_body: 10 } },
     player: { name: 'Alex', rank: 'player', capabilities },
   },
 });

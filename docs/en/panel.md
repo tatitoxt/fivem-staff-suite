@@ -1,6 +1,6 @@
 # Panel (NUI)
 
-> Documented version: **0.1.0**. Anything marked **(coming soon)** is planned but not implemented yet.
+> Documented version: **0.2.0**. Anything marked **(coming soon)** is planned but not implemented yet.
 
 Open the panel with `/staffsuite` or the `F6` key (`Config.PanelKey`) and close it with `Esc`. It is built with React 18 + TypeScript + Vite (source in `ui/`) and the resource loads the compiled build from `ui/dist/`.
 
