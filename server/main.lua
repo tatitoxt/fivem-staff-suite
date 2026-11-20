@@ -110,7 +110,19 @@ local function record(action, actor, target, reason, payload, onSaved)
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
-  if profileAuditIntact and action ~= 'player_profile_note' then indexProfileEntry(e) end
+  if action == 'player_profile_note' then
+    local reply = onSaved
+    onSaved = function(saved)
+      if saved and profileAuditIntact then
+        indexProfileEntry(e)
+      elseif not saved then
+        record('player_profile_note_failed', e.actor, e.target, tostring(e.seq))
+      end
+      if reply then reply(saved) end
+    end
+  elseif profileAuditIntact then
+    indexProfileEntry(e)
+  end
   if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
   storage.save(onSaved)
   return e
@@ -521,13 +533,7 @@ profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResu
   function(identifier, player, body, reply)
     local text, err = cleanText(body, limit('message_body') or 1000)
     if not text or text == '' then return reply(false, err or t('player_profile_note_empty')) end
-    local sequence = #chain.entries + 1
     record('player_profile_note', player.identifier, identifier, text, nil, function(saved)
-      if saved then
-        indexProfileEntry(chain.entries[sequence])
-      else
-        record('player_profile_note_failed', player.identifier, identifier, tostring(sequence))
-      end
       reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
     end)
   end)

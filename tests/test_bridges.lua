@@ -340,6 +340,9 @@ function T.test_player_profile_is_capability_gated_scoped_to_the_reporter_and_au
   reboot.ace.mod = true
   reboot.event('playerProfile', id, 1)
   assert(reboot.sent[view].data.notes[1].text == 'Revisar' and #reboot.sent[view].data.notes == 1 and reboot.api.Verify())
+  reboot.api.Record('player_profile_note', 'resource', reporter, 'Nota vía API')
+  reboot.event('playerProfile', id, 2)
+  assert(reboot.sent[view].data.notes[1].text == 'Nota vía API' and #reboot.sent[view].data.notes == 2)
 end
 
 function T.test_server_enforces_mapped_capabilities_and_overrides()
