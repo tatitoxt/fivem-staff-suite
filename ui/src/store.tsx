@@ -6,7 +6,7 @@ import type {
   EvidencePayload, PlayerInfo, ReporterTicket, Ticket, ToastKind, UiConfig, VerifyResult, ViewId,
 } from './types';
 
-export interface Toast { id: number; kind: ToastKind; text: string }
+export interface Toast { id: number; kind: ToastKind; text: string; outside?: boolean }
 
 export interface AppState {
   ready: boolean;
@@ -80,8 +80,8 @@ function normalizeTickets<T extends Ticket | ReporterTicket>(t: T[] | Record<str
     .map((x) => ({ ...x, messages: Array.isArray(x.messages) ? x.messages : [] }));
 }
 
-function pushToast(state: AppState, kind: ToastKind, text: string): AppState {
-  const toasts = [...state.toasts, { id: ++toastSeq, kind, text }].slice(-3);
+function pushToast(state: AppState, kind: ToastKind, text: string, outside?: boolean): AppState {
+  const toasts = [...state.toasts, { id: ++toastSeq, kind, text, outside }].slice(-3);
   return { ...state, toasts };
 }
 
@@ -155,7 +155,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'duty':
       return { ...state, duty: { ...msg.payload, staff: arr(msg.payload.staff) } };
     case 'toast':
-      return pushToast(state, msg.payload.kind, msg.payload.text);
+      return pushToast(state, msg.payload.kind, msg.payload.text, msg.payload.outside);
     case 'rate':
       return { ...state, ratePrompt: msg.payload.id };
     case 'evidence':

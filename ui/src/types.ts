@@ -180,7 +180,7 @@ export type IncomingMessage =
   | { type: 'freezeState'; payload: { target: string; frozen: boolean } }
   | { type: 'dashboard'; payload: DashboardPayload }
   | { type: 'duty'; payload: DutyPayload }
-  | { type: 'toast'; payload: { kind: ToastKind; text: string } }
+  | { type: 'toast'; payload: { kind: ToastKind; text: string; outside?: boolean } }
   | { type: 'rate'; payload: { id: number } }
   | { type: 'evidence'; payload: EvidencePayload }
   | { type: 'open'; payload?: { view?: ViewId } }

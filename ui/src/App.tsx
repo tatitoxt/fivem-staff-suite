@@ -93,6 +93,7 @@ function Shell() {
           </div>
         </div>
       )}
+      {!state.visible && state.toasts.some((toast) => toast.outside) && <Toasts outside />}
       {!isLite && state.ratePrompt != null && <RatePrompt />}
       {useMock() && <DevHarness />}
     </>

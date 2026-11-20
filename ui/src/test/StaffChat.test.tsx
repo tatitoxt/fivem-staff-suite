@@ -22,6 +22,15 @@ afterEach(() => {
   delete window.GetParentResourceName;
 });
 
+it('displays the chat fallback when the panel is closed', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  render(<App />);
+  dispatch({ type: 'toast', payload: { kind: 'info', text: 'Solo panel' } });
+  dispatch({ type: 'toast', payload: { kind: 'info', text: 'Chat de staff · Alex: Hola', outside: true } });
+  expect(await screen.findByText('Chat de staff · Alex: Hola')).toBeInTheDocument();
+  expect(screen.queryByText('Solo panel')).not.toBeInTheDocument();
+});
+
 it('shows the composer to staff and preserves the draft after a rejected send', async () => {
   window.GetParentResourceName = () => 'staff_suite';
   const fetcher = vi.fn()

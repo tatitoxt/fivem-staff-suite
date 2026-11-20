@@ -27,7 +27,7 @@ El server solo manda los datos que permiten las capabilities del jugador (ver [R
 | Servicio | `staff.duty` | Botón para entrar o salir de servicio (equivale a `/duty`), tus horas y sesiones, y el estado del equipo. |
 | Ajustes | ninguna | Idioma del panel (ES/EN), tecla para abrirlo, estado del export (webhook, archivo, ancla cada N entradas), versión, tu rango y la persistencia. En Core, `staff.chat` habilita el chat de staff. |
 
-El chat de staff llega al chat de FiveM de los jugadores conectados con `staff.chat` y muestra un aviso si tienen el panel abierto. Los mensajes se guardan en la cadena de auditoría antes del envío y respetan `Config.Limits.message_body` y `Config.RateLimit['staff_suite:staffChat']`.
+El mensaje llega al chat de FiveM de los jugadores conectados con `staff.chat`. Si el panel está abierto o el recurso `chat` está apagado, también aparece un aviso. La auditoría guarda la solicitud y el resultado de cada envío sin el texto del mensaje. Aplican `Config.Limits.message_body` y `Config.RateLimit['staff_suite:staffChat']`.
 
 Creá reportes con `/report`. En Mis reportes podés leer y responder el hilo público de cada reporte abierto. Recibís una notificación cuando el staff responde. El chat público está disponible en Core y Lite.
 
