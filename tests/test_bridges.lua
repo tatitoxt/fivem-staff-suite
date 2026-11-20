@@ -1426,7 +1426,7 @@ function T.test_evidence_detected_captured_and_verified()
   assert(ticket.evidence == nil)
 
   local files, requested, latent = {}, nil, nil
-  local shot = 'data:image/jpeg;base64,AAAA'
+  local shot = 'data:image/jpeg;base64,/9j/AAAA'
   s.states['screenshot-basic'] = 'started'
   s.env.exports['screenshot-basic'] = {
     requestClientScreenshot = function(_, src, opts, cb)
@@ -1464,7 +1464,7 @@ function T.test_evidence_detected_captured_and_verified()
   assert(latent.event == 'staff_suite:evidence' and latent.src == 17)
   assert(latent.data.ok == true and latent.data.data == shot)
   assert(item.audit_seq == #entries)
-  local forged = 'data:image/jpeg;base64,BBBB'
+  local forged = 'data:image/jpeg;base64,/9j/BBBB'
   files['staff_suite_evidence_' .. id .. '_1.txt'] = forged
   item.sha256 = s.env.StaffSuiteModules.loadmod('core.sha256').hex(forged)
   s.event('evidenceGet', id, 1)
@@ -1528,7 +1528,7 @@ function T.test_report_with_attached_screenshot()
   local shots = 0
   s.states['screenshot-basic'] = 'started'
   s.env.exports['screenshot-basic'] = {
-    requestClientScreenshot = function(_, src, _, cb) shots = shots + 1; assert(src == 21); cb(false, 'data:image/jpeg;base64,CCCC') end,
+    requestClientScreenshot = function(_, src, _, cb) shots = shots + 1; assert(src == 21); cb(false, 'data:image/jpeg;base64,/9j/CCCC') end,
   }
   s.env.SaveResourceFile = function() return true end
   s.event('ticketCreate', 'player', 'normal', 'Me chocaron a propósito', 1, true)
@@ -1596,13 +1596,19 @@ function T.test_attached_screenshot_rejects_oversized_or_non_jpeg_data()
   s.env.exports['screenshot-basic'] = { requestClientScreenshot = function(_, _, _, cb) cb(false, data) end }
   s.env.SaveResourceFile = function() saved = saved + 1; return true end
   s.env.Config.Limits.evidence_bytes = 64
+  s.env.Config.Limits.open_tickets_per_player = nil
+  s.env.Config.RateLimit['staff_suite:ticketCreate'] = nil
   data = 'data:image/jpeg;base64,' .. string.rep('A', 100)
   s.event('ticketCreate', 'player', 'normal', 'Captura enorme', 1, true)
   data = '<script>alert(1)</script>'
   s.event('ticketCreate', 'player', 'normal', 'Captura falsa', 2, true)
+  data = 'data:image/jpeg;base64,PHNjcmlwdD4='
+  s.event('ticketCreate', 'player', 'normal', 'Base64 no JPEG', 4, true)
+  data = 'data:image/jpeg;base64,/9j/<b>'
+  s.event('ticketCreate', 'player', 'normal', 'Base64 inválido', 5, true)
   assert(saved == 0, 'no se guarda evidencia inválida')
   for _, tk in pairs(s.api.GetState().tickets.tickets) do assert(tk.evidence == nil) end
-  data = 'data:image/jpeg;base64,CCCC'
+  data = 'data:image/jpeg;base64,/9j/CCCC'
   s.event('ticketCreate', 'player', 'normal', 'Captura válida', 3, true)
   assert(saved == 1)
 end

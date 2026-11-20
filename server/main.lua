@@ -1201,7 +1201,10 @@ function captureEvidence(ticket, targetSrc, by, notifySrc)
   exports['screenshot-basic']:requestClientScreenshot(targetSrc, { encoding = 'jpg', quality = 0.6 }, function(err, data)
     -- El data URI lo arma el cliente: se exige JPEG y un tamaño acotado antes de tocar el disco.
     local maxBytes = limit('evidence_bytes') or 3 * 1024 * 1024
-    if err or type(data) ~= 'string' or #data > maxBytes or data:sub(1, 23) ~= 'data:image/jpeg;base64,' then
+    -- Base64 válido que empieza con los bytes mágicos de JPEG (FF D8 FF → "/9j/").
+    local jpeg = type(data) == 'string' and #data <= maxBytes and data:sub(1, 23) == 'data:image/jpeg;base64,'
+      and data:sub(24, 27) == '/9j/' and data:find('^[%w+/]+=?=?$', 24) ~= nil
+    if err or not jpeg then
       TriggerClientEvent('staff_suite:notify', notifySrc, t('evidence_failed'))
       return
     end
