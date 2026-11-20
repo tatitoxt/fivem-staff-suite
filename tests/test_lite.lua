@@ -113,6 +113,37 @@ function T.test_basic_tickets_are_authorized_audited_and_restored()
   assert(not editedMessages[#editedMessages].value.ok and editedMessages[#editedMessages].value.at == 1)
 end
 
+function T.test_reporter_sees_resolved_thread_until_staff_closes_it()
+  local call, _, sent, disk = server()
+  local function reporterTickets(...)
+    local before = #sent
+    call(...)
+    for i = #sent, before + 1, -1 do
+      local event = sent[i]
+      if event.name == 'staff_suite:state' and event.src == 1 then return event.value.myTickets end
+    end
+    error('No se envió el estado al reportante')
+  end
+  local function assertResolved(tickets)
+    assert(#tickets == 1 and tickets[1].id == 1 and tickets[1].state == 'resolved')
+    local messages = tickets[1].messages
+    assert(#messages == 1 and messages[1].body == 'Lo revisamos' and not messages[1].author)
+  end
+
+  call(1, 'ticketCreate', 'bug', nil, 'Mi reporte')
+  call(2, 'ticketAction', 1, 'claim')
+  call(2, 'ticketMessage', 1, 'Lo revisamos', false)
+  assertResolved(reporterTickets(2, 'ticketAction', 1, 'resolve', { resolution = 'Revisado' }))
+  assertResolved(reporterTickets(1, 'getState'))
+  call(1, 'ticketReply', 1, 'Respuesta tardía', 1)
+  assert(sent[#sent].name == 'staff_suite:ticketMessageResult' and sent[#sent].value.ok == false)
+  assert(#disk.snapshot.tickets.tickets[1].messages == 1)
+
+  assert(not next(reporterTickets(2, 'ticketAction', 1, 'close')))
+  assert(not next(reporterTickets(1, 'getState')))
+  assert(reporterTickets(2, 'ticketAction', 1, 'reopen')[1].state == 'reopened')
+end
+
 function T.test_client_opens_basic_panel_and_registers_basic_actions()
   local events, callbacks, nui, sent = {}, {}, {}, {}
   local request

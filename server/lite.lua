@@ -48,8 +48,8 @@ local function isStaff(src)
   return src ~= 0 and IsPlayerAceAllowed(src, 'staff_suite.lite')
 end
 
-local function notify(src, key, vars)
-  TriggerClientEvent('staff_suite:notify', src, t(key, vars))
+local function notify(src, key, vars, opts)
+  TriggerClientEvent('staff_suite:notify', src, t(key, vars), opts)
 end
 
 local function allowRate(src, key)
@@ -125,7 +125,7 @@ local function publishUpdates(ticket, staffReply)
     end
     if ticket and playerIdentifier(src) == ticket.reporter then
       TriggerClientEvent('staff_suite:state', src, { myTickets = tickets.reporter_view(store, ticket.reporter) })
-      if staffReply then notify(src, 'ticket_staff_reply', { id = ticket.id }) end
+      if staffReply then notify(src, 'ticket_staff_reply', { id = ticket.id }, { kind = 'reply' }) end
     end
   end
 end

@@ -363,3 +363,50 @@
 .paletteEmpty { padding: var(--s5); text-align: center; color: var(--muted); font-size: 14px; }
 .paletteFoot { display: flex; gap: var(--s4); padding: var(--s2) var(--s4); border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); background: var(--surface-2); }
 .paletteFoot span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Avisos in-game (panel cerrado) */
+.notices {
+  position: fixed;
+  top: var(--s5);
+  right: var(--s5);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: 340px;
+  pointer-events: none;
+}
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px var(--s3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  animation: noticeIn var(--dur-in) var(--ease);
+}
+@keyframes noticeIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: none; }
+}
+.noticeIcon { width: 28px; height: 28px; border-radius: var(--r-md); display: grid; place-items: center; flex-shrink: 0; background: var(--surface-3); color: var(--text); }
+.notice-reply .noticeIcon { background: var(--accent-soft); color: var(--accent); }
+.notice-warn .noticeIcon { background: var(--orange-soft); color: var(--orange-ink); }
+.notice-announce .noticeIcon { background: var(--blue-soft); color: var(--blue-ink); }
+.notice-report .noticeIcon { background: var(--red-soft); color: var(--red-ink); }
+.noticeBody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.noticeTitle { display: flex; align-items: center; gap: var(--s2); font-size: 13px; font-weight: 600; color: var(--ink); }
+.noticeText {
+  font-size: 14px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+@media (min-width: 2400px) and (min-height: 1350px) { .notices { zoom: 1.333; } }
+@media (min-width: 3600px) and (min-height: 2000px) { .notices { zoom: 2; } }
+@media (prefers-reduced-motion: reduce) { .notice { animation: none; } }

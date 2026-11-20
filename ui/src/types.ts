@@ -195,6 +195,8 @@ export interface DutyPayload {
 }
 
 export type ToastKind = 'ok' | 'error' | 'info';
+export type NoticeKind = 'info' | 'reply' | 'warn' | 'announce' | 'report';
+export interface NoticePayload { kind: NoticeKind; text: string; priority?: Priority; duration?: number; max?: number }
 
 export type IncomingMessage =
   | { type: 'init'; payload: InitPayload }
@@ -206,6 +208,7 @@ export type IncomingMessage =
   | { type: 'dashboard'; payload: DashboardPayload }
   | { type: 'duty'; payload: DutyPayload }
   | { type: 'toast'; payload: { kind: ToastKind; text: string; outside?: boolean } }
+  | { type: 'notice'; payload: NoticePayload }
   | { type: 'rate'; payload: { id: number } }
   | { type: 'evidence'; payload: EvidencePayload }
   | { type: 'open'; payload?: { view?: ViewId } }
