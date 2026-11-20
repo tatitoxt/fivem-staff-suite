@@ -6,8 +6,9 @@ Cada acción queda en una cadena SHA-256: cada entrada guarda el hash de la ante
 
 Qué incluye:
 - Tickets con reclamo, transferencia, prioridades, notas internas, respuestas predefinidas y calificación 1-5 del jugador.
+- Chat con el jugador en "Mis reportes": responde desde el juego y le avisa cuando le escribe el staff. Las notas internas no las ve.
 - Evidencia con screenshot-basic: la captura queda registrada en la cadena y se verifica al abrirla.
-- Moderación desde el ticket: goto, bring, freeze, heal, kick, warn, ban, spectate y revive. Ban temporal o permanente que cubre todas las cuentas del jugador.
+- Moderación desde el ticket: goto, bring, freeze, unfreeze, heal, kick, warn, ban, spectate y revive. Ban temporal o permanente que cubre todas las cuentas del jugador.
 - Nadie puede sancionar a un rango superior. Ban y warn piden razón.
 - Turnos y estadísticas por staff: resueltos, tiempo de respuesta, calificación y horas.
 - Registro de eventos de ESX, QBCore, Qbox y txAdmin.

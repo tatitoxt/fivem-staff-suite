@@ -2,7 +2,7 @@
 
 > Dos videos separados (YouTube ES y YouTube EN), mismo montaje. Grabado in-game en el server QA con OBS (Fausto, PC Windows, D007), 1920×1080 a 60 fps, de día, HUD limpio. Se muestra **Core**; el cierre menciona Lite.
 > Estructura sugerida por Tebex: presentación → lo que lo diferencia → el script en acción, en 30–90 s.
-> Nada del modo demo del navegador ni mockups. Si algo no existe (unfreeze, chat con el jugador, Pro), no aparece en pantalla.
+> Nada del modo demo del navegador ni mockups. Si algo no existe (Pro, modo demo, export de tickets a Discord), no aparece en pantalla.
 > La escena 9 muestra resmon: hasta medirlo queda **[RESMON PENDIENTE]** y el video no se publica.
 
 ## Preparación de la grabación

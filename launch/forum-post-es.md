@@ -17,7 +17,8 @@ Los jugadores reportan con `/report`. Tu staff abre el panel con F6, reclama el 
 
 ## Qué hace
 * `/report <categoría> <descripción>`, hasta 3 reportes abiertos por jugador.
-* Cola de tickets en el panel (F6 o `/reports`): reclamar (sin doble reclamo), resolver con texto, cerrar, reabrir.
+* Cola de tickets en el panel (F6 o `/reports`): reclamar (sin doble reclamo), responderle al jugador, resolver con texto, cerrar, reabrir.
+* El jugador ve sus reportes abiertos en "Mis reportes", responde ahí y le llega un aviso cuando le contesta el staff.
 * Visor de auditoría con filtros y botón "Verificar cadena". La entrada rota se marca en rojo.
 * Standalone: un permiso ACE, guarda en JSON, sin base de datos.
 * Límites de acciones y de texto para que nadie te llene la cola.
@@ -67,13 +68,14 @@ Si el video no carga, [click acá]({{YOUTUBE_ES}}).
 * `exports.staff_suite:Record(...)` para que tus scripts escriban en la misma cadena.
 
 **Tickets**
-* Reclamar, liberar, transferir a otro staff conectado, prioridades, mensajes del staff y notas internas.
+* Reclamar, liberar, transferir a otro staff conectado, prioridades y notas internas.
+* Chat con el jugador: lee y responde en "Mis reportes" y le llega un aviso cuando le escribe el staff. Las notas internas no las ve.
 * Respuestas predefinidas que armás en `config.lua`.
 * El jugador califica la atención de 1 a 5 cuando se resuelve el ticket.
 * Evidencia con screenshot-basic: el hash de la captura va a la cadena y el panel lo vuelve a chequear cuando la abrís.
 
 **Moderación desde el ticket**
-* Goto, bring, freeze, heal, kick, warn, ban, spectate y revive, cada una con su permiso.
+* Goto, bring, freeze, unfreeze, heal, kick, warn, ban, spectate y revive, cada una con su permiso. El panel muestra a quién congelaste.
 * Ban temporal o permanente por license, license2, FiveM, Steam, Discord, Xbox y tokens de hardware. Si el jugador vuelve con una cuenta nueva que comparte alguno, el ban la alcanza. Sin bans por IP.
 * Ban y warn piden razón. Kick también, salvo que lo desactives.
 * Nadie puede traer, congelar, expulsar, advertir ni banear a un rango superior. Lo controla el server.
@@ -92,7 +94,6 @@ Si el video no carga, [click acá]({{YOUTUBE_ES}}).
 ## Lo que NO hace
 * No es un anticheat ni frena todos los abusos. Los hace visibles y difíciles de borrar.
 * Solo ve lo que pasa por él, los eventos compatibles de framework/txAdmin y lo que mandes por `Record`.
-* El jugador no ve el chat del ticket: los mensajes son entre el staff.
 * No es un menú de admin. Seguí usando txAdmin.
 
 ## Rendimiento

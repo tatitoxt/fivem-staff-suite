@@ -31,7 +31,8 @@ Players report with `/report`. Your staff opens the panel with F6, claims the ti
 
 ## Features
 * `/report <category> <description>`, up to 3 open reports per player.
-* Ticket queue in the panel (F6 or `/reports`): claim (no double claims), resolve with a note, close, reopen.
+* Ticket queue in the panel (F6 or `/reports`): claim (no double claims), reply to the player, resolve with a note, close, reopen.
+* Players see their open reports in "My reports", reply there and get a notification when staff answers.
 * Audit viewer with filters and a "Verify chain" button. The broken entry turns red.
 * Standalone: one ACE permission, JSON storage, no database.
 * Rate limits and text limits so nobody floods your queue.
@@ -95,13 +96,14 @@ If the video doesn't load, [click here]({{YOUTUBE_EN}}).
 * `exports.staff_suite:Record(...)` so your own scripts can write to the same chain.
 
 **Tickets**
-* Claim, unclaim, transfer to another online staff member, priorities, staff messages and internal notes.
+* Claim, unclaim, transfer to another online staff member, priorities and internal notes.
+* Chat with the player: they read and reply in "My reports" and get notified when staff answers. Internal notes stay hidden from them.
 * Canned replies you define in `config.lua`.
 * The player rates the help from 1 to 5 when the ticket is resolved.
 * Evidence with screenshot-basic: the hash of the capture goes into the chain and the panel checks it again when you open it.
 
 **Moderation from the ticket**
-* Goto, bring, freeze, heal, kick, warn, ban, spectate, revive, each behind its own permission.
+* Goto, bring, freeze, unfreeze, heal, kick, warn, ban, spectate, revive, each behind its own permission. The panel shows who's frozen.
 * Temporary or permanent bans across license, license2, FiveM, Steam, Discord, Xbox and hardware tokens. If the player comes back on a new account that shares one of them, the ban follows. No IP bans.
 * Bans and warnings require a reason. Kicks too, unless you turn it off.
 * Nobody can bring, freeze, kick, warn or ban a higher rank. This is checked on the server.
@@ -120,7 +122,6 @@ If the video doesn't load, [click here]({{YOUTUBE_EN}}).
 ## What it does NOT do
 * It's not an anticheat and it doesn't stop every abuse. It makes abuse visible and hard to erase.
 * It only sees what goes through it, the supported framework/txAdmin events and whatever you send through `Record`.
-* Players don't see the ticket chat: messages are between staff.
 * It's not an admin menu. Keep txAdmin.
 
 ## Performance
