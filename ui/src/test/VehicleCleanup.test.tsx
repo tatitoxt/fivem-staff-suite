@@ -57,6 +57,21 @@ it('schedules a vehicle cleanup with the chosen countdown and lets staff cancel 
   expect(transport).toHaveBeenLastCalledWith('https://staff_suite/vehicle_cleanup_cancel', expect.anything());
 });
 
+it('drops Cancel when another staff member already cancelled the cleanup', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn()
+    .mockResolvedValueOnce({ json: async () => ({ ok: true, data: { seconds: 60 } }) })
+    .mockResolvedValueOnce({ json: async () => ({ ok: false, error: strings.cleanup_none_pending, data: { pending: false } }) });
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile(['world.cleanup']);
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  fireEvent.click(await screen.findByRole('button', { name: strings.ui_cleanup_start }));
+  fireEvent.click(await screen.findByRole('button', { name: strings.ui_cleanup_cancel }));
+  expect(await screen.findByRole('button', { name: strings.ui_cleanup_start })).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent(strings.cleanup_none_pending);
+});
+
 it('keeps Cancel available after leaving Settings and when the server reports a pending cleanup', async () => {
   window.GetParentResourceName = () => 'staff_suite';
   const transport = vi.fn()

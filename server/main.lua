@@ -945,7 +945,7 @@ end
 
 local function cancelCleanup(actor, done)
   local request = cleanupRequest
-  if not request or not request.ends_at then return done(false, t('cleanup_none_pending')) end
+  if not request or not request.ends_at then return done(false, t('cleanup_none_pending'), { pending = false }) end
   cleanupRequest = nil
   record('world_cleanup_cancel', actor, 'server', '', { request_seq = request.seq }, function(saved)
     TriggerClientEvent('staff_suite:announcement', -1, t('cleanup_cancelled'))

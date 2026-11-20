@@ -1585,7 +1585,8 @@ function T.test_vehicle_cleanup_audits_countdown_cancel_and_keeps_occupied_vehic
   s.event('vehicleCleanup', 45, 2)
   assert(s.sent['staff_suite:vehicleCleanupResult'].error == s.env.StaffSuiteTranslate('cleanup_invalid'))
   s.event('vehicleCleanupCancel', 3)
-  assert(s.sent['staff_suite:vehicleCleanupCancelResult'].error == s.env.StaffSuiteTranslate('cleanup_none_pending'))
+  local none = s.sent['staff_suite:vehicleCleanupCancelResult']
+  assert(none.error == s.env.StaffSuiteTranslate('cleanup_none_pending') and none.data.pending == false)
 
   local timers = #s.timers
   s.now = s.now + 10

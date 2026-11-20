@@ -71,8 +71,9 @@ function VehicleCleanupForm() {
       : await send(action, {}) as TicketCreateResult | null;
     setSending(false);
     if (!response?.ok) {
-      const remaining = (response as { data?: { remaining?: number } } | null)?.data?.remaining;
-      if (typeof remaining === 'number') setEndsAt(Date.now() + remaining * 1000);
+      const data = (response as { data?: { remaining?: number; pending?: boolean } } | null)?.data;
+      if (typeof data?.remaining === 'number') setEndsAt(Date.now() + data.remaining * 1000);
+      else if (data?.pending === false) setEndsAt(undefined);
       return setResult({ ok: false, text: response?.error ?? t('cleanup_failed') });
     }
     if (action === 'vehicle_cleanup') {
