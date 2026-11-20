@@ -81,7 +81,9 @@ local function exitSpectate()
 end
 
 RegisterCommand('staffsuitestopspectate', exitSpectate, false)
-RegisterKeyMapping('staffsuitestopspectate', t('spectate_stop'), 'keyboard', 'BACK')
+local spectateExitLabel = t('spectate_stop')
+RegisterKeyMapping('staffsuitestopspectate', spectateExitLabel, 'keyboard', 'BACK')
+RegisterKeyMapping('~!staffsuitestopspectate', spectateExitLabel, 'pad_digitalbutton', 'RRIGHT_INDEX')
 RegisterNUICallback('spectate_stop', function(_, cb)
   exitSpectate()
   cb({ ok = true })

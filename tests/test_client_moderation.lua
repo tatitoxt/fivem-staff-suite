@@ -2,12 +2,12 @@ local T = {}
 
 local function sandbox()
   local events, callbacks, hooks = {}, {}, {}
-  local client = { visible = true, collision = true, frozen = false, pos = { x = 1, y = 2, z = 3 } }
+  local client = { visible = true, collision = true, frozen = false, pos = { x = 1, y = 2, z = 3 }, keys = {} }
   local env = setmetatable({
     Config = { Locale = 'es' },
     StaffSuiteTranslate = function(key) return key end,
     RegisterCommand = function(name, fn) client.commands = client.commands or {}; client.commands[name] = fn end,
-    RegisterKeyMapping = function() end,
+    RegisterKeyMapping = function(name, _, mapper, key) client.keys[name] = { mapper, key } end,
     RegisterNetEvent = function(event, fn) events[event] = fn end,
     RegisterNUICallback = function(action, fn) callbacks[action] = fn end,
     AddEventHandler = function(event, fn)
@@ -81,6 +81,8 @@ end
 function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect()
   local c, env, events, _, hooks = sandbox()
   local spectate = events['staff_suite:spectate']
+  assert(c.keys.staffsuitestopspectate[2] == 'BACK')
+  assert(c.keys['~!staffsuitestopspectate'][2] == 'RRIGHT_INDEX')
   spectate(42, { x = 100, y = 100, z = 10 }, 8)
   assert(not c.thread and c.pos.x == 1)
   env.source, c.inScope = 65535, true
