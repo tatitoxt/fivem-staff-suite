@@ -1,19 +1,23 @@
-import { Eye, MapPin, Search, Users } from 'lucide-react';
+import { Eye, MapPin, Search, Trash2, Users, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import lay from '../components/layout.module.css';
-import { Button, Empty, ViewHeader, cx, ui } from '../components/ui';
+import { Button, Dialog, Empty, ViewHeader, cx, ui } from '../components/ui';
 import { formatDuration } from '../format';
 import { useApp } from '../store';
-import type { OnlinePlayer } from '../types';
+import type { OnlinePlayer, OnlinePlayerRef } from '../types';
+import { LimitHint, overLimit } from './TicketChat';
 import v from './views.module.css';
 
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 export function OnlinePlayersView() {
-  const { send, t, can } = useApp();
+  const { send, state, t, can } = useApp();
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<OnlinePlayer[]>();
   const [error, setError] = useState<string>();
+  const [deleting, setDeleting] = useState<{ target: OnlinePlayerRef; name: string }>();
+  const [reason, setReason] = useState('');
+  const maxReason = state.config.limits?.reason ?? 300;
   const seeTickets = can('report.view');
 
   useEffect(() => {
@@ -34,7 +38,9 @@ export function OnlinePlayersView() {
   const visible = (rows ?? []).filter(({ id, name }) => String(id).includes(term) || normalize(name).includes(term))
     .sort((a, b) => a.id - b.id);
   const title = t('ui_nav_players');
-  const acts = can('mod.goto') || can('mod.spectate');
+  const canRepair = can('mod.repair_vehicle');
+  const canDelete = can('mod.delete_vehicle');
+  const acts = can('mod.goto') || can('mod.spectate') || canRepair || canDelete;
   return (
     <main className={lay.main}>
       <ViewHeader title={title} />
@@ -73,6 +79,18 @@ export function OnlinePlayersView() {
                         <Eye size={14} aria-hidden />{t('mod_spectate')}
                       </Button>
                     )}
+                    {key !== undefined && canRepair && (
+                      <Button size="small" icon aria-label={t('mod_repair_vehicle')} title={t('mod_repair_vehicle')}
+                        onClick={() => void send('mod_action', { action: 'repair_vehicle', target: { id, key }, reason: '' })}>
+                        <Wrench size={16} aria-hidden />
+                      </Button>
+                    )}
+                    {key !== undefined && canDelete && (
+                      <Button size="small" icon aria-label={t('mod_delete_vehicle')} title={t('mod_delete_vehicle')}
+                        onClick={() => { setReason(''); setDeleting({ target: { id, key }, name }); }}>
+                        <Trash2 size={16} aria-hidden />
+                      </Button>
+                    )}
                   </div></td>}
                 </tr>
               ))}</tbody>
@@ -80,6 +98,21 @@ export function OnlinePlayersView() {
           </div>
         )}
       </div>
+      {deleting && canDelete && (
+        <Dialog title={t('mod_delete_vehicle')} onClose={() => setDeleting(undefined)} footer={<>
+          <Button onClick={() => setDeleting(undefined)}>{t('ui_cancel')}</Button>
+          <Button variant="danger" disabled={!reason.trim() || overLimit(reason.trim(), maxReason)} onClick={() => {
+            void send('mod_action', { action: 'delete_vehicle', target: deleting.target, reason: reason.trim() });
+            setDeleting(undefined);
+          }}>{t('mod_delete_vehicle')}</Button>
+        </>}>
+          <p>{t('ui_vehicle_confirm', { name: deleting.name, id: deleting.target.id })}</p>
+          <label>{t('ui_vehicle_reason')}
+            <input className={ui.input} value={reason} onChange={(event) => setReason(event.target.value)} />
+          </label>
+          <LimitHint text={reason.trim()} max={maxReason} />
+        </Dialog>
+      )}
     </main>
   );
 }

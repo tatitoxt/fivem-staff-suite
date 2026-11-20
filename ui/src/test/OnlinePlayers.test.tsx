@@ -105,3 +105,25 @@ it('only exposes staff movement modes authorized by the server in Ctrl+K', () =>
     body: JSON.stringify({ mode: 'noclip' }),
   }));
 });
+
+it('requires a reason before requesting deletion of a player vehicle', async () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn().mockResolvedValue({ json: async () => ({ ok: true, data: [
+    { id: 18, key: 7, name: 'José', ping: 39, played_seconds: 300 },
+  ] }) });
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile(['player.online.view', 'mod.delete_vehicle']);
+  dispatch({ type: 'open', payload: { view: 'players' } });
+  dispatch({ type: 'myTickets', payload: { tickets: [] } });
+  fireEvent.click(await screen.findByRole('button', { name: strings.mod_delete_vehicle }));
+  const dialog = within(screen.getByRole('dialog', { name: strings.mod_delete_vehicle }));
+  expect(dialog.getByText(/José \(#18\)/)).toBeVisible();
+  const submit = dialog.getByRole('button', { name: strings.mod_delete_vehicle });
+  expect(submit).toBeDisabled();
+  fireEvent.change(dialog.getByRole('textbox', { name: strings.ui_vehicle_reason }), { target: { value: 'bloqueo' } });
+  fireEvent.click(submit);
+  expect(transport).toHaveBeenLastCalledWith('https://staff_suite/mod_action', expect.objectContaining({
+    body: JSON.stringify({ action: 'delete_vehicle', target: { id: 18, key: 7 }, reason: 'bloqueo' }),
+  }));
+});
