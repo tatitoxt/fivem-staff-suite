@@ -140,7 +140,7 @@ function Detail({ tk, openDialog, reason, setReason }: DetailProps) {
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
               {!isLite && state.config.export?.tickets && state.player?.capabilities?.includes('report.export')
                 && <TicketExportButton key={tk.id} id={tk.id} />}
-              {!isLite && can('player.profile.view') && <PlayerProfileButton key={tk.id} id={tk.id} />}
+              {!isLite && can('player.profile.view') && <PlayerProfileButton key={`profile-${tk.id}`} id={tk.id} />}
             </div>
           </section>
           {!isLite && (state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (
