@@ -96,6 +96,8 @@ Changes are saved in batches, with a JSON checkpoint for pending changes when th
 | `webhook` | `GetConvar('staff_suite_webhook', '')` | Discord webhook URL. Set it in `server.cfg` with `set staff_suite_webhook "URL"`. Empty = disabled. |
 | `file` | `true` | Writes each anchor to `audit_export.log` (resource folder). |
 | `anchor_every` | `20` | Anchor the current hash every N entries. |
+| `webhook_retries` | `5` | Webhook attempts per anchor on 429, 5xx or no response. |
+| `webhook_backoff_ms` / `webhook_backoff_max_ms` | `2000` / `60000` | Delay before the first retry, doubled on each attempt up to the cap (honors `Retry-After`). |
 
 Use `set`, **not** `setr`: `setr` replicates the convar to clients and anyone could read the URL. Full details in [Audit: export and verification](audit.md).
 

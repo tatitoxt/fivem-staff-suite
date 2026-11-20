@@ -61,6 +61,7 @@ Locale['en'] = {
   warn_received = 'You received a staff warning: %{reason}',
   export_username = 'Staff Suite Audit',
   export_anchor = 'Audit anchor · seq %{seq} · `%{hash}`',
+  console_export_webhook_failed = '[StaffSuite] the webhook did not receive anchor #%{seq} (HTTP %{status}, %{attempts} attempts). The file and the chain are unaffected.',
   console_chain_broken = '[StaffSuite] WARNING: the loaded audit chain does not verify (entry %{at}). Check the backup before continuing.',
   console_started = '[StaffSuite] started · %{n} audit entries · persistence=%{persistence} · framework=%{framework}',
   console_audit_ok = '[StaffSuite] audit OK: %{n} entries',

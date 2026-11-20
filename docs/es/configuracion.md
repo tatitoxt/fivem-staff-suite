@@ -96,6 +96,8 @@ Los cambios se guardan en lotes y el guardado pendiente se respalda al parar el 
 | `webhook` | `GetConvar('staff_suite_webhook', '')` | URL de un webhook de Discord. Se configura en `server.cfg` con `set staff_suite_webhook "URL"`. Vacío = desactivado. |
 | `file` | `true` | Escribe cada ancla en `audit_export.log` (carpeta del resource). |
 | `anchor_every` | `20` | Cada cuántas entradas se ancla el hash actual. |
+| `webhook_retries` | `5` | Intentos del webhook por ancla ante 429, 5xx o sin respuesta. |
+| `webhook_backoff_ms` / `webhook_backoff_max_ms` | `2000` / `60000` | Espera antes del primer reintento; se duplica en cada intento hasta el tope (respeta `Retry-After`). |
 
 Usá `set`, **no** `setr`: `setr` replica el convar a los clientes y cualquiera podría leer la URL. Detalle completo en [Auditoría: export y verificación](auditoria.md).
 
