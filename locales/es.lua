@@ -72,6 +72,7 @@ Locale['es'] = {
   staff_mode_unavailable = 'No podés activar este modo en el estado actual.',
   ui_act_staff_noclip = 'Cambio de noclip',
   ui_act_staff_invisible = 'Cambio de invisibilidad',
+  ui_act_staff_mode_result = 'Fin de modo de staff informado por el cliente',
   ui_nav_weekly = 'Actividad semanal',
   ui_weekly_export = 'Preparar CSV',
   ui_weekly_csv = 'CSV para copiar',

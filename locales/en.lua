@@ -72,6 +72,7 @@ Locale['en'] = {
   staff_mode_unavailable = 'This mode is unavailable in your current state.',
   ui_act_staff_noclip = 'Noclip toggled',
   ui_act_staff_invisible = 'Invisibility toggled',
+  ui_act_staff_mode_result = 'Client reported end of staff mode',
   ui_nav_weekly = 'Weekly activity',
   ui_weekly_export = 'Prepare CSV',
   ui_weekly_csv = 'CSV to copy',

@@ -155,11 +155,11 @@ local function stopMode(mode, state)
       SetEntityCollision(state.ped, not state.noCollision, false)
     end
   end
-  TriggerServerEvent('staff_suite:staffModeEnded', mode, state.key)
+  TriggerServerEvent('staff_suite:staffModeEnded', mode, state.key, 'ended')
 end
 
 local function fly(ped)
-  local move = GetDisabledControlNormal(0, 31)
+  local forward = -GetDisabledControlNormal(0, 31)
   local strafe = GetDisabledControlNormal(0, 30)
   local vertical = GetDisabledControlNormal(0, 22) - GetDisabledControlNormal(0, 36)
   local rotation, pos = GetGameplayCamRot(2), GetEntityCoords(ped)
@@ -167,9 +167,9 @@ local function fly(ped)
   local speed = math.min(GetFrameTime(), 0.05) * (IsControlPressed(0, 21) and 24 or 8)
   SetEntityVelocity(ped, 0.0, 0.0, 0.0)
   SetEntityCoordsNoOffset(ped,
-    pos.x + speed * (move * math.sin(yaw) * math.cos(pitch) + strafe * math.cos(yaw)),
-    pos.y + speed * (-move * math.cos(yaw) * math.cos(pitch) + strafe * math.sin(yaw)),
-    pos.z + speed * (-move * math.sin(pitch) + vertical), false, false, false)
+    pos.x + speed * (-forward * math.sin(yaw) * math.cos(pitch) + strafe * math.cos(yaw)),
+    pos.y + speed * (forward * math.cos(yaw) * math.cos(pitch) + strafe * math.sin(yaw)),
+    pos.z + speed * (forward * math.sin(pitch) + vertical), false, false, false)
 end
 
 local function canStartMode(ped)
@@ -183,7 +183,7 @@ RegisterNetEvent('staff_suite:staffMode', function(mode, enabled, key)
   if not enabled then return end
   local ped = PlayerPedId()
   if observing or streamingWaypoint or not canStartMode(ped) then
-    TriggerServerEvent('staff_suite:staffModeEnded', mode, key)
+    TriggerServerEvent('staff_suite:staffModeEnded', mode, key, 'unavailable')
     TriggerEvent('chat:addMessage', { args = { t('notify_title'), t('staff_mode_unavailable') } })
     return
   end
