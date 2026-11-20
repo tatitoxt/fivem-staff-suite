@@ -1,10 +1,45 @@
-import { Info, Keyboard, Languages, Send } from 'lucide-react';
-import { Badge, Segmented, ViewHeader, cx, ui } from '../components/ui';
+import { Info, Keyboard, Languages, Megaphone, Send } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Badge, Button, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
 import { isLite } from '../edition';
 import { rankLabel } from '../labels';
 import { useApp } from '../store';
+import type { TicketCreateResult } from '../types';
+import { LimitHint, overLimit } from './TicketChat';
 import v from './views.module.css';
+
+function AnnouncementForm() {
+  const { state, t, send } = useApp();
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<TicketCreateResult>();
+  const max = state.config.limits?.announcement ?? 300;
+  const disabled = sending || !body.trim() || overLimit(body, max);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (disabled) return;
+    setSending(true);
+    setResult(undefined);
+    const response = await send('announce', { body: body.trim() }) as TicketCreateResult | null;
+    setSending(false);
+    setResult(response ?? { ok: false });
+    if (response?.ok) setBody('');
+  }
+
+  return (
+    <form className={cx(ui.card, v.setCard)} onSubmit={submit} aria-labelledby="announcement-heading">
+      <div className={v.setHead}><span className={v.setIcon}><Megaphone size={20} /></span><h2 id="announcement-heading">{t('announcement_title')}</h2></div>
+      <textarea className={ui.input} aria-label={t('announcement_title')} value={body} disabled={sending}
+        onChange={(event) => { setBody(event.target.value); setResult(undefined); }} />
+      <LimitHint text={body} max={max} />
+      <Button type="submit" variant="primary" disabled={disabled}>{t('ui_announcement_send')}</Button>
+      {result?.ok && <p className={v.setHint} role="status">{t('announcement_sent')}</p>}
+      {result && !result.ok && <p className={v.setHint} role="alert">{result.error ?? t('announcement_failed')}</p>}
+    </form>
+  );
+}
 
 export function SettingsView() {
   const { state, t, send } = useApp();
@@ -16,6 +51,7 @@ export function SettingsView() {
       <ViewHeader title={t('ui_nav_settings')} subtitle={t('ui_settings_sub')} />
       <div className={cx(lay.viewBody, ui.scroll)}>
         <div className={v.settings}>
+          {!isLite && state.player?.capabilities?.includes('staff.announce') && <AnnouncementForm />}
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Languages size={20} /></span><h2>{t('ui_set_language')}</h2></div>
             <Segmented

@@ -214,6 +214,13 @@ export class MockBackend {
         return;
       case 'audit_filter':
         return;
+      case 'announce': {
+        const { body } = p as OutgoingPayloads['announce'];
+        this.record(ME, 'staff_announce', 'server', body);
+        this.emitAudit(false);
+        this.toast('info', `${this.s('announcement_title')} · ${body}`);
+        return { ok: true };
+      }
       case 'audit_verify': {
         const res = verify(this.entries);
         this.record(ME, 'audit_verify', '', res.ok ? 'ok' : `broken:${res.broken_at}`);

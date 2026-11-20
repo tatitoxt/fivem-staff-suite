@@ -702,6 +702,39 @@ local function perSourceAce(s, bySource)
   end
 end
 
+function T.test_announcement_requires_permission_and_saved_audit_before_broadcast()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { admin = true }, [18] = { mod = true } })
+  s.env.source = 18
+  s.event('announce', 'Reiniciamos en cinco minutos', 1)
+  assert(s.recipients[18]['staff_suite:announceResult'].error == s.env.StaffSuiteTranslate('no_permission'))
+  assert(not s.recipients[-1] and #s.api.GetState().chain.entries == 0)
+
+  s.env.source = 17
+  s.env.Config.Limits.announcement = 15
+  s.event('announce', string.rep('ñ', 8), 2)
+  assert(not s.sent['staff_suite:announceResult'].ok and not s.recipients[-1])
+  s.event('announce', 'Aviso', 3)
+  assert(s.sent['staff_suite:announceResult'].error == s.env.StaffSuiteTranslate('rate_limited'))
+  assert(#s.api.GetState().chain.entries == 0)
+
+  s.now = s.now + 30
+  s.event('announce', '  Aviso \0ñ  ', 4)
+  assert(s.recipients[-1]['staff_suite:announcement'] == 'Aviso ñ')
+  assert(s.recipients[17]['staff_suite:announceResult'].ok)
+  local disk = s.files[s.env.Config.JsonFile]
+  local entry = disk.chain.entries[1]
+  assert(entry.action == 'staff_announce' and entry.actor == 'license:account17')
+  assert(entry.reason == 'Aviso ñ' and entry.target == 'server')
+  assert(s.env.StaffSuiteModules['core.audit_chain'].verify(disk.chain))
+
+  s.now = s.now + 30
+  s.failWrites = true
+  s.event('announce', 'No enviarlo', 5)
+  assert(s.recipients[-1]['staff_suite:announcement'] == 'Aviso ñ')
+  assert(s.sent['staff_suite:announceResult'].error == s.env.StaffSuiteTranslate('announcement_failed'))
+end
+
 function T.test_malformed_inputs_do_not_crash_or_mutate_state()
   local s = serverSandbox()
   s.ace.god = true
