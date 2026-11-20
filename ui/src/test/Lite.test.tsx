@@ -82,6 +82,15 @@ it('opens the upgrade details and links to Tebex only when configured', async ()
       player: { name: 'Staff', rank: 'lite_staff', capabilities: ['report.view', 'audit.view'] },
     },
   }, '*');
-  expect(await within(dialog).findByRole('link', { name: LOCALES.es.ui_upgrade_tebex }))
-    .toHaveAttribute('href', 'https://example.tebex.io/package/123');
+  const tebex = await within(dialog).findByRole('link', { name: LOCALES.es.ui_upgrade_tebex });
+  expect(tebex).toHaveAttribute('href', 'https://example.tebex.io/package/123');
+  expect(tebex.className).toMatch(/primary/);
+});
+
+it('shows the Core upgrade with the design-system list and no raw link', async () => {
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: /Conocé Staff Suite Core/ }));
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getAllByRole('listitem')).toHaveLength(4);
+  expect(within(dialog).getByText(LOCALES.es.ui_upgrade_f_duty)).toBeInTheDocument();
 });

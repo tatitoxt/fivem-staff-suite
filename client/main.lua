@@ -23,8 +23,27 @@ local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
 end
 
+-- Con el panel cerrado, los datos no se mandan a la NUI: se guarda el último de cada tipo y se envía al abrir.
+local DEFER_HIDDEN = { tickets = true, myTickets = true, frozenPlayers = true, audit = true, duty = true, dashboard = true }
+local deferred, deferredOrder = {}, {}
+
 local function nui(kind, payload)
+  if not panelOpen and DEFER_HIDDEN[kind] then
+    local prev = deferred[kind]
+    if kind == 'audit' and prev then
+      payload = { entries = payload.entries or prev.entries, verify = payload.verify or prev.verify }
+    end
+    if prev == nil then deferredOrder[#deferredOrder + 1] = kind end
+    deferred[kind] = payload
+    return
+  end
   SendNUIMessage({ type = kind, payload = payload })
+end
+
+local function flushDeferred()
+  local order, data = deferredOrder, deferred
+  deferred, deferredOrder = {}, {}
+  for _, kind in ipairs(order) do SendNUIMessage({ type = kind, payload = data[kind] }) end
 end
 
 local function cannedList()
@@ -130,6 +149,7 @@ local function showPanel(view)
   panelOpen = true
   SetNuiFocus(true, true)
   nui('open', { view = view })
+  flushDeferred()
 end
 
 local function openPanel(view)

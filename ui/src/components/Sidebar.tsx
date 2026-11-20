@@ -1,4 +1,4 @@
-import { ArrowUpRight, Search, Clock3, Inbox, LayoutDashboard, Link2, MessageSquare, Settings, ShieldCheck, Users } from 'lucide-react';
+import { ArrowUpRight, Search, Check, Clock3, Inbox, LayoutDashboard, Link2, MessageSquare, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { isLite } from '../edition';
 import { rankLabel } from '../labels';
@@ -25,9 +25,12 @@ export function useNav(): NavDef[] {
   return all.filter((n) => !n.cap || can(n.cap));
 }
 
+const UPGRADE_FEATURES = ['ui_upgrade_f_moderation', 'ui_upgrade_f_duty', 'ui_upgrade_f_frameworks', 'ui_upgrade_f_audit'];
+
 export function Sidebar() {
   const { state, dispatch, t, can } = useApp();
   const [showCore, setShowCore] = useState(false);
+  const coreUrl = state.config.core_url && /^https:\/\/[^\s]+$/.test(state.config.core_url) ? state.config.core_url : null;
   const nav = useNav();
   const openTickets = state.tickets.filter((x) => x.state === 'open' || x.state === 'reopened').length;
   const broken = state.audit.verify?.ok === false;
@@ -72,17 +75,24 @@ export function Sidebar() {
       )}
       {isLite && showCore && (
         <Dialog title={t('ui_upgrade_core')} onClose={() => setShowCore(false)} footer={(
-          <Button onClick={() => setShowCore(false)}>{t('ui_cancel')}</Button>
+          <>
+            <Button onClick={() => setShowCore(false)}>{t('ui_cancel')}</Button>
+            {coreUrl && (
+              <a className={cx(ui.btn, ui.primary)} href={coreUrl} target="_blank" rel="noreferrer" onClick={(e) => {
+                if (window.invokeNative) {
+                  e.preventDefault();
+                  window.invokeNative('openUrl', coreUrl);
+                }
+              }}>{t('ui_upgrade_tebex')} <ArrowUpRight size={15} aria-hidden /></a>
+            )}
+          </>
         )}>
-          <p>{t('ui_upgrade_details')}</p>
-          {state.config.core_url && /^https:\/\/[^\s]+$/.test(state.config.core_url) && (
-            <a href={state.config.core_url} target="_blank" rel="noreferrer" onClick={(e) => {
-              if (window.invokeNative) {
-                e.preventDefault();
-                window.invokeNative('openUrl', e.currentTarget.href);
-              }
-            }}>{t('ui_upgrade_tebex')}</a>
-          )}
+          <p className={s.upgradeLead}>{t('ui_upgrade_details')}</p>
+          <ul className={s.upgradeList}>
+            {UPGRADE_FEATURES.map((key) => (
+              <li key={key}><span className={s.upgradeCheck} aria-hidden><Check size={13} /></span>{t(key)}</li>
+            ))}
+          </ul>
         </Dialog>
       )}
       {state.player && (
