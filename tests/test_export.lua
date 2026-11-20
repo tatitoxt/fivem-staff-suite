@@ -101,4 +101,19 @@ function T.test_public_transcript_has_a_size_limit_and_only_completes_once()
   assert(#outcomes == 1 and not outcomes[1][1] and outcomes[1][2] == 0)
 end
 
+function T.test_public_transcript_truncates_description_at_utf8_boundary()
+  local env = webhookEnv()
+  local export = load(env)
+  local cfg = { ticket_webhook = 'https://discord.com/api/webhooks/123/token' }
+  local prefix = string.rep('a', 4092) .. 'ñ'
+  export.ticket({ id = 42, description = prefix .. '🙂' }, cfg, function() end)
+  local body = env.requests[1].body
+  assert(utf8.len(body) and body:find(prefix .. '\n', 1, true))
+  assert(body:find('ticket_export_truncated', 1, true))
+
+  export.ticket({ id = 43, description = prefix .. 'é' .. 'X' }, cfg, function() end)
+  body = env.requests[2].body
+  assert(utf8.len(body) and body:find(prefix .. 'é\n', 1, true))
+end
+
 return T
