@@ -5,10 +5,15 @@ local M = {}
 -- Capacidades atómicas. Cada acción de moderación/auditoría requiere una.
 M.CAPS = {
   "report.view", "report.claim", "report.resolve", "report.message",
+  "report.export",
   "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
   "mod.revive", "mod.kick", "mod.warn", "mod.ban",
+  "ban.view", "ban.revoke",
+  "mod.template",
+  "mod.warn_escalate",
   "audit.view", "audit.verify", "audit.export",
-  "staff.duty", "staff.analytics",
+  "staff.duty", "staff.analytics", "staff.announce", "staff.chat",
+  "player.profile.view", "player.profile.note",
   "staff.waypoint",
   "admin.config", "admin.permissions",
 }
@@ -16,26 +21,38 @@ M.CAPS = {
 -- Rangos base con su set de capabilities (least-privilege, escalado).
 local RANK_CAPS = {
   helper = {
-    "report.view", "report.claim", "report.message", "staff.duty",
+    "report.view", "report.claim", "report.message", "staff.duty", "staff.chat",
   },
   moderator = {
     "report.view", "report.claim", "report.resolve", "report.message",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
-    "mod.kick", "mod.warn", "audit.view", "staff.duty",
+    "mod.kick", "mod.warn", "audit.view", "staff.duty", "staff.chat",
+    "player.profile.view", "player.profile.note",
+    "mod.template",
   },
   admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
+    "report.export",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
-    "audit.view", "audit.verify", "staff.duty", "staff.analytics",
+    "audit.view", "audit.verify", "staff.duty", "staff.analytics", "staff.announce", "staff.chat",
+    "ban.view",
+    "player.profile.view", "player.profile.note",
+    "mod.template",
+    "mod.warn_escalate",
     "staff.waypoint",
   },
   senior_admin = {
     "report.view", "report.claim", "report.resolve", "report.message",
+    "report.export",
     "mod.goto", "mod.bring", "mod.spectate", "mod.freeze", "mod.heal",
     "mod.revive", "mod.kick", "mod.warn", "mod.ban",
+    "ban.view", "ban.revoke",
+    "mod.template",
+    "mod.warn_escalate",
     "audit.view", "audit.verify", "audit.export",
-    "staff.duty", "staff.analytics", "admin.config",
+    "staff.duty", "staff.analytics", "staff.announce", "staff.chat", "admin.config",
+    "player.profile.view", "player.profile.note",
     "staff.waypoint",
   },
   owner = nil, -- owner = todas (se resuelve abajo)

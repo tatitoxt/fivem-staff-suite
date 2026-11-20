@@ -21,7 +21,11 @@ export function isNui(): boolean {
 }
 
 export function useMock(): boolean {
-  return import.meta.env.DEV && !isNui();
+  return (import.meta.env.DEV || isForumDemo()) && !isNui();
+}
+
+export function isForumDemo(): boolean {
+  return import.meta.env.MODE === 'forum-demo';
 }
 
 export function isIncoming(data: unknown): data is IncomingMessage {
@@ -39,6 +43,7 @@ export async function send<A extends OutgoingAction>(
   action: A,
   payload: OutgoingPayloads[A] = {} as OutgoingPayloads[A],
 ): Promise<unknown> {
+  if (isForumDemo() && isNui()) return null;
   if (isNui()) {
     const resource = window.GetParentResourceName!();
     try {

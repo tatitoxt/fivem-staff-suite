@@ -20,12 +20,28 @@ function setup() {
   return transport;
 }
 
-const profile = (capabilities: string[]): IncomingMessage => ({
+const profile = (capabilities: string[], escalation?: { threshold: number; windowSeconds: number }): IncomingMessage => ({
   type: 'init',
   payload: {
-    locale: 'es', strings: LOCALES.es, version: '0.2.0', config: { limits: { message_body: 10 } },
+    locale: 'es', strings: LOCALES.es, version: '0.2.0',
+    config: { limits: { message_body: 10 }, warn_escalation: escalation },
     player: { name: 'Alex', rank: 'player', capabilities },
   },
+});
+
+it('shows the configured warning escalation only for authorized staff', async () => {
+  setup();
+  const ticket: Ticket = {
+    id: 1, reporter: 'license:reporter', state: 'open', category: 'bug', priority: 'normal',
+    claimer: null, created_ts: 1, updated_ts: 1, description: 'Report', messages: [], resolution: null, rating: null,
+  };
+  const rule = { threshold: 3, windowSeconds: 600 };
+  dispatch(profile(['report.view', 'mod.warn'], rule), { type: 'tickets', payload: { tickets: [ticket] } },
+    { type: 'open', payload: { view: 'tickets' } });
+  await screen.findByRole('button', { name: LOCALES.es.mod_warn });
+  expect(screen.queryByText(/acumular 3 advertencias en 10 min/)).not.toBeInTheDocument();
+  dispatch(profile(['report.view', 'mod.warn', 'mod.kick', 'mod.warn_escalate'], rule));
+  expect(screen.getByText(/acumular 3 advertencias en 10 min/)).toBeInTheDocument();
 });
 
 afterEach(() => {
@@ -70,9 +86,15 @@ it('requests a waypoint teleport with the staff capability and sends no coordina
   dispatch(profile(['report.view']), { type: 'open', payload: { view: 'settings' } });
   expect(await screen.findByRole('heading', { name: LOCALES.es.ui_nav_settings })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: LOCALES.es.ui_waypoint_go })).not.toBeInTheDocument();
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  expect(screen.queryByRole('option', { name: LOCALES.es.ui_waypoint_go })).not.toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole('combobox', { name: LOCALES.es.ui_cmd_placeholder }), { key: 'Escape' });
   dispatch(profile(['report.view', 'staff.waypoint']));
   fireEvent.click(screen.getByRole('button', { name: LOCALES.es.ui_waypoint_go }));
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  fireEvent.click(screen.getByRole('option', { name: LOCALES.es.ui_waypoint_go }));
   expect(transport).toHaveBeenCalledWith('https://staff_suite/goto_waypoint', expect.objectContaining({ body: '{}' }));
+  expect(transport.mock.calls.filter(([url]) => url === 'https://staff_suite/goto_waypoint')).toHaveLength(2);
 });
 
 it('changes freeze to unfreeze on server confirmation and uses the same permission', async () => {

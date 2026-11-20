@@ -23,6 +23,29 @@ export interface VerifyResult {
 export type TicketState = 'open' | 'claimed' | 'in_progress' | 'resolved' | 'closed' | 'reopened';
 export type Priority = 'low' | 'normal' | 'high' | 'urgent';
 
+export interface PlayerProfileEntry {
+  seq: number;
+  ts: number;
+  actor: string;
+  text: string;
+  failed?: boolean;
+}
+
+export interface PlayerProfile {
+  played_seconds?: number;
+  warns: PlayerProfileEntry[];
+  bans: PlayerProfileEntry[];
+  notes: PlayerProfileEntry[];
+  tickets: { id: number; state: TicketState; ts: number }[];
+}
+
+export interface SanctionTemplate {
+  id: string;
+  action: 'warn' | 'kick' | 'ban';
+  reason: string;
+  duration?: number;
+}
+
 export interface Msg {
   author: string;
   body: string;
@@ -137,11 +160,13 @@ export interface UiConfig {
   priorities?: Priority[];
   require_reason?: boolean;
   persistence?: string;
-  export?: { webhook: boolean; file: boolean; anchor_every?: number };
+  export?: { webhook: boolean; file: boolean; anchor_every?: number; tickets?: boolean };
   transfer_targets?: TransferTarget[];
   canned?: CannedResponse[];
   evidence?: boolean;
-  limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number };
+  sanction_templates?: SanctionTemplate[];
+  limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number; announcement?: number };
+  warn_escalation?: { threshold: number; windowSeconds: number };
 }
 
 export interface InitPayload {
@@ -180,7 +205,7 @@ export type IncomingMessage =
   | { type: 'freezeState'; payload: { target: string; frozen: boolean } }
   | { type: 'dashboard'; payload: DashboardPayload }
   | { type: 'duty'; payload: DutyPayload }
-  | { type: 'toast'; payload: { kind: ToastKind; text: string } }
+  | { type: 'toast'; payload: { kind: ToastKind; text: string; outside?: boolean } }
   | { type: 'rate'; payload: { id: number } }
   | { type: 'evidence'; payload: EvidencePayload }
   | { type: 'open'; payload?: { view?: ViewId } }
@@ -197,9 +222,16 @@ export interface OutgoingPayloads {
   ticket_close: { id: number };
   ticket_reopen: { id: number };
   ticket_message: { id: number; body: string; internal: boolean };
+  ticket_export: { id: number };
+  staff_chat: { body: string };
+  player_profile: { id: number };
+  player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
-  ticket_create: { category: string; priority: Priority; body: string };
-  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
+  ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
+  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number; template?: string };
+  announce: { body: string };
+  ban_list: { page: number };
+  ban_revoke: { id: number; reason: string };
   goto_waypoint: Record<string, never>;
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
@@ -210,6 +242,17 @@ export interface OutgoingPayloads {
 }
 
 export type OutgoingAction = keyof OutgoingPayloads;
+
+export interface BanRow {
+  id?: number;
+  identifier: string;
+  actor: string;
+  reason: string;
+  created_at: number;
+  expires_at: number;
+  status: 'active' | 'expired' | 'revoked';
+  aliases: number;
+}
 
 export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
 
