@@ -852,6 +852,127 @@ function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result(
   assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
+function T.test_owner_acl_revocation_ends_active_spectate()
+  local s = serverSandbox()
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 17 and object == 'god') or (src == 18 and object == 'moderator') or ace(src, object)
+  end
+  s.env.source = 18
+  s.event('modAction', 'spectate', 19)
+  local enter = s.lastClientEvent
+  assert(enter[1] == 'staff_suite:spectate' and enter[2] == 18)
+  s.env.source = 17
+  s.event('ownerPermissions', 1, 18, 'license:account18', 'mod.spectate', 'deny', 'fin de acceso')
+  assert(s.recipients[18]['staff_suite:spectateStop'] == enter[5])
+  assert(s.sent['staff_suite:ownerPermissionsResult'].ok and s.api.Verify())
+end
+
+function T.test_owner_acl_revocation_closes_active_duty_and_persists()
+  local s = serverSandbox()
+  local id = 'license:account18'
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 17 and object == 'god') or (src == 18 and object == 'moderator') or ace(src, object)
+  end
+  s.commands.duty(18)
+  local shift = s.api.GetState().duty.staff[id]
+  assert(shift.on_duty)
+  s.failWrites = true
+  s.now = s.now + 30
+  s.event('ownerPermissions', 1, 18, id, 'staff.duty', 'deny', 'fin de acceso')
+  assert(shift.on_duty and not s.sent['staff_suite:ownerPermissionsResult'].ok)
+  s.failWrites = false
+  s.now = s.now + 30
+  s.event('ownerPermissions', 2, 18, id, 'staff.duty', 'deny', 'fin de acceso')
+  assert(not shift.on_duty and shift.total_seconds == 60)
+  local restarted = serverSandbox({ files = s.files })
+  local state = restarted.api.GetState()
+  assert(not state.duty.staff[id].on_duty and state.duty.staff[id].total_seconds == 60)
+  local entry = state.chain.entries[#state.chain.entries - 1]
+  assert(entry.action == 'duty.out' and entry.actor == id and entry.reason == 'permission_revoked')
+  local report = s.env.StaffSuiteModules.loadmod('core.duty').weekly(state.chain.entries, s.now + 60, function() end)
+  assert(report.staff[1].duty_seconds == 60)
+  assert(restarted.api.Verify())
+end
+
+function T.test_owner_acl_blocks_duty_clock_in_during_an_async_save()
+  local s = serverSandbox({ setup = function(server)
+    local persist = server.env.StaffSuiteModules.loadmod('server.persist')
+    local new = persist.new
+    persist.new = function(...)
+      local storage = new(...)
+      local save = storage.save
+      storage.save = function(cb, retry)
+        if not cb then return save(cb, retry) end
+        save(function(ok) server.completeSave = function() cb(ok) end end, retry)
+      end
+      return storage
+    end
+  end })
+  local id = 'license:account18'
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 17 and object == 'god') or (src == 18 and object == 'moderator') or ace(src, object)
+  end
+  s.event('ownerPermissions', 1, 18, id, 'staff.duty', 'deny', 'fin de acceso')
+  assert(s.completeSave and not s.sent['staff_suite:ownerPermissionsResult'])
+  s.commands.duty(18)
+  assert(not s.api.SetDuty(id, true))
+  assert(not s.api.GetState().duty.staff[id])
+  s.completeSave()
+  assert(s.sent['staff_suite:ownerPermissionsResult'].ok)
+  s.now = s.now + 10
+  s.commands.duty(18)
+  assert(not s.api.GetState().duty.staff[id])
+end
+
+function T.test_owner_acl_is_scoped_and_only_takes_effect_when_saved()
+  local s = serverSandbox()
+  local event, result = 'ownerPermissions', 'staff_suite:ownerPermissionsResult'
+  local id = 'license:account18'
+  local function saved() return s.sent[result].ok end
+  local ace = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 18 and object == 'staff_suite.cap.report.view') or ace(src, object)
+  end
+  local function bootProfile(server)
+    server.now = server.now + 10
+    server.env.source = 18
+    server.event('getState')
+    server.env.source = 17
+    return server.recipients[18]['staff_suite:state'].player
+  end
+  local function has(player, cap)
+    for _, value in ipairs(player.capabilities) do if value == cap then return true end end
+    return false
+  end
+  s.ace.superadmin = true
+  s.event(event, 1)
+  assert(not saved() and has(bootProfile(s), 'report.view'))
+  s.ace.superadmin = false
+  local root = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object) return (src == 17 and object == 'god') or root(src, object) end
+  s.event(event, 2)
+  assert(saved() and #s.sent[result].data.players == 2)
+  s.event(event, 3, 18, id, 'admin.permissions', 'allow', 'invalid')
+  assert(not saved())
+  s.event(event, 4, 18, id, 'rank', 'owner', 'invalid')
+  assert(not saved())
+  s.event(event, 5, 18, 'license:old', 'rank', 'helper', 'otro jugador')
+  assert(not saved())
+  s.failWrites = true
+  s.event(event, 6, 18, id, 'report.view', 'deny', 'revocar')
+  assert(not saved() and has(bootProfile(s), 'report.view'))
+  s.failWrites, s.now = false, s.now + 10
+  s.event(event, 7, 18, id, 'rank', 'helper', 'dar rango')
+  assert(saved() and bootProfile(s).rank == 'helper')
+  s.event(event, 8, 18, id, 'report.view', 'deny', 'revocar')
+  assert(saved() and not has(bootProfile(s), 'report.view') and s.api.Verify())
+  local restarted = serverSandbox({ files = s.files })
+  assert(bootProfile(restarted).rank == 'helper' and not has(bootProfile(restarted), 'report.view'))
+end
+
 function T.test_emergency_freeze_preserves_previous_state_and_catches_new_peds()
   local s = serverSandbox()
   s.env.DoesEntityExist = function(entity) return entity > 0 end

@@ -43,9 +43,25 @@ export function useCommands(): Cmd[] {
       list.push({ id: 'emergency-freeze', group: act, label: t('ui_emergency_title'), icon: <ShieldCheck size={16} />,
         run: () => dispatch({ type: 'staffDialog', dialog: 'mod.emergency_freeze' }) });
     }
+    if (!isLite && can('admin.permissions')) {
+      list.push({ id: 'owner-permissions', group: act, label: t('ui_permissions_title'), icon: <ShieldCheck size={16} />,
+        run: () => dispatch({ type: 'staffDialog', dialog: 'admin.permissions' }) });
+    }
     if (!isLite && can('mod.spectate')) {
       list.push({ id: 'spectate-stop', group: act, label: t('spectate_stop'), icon: <X size={16} />,
         run: () => void send('spectate_stop') });
+    }
+    if (!isLite && can('player.online.view')) {
+      for (const action of ['goto', 'spectate', 'repair_vehicle', 'delete_vehicle'] as const) {
+        if (can(`mod.${action}`)) {
+          list.push({ id: action, group: act, label: t(`mod_${action}`), icon: <ArrowRight size={16} />,
+            run: () => dispatch({ type: 'view', view: 'players', action }) });
+        }
+      }
+    }
+    if (!isLite && can('staff.analytics') && can('staff.analytics.export')) {
+      list.push({ id: 'weekly-export', group: act, label: t('ui_weekly_export'), icon: <ArrowRight size={16} />,
+        run: () => dispatch({ type: 'view', view: 'weekly', action: 'weekly_export' }) });
     }
     if (!isLite) {
       for (const mode of ['noclip', 'invisible'] as const) {

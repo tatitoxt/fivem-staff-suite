@@ -33,6 +33,14 @@ local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local staffModes, staffModeSeq = {}, 0
 local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
 local emergency, emergencyChange
+local pendingPermissions, pendingDuty
+local editableCaps, editableCap = {}, {}
+for _, cap in ipairs(perms.CAPS) do
+  if cap ~= 'admin.permissions' then
+    editableCaps[#editableCaps + 1] = cap
+    editableCap[cap] = true
+  end
+end
 local onlineRefs, onlineViewedAt, onlineRefSeq = {}, {}, 0
 local profileHistory = {}
 local profileAuditIntact = true
@@ -101,6 +109,17 @@ end
 
 local storage = persist.new(Config, function()
   local state = snapshot()
+  state.perms = pendingPermissions or pmodel
+  if pendingDuty and pendingDuty.entry then
+    -- El snapshot cierra el turno junto con el permiso. El estado en memoria espera la confirmación.
+    local actor = pendingDuty.actor
+    state.duty = { staff = {} }
+    for id, shift in pairs(dreg.staff) do state.duty.staff[id] = shift end
+    local closed = {}
+    for key, value in pairs(dreg.staff[actor]) do closed[key] = value end
+    state.duty.staff[actor] = closed
+    duty.clock_out(state.duty, actor, pendingDuty.entry.ts)
+  end
   if next(pendingBans) or next(pendingRevocations) then
     state.bans = {}
     for id, ban in pairs(bans) do state.bans[id] = ban end
@@ -217,13 +236,19 @@ local function restore(data)
 end
 
 -- ===== Auditoría =====
-local function record(action, actor, target, reason, payload, onSaved)
+local function appendAudit(action, actor, target, reason, payload)
   local e = audit.append(chain, {
     ts = os.time(), actor = actor or 'system', action = action,
     target = target or '', reason = reason or '',
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
+  if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
+  return e
+end
+
+local function record(action, actor, target, reason, payload, onSaved)
+  local e = appendAudit(action, actor, target, reason, payload)
   local retryCallback
   if action == 'player_profile_note' then
     local reply = onSaved
@@ -239,14 +264,29 @@ local function record(action, actor, target, reason, payload, onSaved)
   elseif profileAuditIntact then
     indexProfileEntry(e)
   end
-  if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
   storage.save(onSaved, retryCallback)
   return e
 end
 
 -- ===== Permisos / rangos =====
+local function effectiveRank(model, identifier, baseRank)
+  local override = (model.ranks or {})[identifier]
+  if baseRank ~= 'owner' and override and override ~= 'inherit' and perms.editableRank(override) then
+    return override
+  end
+  return baseRank
+end
+
 local function getPlayer(src)
-  return bridges.resolve(src, Config)
+  local player = bridges.resolve(src, Config)
+  player.baseRank = player.rank
+  if player.rank ~= 'owner' then
+    player.rank = effectiveRank(pmodel, player.identifier, player.baseRank)
+    if player.identifier then
+      player.ace = function(cap) return IsPlayerAceAllowed(src, 'staff_suite.cap.' .. cap) end
+    end
+  end
+  return player
 end
 
 local function accountPlaytime(identifier, session, now)
@@ -314,7 +354,7 @@ local function getIdentifier(src)
 end
 
 local function can(player, cap)
-  return perms.can(pmodel, player.identifier, player.rank, cap)
+  return perms.can(pmodel, player.identifier, player.rank, cap, player.ace)
 end
 
 local function findPlayerByIdentifier(identifier)
@@ -596,7 +636,9 @@ local modActions = {
       if pendingSpectators[m.src] ~= session then return end
       pendingSpectators[m.src] = nil
       local currentPed = GetPlayerPed(m.tgt)
+      local observer = getPlayer(m.src)
       if not saved or emergency or not GetPlayerName(m.src) or currentPed == 0
+        or observer.identifier ~= m.actor or not can(observer, 'mod.spectate')
         or getIdentifier(m.tgt) ~= m.target
         or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
         TriggerClientEvent('staff_suite:notify', m.src, t(saved and 'spectate_unavailable' or 'mod_save_failed'))
@@ -855,6 +897,9 @@ command(Config.Commands.duty, function(src)
   local player = getPlayer(src)
   if not can(player, 'staff.duty') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
   local id = actorId(player, src)
+  if pendingDuty and pendingDuty.actor == id then
+    return TriggerClientEvent('staff_suite:notify', src, t('permissions_pending'))
+  end
   local s = dreg.staff[id]
   local ev
   if s and s.on_duty then ev = duty.clock_out(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_out', { time = string.format('%.1fh', (ev.seconds or 0) / 3600) }))
@@ -1079,6 +1124,100 @@ RegisterNetEvent('staff_suite:emergencyFreeze', function(req, enabled, reason)
     TriggerClientEvent('staff_suite:notify', -1, t(enabled and 'emergency_started' or 'emergency_released'), { kind = 'announce' })
     reply(true)
   end)
+end)
+
+RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected, field, value, reason)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, errorText, data)
+    TriggerClientEvent('staff_suite:ownerPermissionsResult', src, { req = req, ok = ok, error = errorText, data = data })
+  end
+  if not allowRate(src, 'staff_suite:ownerPermissions') then return reply(false, t('rate_limited')) end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local owner = getPlayer(src)
+  if not owner.identifier or not can(owner, 'admin.permissions') then return reply(false, t('no_permission')) end
+  if target == nil then
+    local players = {}
+    for _, candidate in ipairs(GetPlayers()) do
+      local id = tonumber(candidate)
+      local player = getPlayer(id)
+      if player.identifier and player.baseRank ~= 'owner' then
+        players[#players + 1] = { id = id, name = player.name }
+      end
+    end
+    table.sort(players, function(a, b) return a.id < b.id end)
+    return reply(true, nil, { players = players, ranks = perms.EDITABLE_RANKS, capabilities = editableCaps })
+  end
+  local id = positiveInteger(target)
+  if not id or not GetPlayerName(id) then return reply(false, t('online_player_changed')) end
+  local player = getPlayer(id)
+  if not player.identifier or player.baseRank == 'owner' then return reply(false, t('no_permission')) end
+  local function details()
+    local state = { id = id, identifier = player.identifier, baseRank = player.baseRank,
+      rank = (pmodel.ranks or {})[player.identifier] or 'inherit', rules = {} }
+    for _, cap in ipairs(editableCaps) do state.rules[cap] = perms.override(pmodel, player.identifier, cap) end
+    return state
+  end
+  if field == nil then return reply(true, nil, details()) end
+  if expected ~= player.identifier then return reply(false, t('online_player_changed')) end
+  if pendingPermissions then return reply(false, t('permissions_pending')) end
+  if field == 'rank' then
+    if not perms.editableRank(value) then return reply(false, t('permissions_invalid')) end
+  elseif type(field) ~= 'string' or not editableCap[field]
+      or (value ~= 'allow' and value ~= 'deny' and value ~= 'inherit') then
+    return reply(false, t('permissions_invalid'))
+  end
+  local cleaned, err = cleanText(reason, limit('reason') or 300)
+  if err then return reply(false, err) end
+  if not cleaned or cleaned == '' then return reply(false, t('reason_required')) end
+  local previous = field == 'rank' and ((pmodel.ranks or {})[player.identifier] or 'inherit')
+    or perms.override(pmodel, player.identifier, field)
+  if previous == value then return reply(true, nil, details()) end
+  pendingPermissions = perms.edit(pmodel, player.identifier, field, value)
+  local shift = dreg.staff[player.identifier]
+  local rank = effectiveRank(pendingPermissions, player.identifier, player.baseRank)
+  local dutyEntry
+  if not perms.can(pendingPermissions, player.identifier, rank, 'staff.duty', player.ace) then
+    if shift and shift.on_duty then
+      dutyEntry = appendAudit('duty.out', player.identifier, player.identifier, 'permission_revoked', {
+        owner = owner.identifier,
+      })
+    end
+    pendingDuty = { actor = player.identifier, entry = dutyEntry }
+  end
+  record('admin_permissions_change', owner.identifier, player.identifier, cleaned,
+    { field = field, previous = previous, value = value }, function(saved)
+      if saved then pmodel = pendingPermissions end
+      pendingPermissions, pendingDuty = nil, nil
+      if saved then
+        if dutyEntry then duty.clock_out(dreg, player.identifier, dutyEntry.ts) end
+        for _, candidate in ipairs(GetPlayers()) do
+          local observer = tonumber(candidate)
+          local current = getPlayer(observer)
+          if current.identifier == player.identifier then
+            if not can(current, 'mod.spectate') then
+              pendingSpectators[observer] = nil
+              local session = spectators[observer]
+              if session then
+                spectators[observer] = nil
+                TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+              end
+            end
+          end
+        end
+      end
+      if not saved then
+        record('admin_permissions_failed', owner.identifier, player.identifier, dutyEntry and tostring(dutyEntry.seq) or '',
+          { field = field, value = value })
+      end
+      if not GetPlayerName(src) or getPlayer(src).identifier ~= owner.identifier then return end
+      if saved and can(getPlayer(src), 'admin.permissions') then
+        reply(true, nil, details())
+      else
+        reply(false, t(saved and 'no_permission' or 'mod_save_failed'))
+      end
+    end)
 end)
 
 local function net(name, fn)
@@ -1700,6 +1839,7 @@ expose('GetState', snapshot)
 expose('SetDuty', function(actor, onDuty)
   actor = idText(actor)
   if not actor or type(onDuty) ~= 'boolean' then return nil, 'invalid_input' end
+  if pendingDuty and pendingDuty.actor == actor then return false, 'permissions_pending' end
   local ev, err
   if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
   if not ev then return false, err end

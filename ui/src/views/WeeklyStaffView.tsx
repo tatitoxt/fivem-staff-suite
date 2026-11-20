@@ -1,5 +1,5 @@
 import { Download } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import lay from '../components/layout.module.css';
 import { Button, Empty, ViewHeader, cx, ui } from '../components/ui';
 import { formatDuration, formatNumber } from '../format';
@@ -29,38 +29,32 @@ export function WeeklyStaffView() {
   const [exporting, setExporting] = useState(false);
   const locale = state.locale;
   const canExport = can('staff.analytics.export');
-  const request = async (exportFile: boolean) => {
-    return await send('staff_weekly', { export: exportFile }) as
-      { ok?: boolean; data?: WeeklyStaffReport; error?: string } | null;
-  };
-
-  useEffect(() => {
-    let active = true;
-    void request(false).then((result) => {
-      if (!active) return;
-      if (result?.ok && result.data) setReport({ ...result.data, staff: Array.isArray(result.data.staff) ? result.data.staff : [] });
-      else setError(result?.error ?? t('staff_weekly_failed'));
-    });
-    return () => { active = false; };
-  }, [send, t]);
-
-  const exportCsv = async () => {
+  const fromPalette = canExport && state.viewAction === 'weekly_export';
+  const request = useCallback(async (exportFile: boolean, active: () => boolean = () => true) => {
     setError('');
-    setExporting(true);
-    const result = await request(true);
+    setExporting(exportFile);
+    const result = await send('staff_weekly', { export: exportFile }) as
+      { ok?: boolean; data?: WeeklyStaffReport; error?: string } | null;
+    if (!active()) return;
     if (result?.ok && result.data) {
       const snapshot = { ...result.data, staff: Array.isArray(result.data.staff) ? result.data.staff : [] };
       setReport(snapshot);
-      setCsv(toCsv(snapshot));
+      if (exportFile) setCsv(toCsv(snapshot));
     } else setError(result?.error ?? t('staff_weekly_failed'));
     setExporting(false);
-  };
+  }, [send, t]);
+
+  useEffect(() => {
+    let active = true;
+    void request(fromPalette, () => active);
+    return () => { active = false; };
+  }, [request, fromPalette]);
   const dates = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' });
   const title = t('ui_nav_weekly');
   return (
     <main className={lay.main}>
       <ViewHeader title={title} subtitle={report && `${dates.format(report.from * 1000)} – ${dates.format(report.to * 1000)} UTC`}>
-        {canExport && report && <Button onClick={() => void exportCsv()} disabled={exporting}>
+        {canExport && report && <Button onClick={() => void request(true)} disabled={exporting}>
           <Download size={16} aria-hidden />{t('ui_weekly_export')}
         </Button>}
       </ViewHeader>

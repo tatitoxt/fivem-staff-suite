@@ -9,13 +9,15 @@ import type {
 
 export interface Toast { id: number; kind: ToastKind; text: string; outside?: boolean }
 
-type StaffDialog = 'ban.view' | 'staff.chat' | 'mod.emergency_freeze';
+type StaffDialog = 'ban.view' | 'staff.chat' | 'mod.emergency_freeze' | 'admin.permissions';
 export interface Notice extends NoticePayload { id: number }
+type ViewAction = 'goto' | 'spectate' | 'repair_vehicle' | 'delete_vehicle' | 'weekly_export';
 
 export interface AppState {
   ready: boolean;
   visible: boolean;
   view: ViewId;
+  viewAction: ViewAction | null;
   locale: string;
   theme: ThemePref;
   strings: Record<string, string>;
@@ -48,7 +50,7 @@ export interface AppState {
 type Action =
   | { type: 'msg'; msg: IncomingMessage }
   | { type: 'theme'; theme: ThemePref }
-  | { type: 'view'; view: ViewId; auditActor?: string }
+  | { type: 'view'; view: ViewId; auditActor?: string; action?: ViewAction }
   | { type: 'checking' }
   | { type: 'setAuditActor'; actor: string }
   | { type: 'dismissToast'; id: number }
@@ -69,6 +71,7 @@ export function initialState(visible: boolean): AppState {
     ready: false,
     visible,
     view: 'audit',
+    viewAction: null,
     locale: 'es',
     theme: 'light',
     strings: {},
@@ -107,7 +110,7 @@ const DATA_MESSAGES = new Set(['audit', 'tickets', 'myTickets', 'dashboard', 'du
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'view':
-      return { ...state, view: action.view, auditActor: action.auditActor ?? state.auditActor };
+      return { ...state, view: action.view, viewAction: action.action ?? null, auditActor: action.auditActor ?? state.auditActor };
     case 'setAuditActor':
       return { ...state, auditActor: action.actor };
     case 'dismissNotice':
@@ -193,9 +196,10 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'evidence':
       return { ...state, evidence: msg.payload };
     case 'open':
-      return { ...state, visible: true, notices: [], view: msg.payload?.view ?? state.view, dataState: state.dataState === 'ready' ? 'ready' : 'loading' };
+      return { ...state, visible: true, notices: [], view: msg.payload?.view ?? state.view, viewAction: null,
+        dataState: state.dataState === 'ready' ? 'ready' : 'loading' };
     case 'close':
-      return { ...state, visible: false, palette: false, staffDialog: null };
+      return { ...state, visible: false, palette: false, staffDialog: null, viewAction: null };
   }
 }
 

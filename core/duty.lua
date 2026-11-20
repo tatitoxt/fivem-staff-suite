@@ -59,6 +59,13 @@ end
 function M.weekly(entries, now, decode)
   local from = now - 7 * 86400
   local byActor, shifts, rows = {}, {}, {}
+  local failed = {}
+  for _, entry in ipairs(entries) do
+    if entry.action == 'admin_permissions_failed' and entry.ts <= now then
+      local seq = tonumber(entry.reason)
+      if seq then failed[seq] = true end
+    end
+  end
   local function row(actor)
     if not byActor[actor] then
       byActor[actor] = { actor = actor, duty_seconds = 0, sessions = 0, resolved = 0, ratings = 0, rating_sum = 0 }
@@ -78,7 +85,7 @@ function M.weekly(entries, now, decode)
       if action == 'duty.in' then
         shifts[actor] = ts
         if ts >= from then row(actor).sessions = row(actor).sessions + 1 end
-      elseif action == 'duty.out' then
+      elseif action == 'duty.out' and not (entry.reason == 'permission_revoked' and failed[entry.seq]) then
         addShift(actor, shifts[actor], ts)
         shifts[actor] = nil
       elseif ts >= from and action == 'ticket_resolve' then

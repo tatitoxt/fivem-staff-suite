@@ -236,6 +236,7 @@ export interface OutgoingPayloads {
   staff_weekly: { export: boolean };
   staff_mode: { mode: 'noclip' | 'invisible' };
   emergency_freeze: { enabled?: boolean; reason?: string };
+  owner_permissions: { target?: number; identifier?: string; field?: string; value?: string; reason?: string };
   player_profile: { id: number };
   player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
