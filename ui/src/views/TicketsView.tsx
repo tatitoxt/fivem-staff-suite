@@ -6,7 +6,7 @@ import { formatDateTime, formatRelative, shortId } from '../format';
 import { isLite } from '../edition';
 import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone } from '../labels';
 import { useApp } from '../store';
-import type { ModAction, Priority, Ticket, TicketState } from '../types';
+import type { ModAction, Priority, Ticket, TicketCreateResult, TicketState } from '../types';
 import { ReportDialog } from '../components/ReportDialog';
 import { LimitHint, TicketChat, overLimit } from './TicketChat';
 import v from './views.module.css';
