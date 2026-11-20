@@ -51,3 +51,18 @@ it('opens Players from Ctrl+K, searches by name and ID, and sends the active pla
     body: JSON.stringify({ action: 'goto', target: { id: 24, key: 8 }, reason: '' }),
   }));
 });
+
+it('offers a spectator exit command only with the spectate capability', () => {
+  window.GetParentResourceName = () => 'staff_suite';
+  const transport = vi.fn().mockResolvedValue({ json: async () => ({ ok: true }) });
+  vi.stubGlobal('fetch', transport);
+  render(<App />);
+  profile([]);
+  dispatch({ type: 'open', payload: { view: 'settings' } });
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+  const command = { name: new RegExp(`^${strings.spectate_stop}`) };
+  expect(screen.queryByRole('option', command)).not.toBeInTheDocument();
+  profile(['mod.spectate']);
+  fireEvent.click(screen.getByRole('option', command));
+  expect(transport).toHaveBeenLastCalledWith('https://staff_suite/spectate_stop', expect.anything());
+});

@@ -157,6 +157,7 @@ Locale['es'] = {
   console_audit_ok = '[StaffSuite] auditoría OK: %{n} entradas',
   console_audit_broken = '[StaffSuite] auditoría ROTA en la entrada %{seq}',
   mod_spectate = 'Observar',
+  spectate_stop = 'Salir de modo espectador',
   mod_revive = 'Revivir',
   mod_teleport = 'Teletransportar',
   rank_helper = 'Ayudante', rank_moderator = 'Moderador', rank_admin = 'Admin',

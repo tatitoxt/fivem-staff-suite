@@ -157,6 +157,7 @@ Locale['en'] = {
   console_audit_ok = '[StaffSuite] audit OK: %{n} entries',
   console_audit_broken = '[StaffSuite] audit BROKEN at entry %{seq}',
   mod_spectate = 'Spectate',
+  spectate_stop = 'Exit spectator mode',
   mod_revive = 'Revive',
   mod_teleport = 'Teleport',
   rank_helper = 'Helper', rank_moderator = 'Moderator', rank_admin = 'Admin',

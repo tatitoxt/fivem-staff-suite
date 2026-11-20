@@ -29,6 +29,7 @@ local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
 local waypointRequests = {}
+local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local onlineRefs, onlineViewedAt, onlineRefSeq = {}, {}, 0
 local profileHistory = {}
 local profileAuditIntact = true
@@ -488,7 +489,22 @@ local modActions = {
     if m.src == m.tgt or ped == 0 or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
       return false, t('spectate_unavailable')
     end
-    TriggerClientEvent('staff_suite:spectate', m.src, m.tgt, GetEntityCoords(ped))
+    spectateSequence = spectateSequence + 1
+    local session = { target = m.tgt, key = spectateSequence }
+    pendingSpectators[m.src] = session
+    m.onSaved = function(saved)
+      if pendingSpectators[m.src] ~= session then return end
+      pendingSpectators[m.src] = nil
+      local currentPed = GetPlayerPed(m.tgt)
+      if not saved or not GetPlayerName(m.src) or currentPed == 0
+        or getIdentifier(m.tgt) ~= m.target
+        or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
+        TriggerClientEvent('staff_suite:notify', m.src, t(saved and 'spectate_unavailable' or 'mod_save_failed'))
+        return
+      end
+      spectators[m.src] = session
+      TriggerClientEvent('staff_suite:spectate', m.src, m.tgt, GetEntityCoords(currentPed), session.key)
+    end
   end },
   warn = { protected = true, reason = true, run = function(m)
     m.onSaved = afterSanction(m, function()
@@ -1329,6 +1345,12 @@ net('staff_suite:modAction', function(action, tgt, reason, duration, templateId)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end
 end)
 
+net('staff_suite:spectateEnded', function(key)
+  local src = tonumber(source)
+  local session = spectators[src]
+  if session and session.key == key then spectators[src] = nil end
+end)
+
 local waypointMessages = { ok = 'waypoint_ok', no_marker = 'waypoint_no_marker',
   unavailable = 'waypoint_unavailable', save_failed = 'waypoint_save_failed' }
 
@@ -1479,6 +1501,17 @@ end)
 
 AddEventHandler('playerDropped', function()
   local src = tonumber(source)
+  spectators[src] = nil
+  pendingSpectators[src] = nil
+  for observer, session in pairs(pendingSpectators) do
+    if session.target == src then pendingSpectators[observer] = nil end
+  end
+  for observer, session in pairs(spectators) do
+    if session.target == src then
+      spectators[observer] = nil
+      TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+    end
+  end
   onlineRefs[src], onlineViewedAt[src] = nil, nil
   local request = waypointRequests[src]
   if request then

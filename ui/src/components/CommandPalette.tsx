@@ -39,6 +39,10 @@ export function useCommands(): Cmd[] {
     if (!isLite && can('staff.waypoint')) {
       list.push({ id: 'waypoint', group: act, label: t('ui_waypoint_go'), icon: <MapPin size={16} />, run: () => void send('goto_waypoint') });
     }
+    if (!isLite && can('mod.spectate')) {
+      list.push({ id: 'spectate-stop', group: act, label: t('spectate_stop'), icon: <X size={16} />,
+        run: () => void send('spectate_stop') });
+    }
     if (other) list.push({ id: 'lang', group: act, label: t('ui_cmd_lang', { lang: t(`ui_lang_${other}`) }), icon: <Languages size={16} />, run: () => void send('set_locale', { locale: other }) });
     const nextTheme = resolveTheme(state.theme) === 'dark' ? 'light' : 'dark';
     list.push({
