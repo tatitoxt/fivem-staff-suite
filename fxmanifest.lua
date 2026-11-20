@@ -45,6 +45,7 @@ client_scripts {
 files {
   'ui/dist/index.html',
   'ui/dist/assets/*',
+  'ui/dist/brand/*',
 }
 
 escrow_ignore {

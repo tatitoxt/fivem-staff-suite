@@ -58,6 +58,28 @@ local function cannedList()
   return out
 end
 
+local THEMES = { light = true, dark = true, auto = true }
+
+local function configTheme()
+  return THEMES[Config.Theme] and Config.Theme or 'light'
+end
+
+local function themePref()
+  local saved = GetResourceKvpString and GetResourceKvpString('staff_suite:theme')
+  if saved and THEMES[saved] then return saved end
+  return configTheme()
+end
+
+local function brandConfig()
+  local b = type(Config.Brand) == 'table' and Config.Brand or {}
+  local function str(v, max) return type(v) == 'string' and v ~= '' and v:sub(1, max) or nil end
+  local logo = str(b.logo, 300)
+  if logo and not (logo:match('^https://') or logo:match('^brand/[%w_%-%.]+$')) then logo = nil end
+  local accent = str(b.accent, 7)
+  if accent and not accent:match('^#%x%x%x%x%x%x$') then accent = nil end
+  return { name = str(b.name, 40), logo = logo, accent = accent }
+end
+
 local function sendInit()
   initSent = true
   local locales = {}
@@ -65,6 +87,7 @@ local function sendInit()
   table.sort(locales)
   nui('init', {
     locale = uiLocale,
+    theme = themePref(),
     strings = strings(uiLocale),
     version = GetResourceMetadata(GetCurrentResourceName(), 'version', 0) or '',
     player = playerInfo or { name = GetPlayerName(PlayerId()), rank = rank, capabilities = lite and {} or nil },
@@ -74,6 +97,8 @@ local function sendInit()
       categories = Config.Categories,
       limits = Config.Limits,
       core_url = Config.CoreUrl,
+      theme = configTheme(),
+      brand = brandConfig(),
       priorities = Config.Priorities,
       require_reason = Config.Moderation and Config.Moderation.require_reason ~= false,
       persistence = Config.Persistence,
@@ -201,6 +226,9 @@ on('close_ui', function() closePanel() end)
 on('refresh', function() TriggerServerEvent('staff_suite:getState') end)
 on('set_locale', function(d)
   if Locale and Locale[d.locale] then uiLocale = d.locale; sendInit() end
+end)
+on('set_theme', function(d)
+  if THEMES[d.theme] and SetResourceKvp then SetResourceKvp('staff_suite:theme', d.theme) end
 end)
 on('audit_verify', function() TriggerServerEvent('staff_suite:verify') end)
 on('audit_filter', function() end) -- el filtrado es local en la NUI

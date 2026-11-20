@@ -1,3 +1,4 @@
+import type { ThemePref } from './theme';
 // Contrato NUI <-> Lua (NUI_SPEC.md). Los campos opcionales son los que el
 // adapter puede omitir en actualizaciones parciales.
 
@@ -154,6 +155,8 @@ export interface TicketCreateResult {
 
 export interface UiConfig {
   core_url?: string;
+  theme?: ThemePref;
+  brand?: { name?: string; logo?: string; accent?: string };
   panel_key?: string;
   locales?: string[];
   categories?: string[];
@@ -176,6 +179,7 @@ export interface InitPayload {
   version: string;
   player: PlayerInfo;
   config: UiConfig;
+  theme?: ThemePref;
 }
 
 export interface AuditPayload {
@@ -218,6 +222,7 @@ export type IncomingMessage =
 export interface OutgoingPayloads {
   close_ui: Record<string, never>;
   set_locale: { locale: string };
+  set_theme: { theme: ThemePref };
   audit_verify: Record<string, never>;
   audit_filter: { actor: string; action: string; from: number | null; to: number | null };
   ticket_claim: { id: number };

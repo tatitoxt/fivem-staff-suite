@@ -25,3 +25,12 @@ Lectura del brief: panel de staff in-game para servidores RP. Es una herramienta
 - **Teclado:** `Ctrl+K` abre la command palette con acciones de staff (ir a una vista, servicio, verificar la cadena, nuevo reporte, idioma). `1`–`6` cambia de vista, `N` abre un reporte nuevo y `Esc` cierra.
 - **Jugador:** el reporte rápido se hace en un modal con categorías en tiles, descripción con contador y la opción de adjuntar una captura (solo si screenshot-basic está activo). "Mis reportes" muestra el estado como progreso: Enviado → En curso → Resuelto.
 - **Bundle:** sin librerías nuevas. Iconos de lucide (tree-shaken) y gráficos en SVG propio.
+
+## Tema oscuro y marca
+
+- Mismos tokens en `:root[data-theme='dark']`: neutros fríos (`#0e1116` fondo, `#161a21` superficie, hairlines `#2a313c`).
+- El acento sigue siendo verde, aclarado a `#4ade80` con texto oscuro `#0b1f12` encima: 10:1 sobre la superficie y 9.9:1 en botones. Rojo, naranja y azul se aclaran igual; los estados semánticos no cambian de significado.
+- Sin colores sueltos en los módulos CSS: todo sale de tokens (`--ok-line`, `--warn-field-bg`, `--toast-bg`, `--scrim`, etc.).
+- `Config.Theme` = `light` | `dark` | `auto` (sigue `prefers-color-scheme`). Cada staff lo cambia en Ajustes o con Ctrl+K y se guarda en KVP del cliente.
+- `Config.Brand.accent` solo se aplica si cumple 4.5:1 como texto sobre la superficie y como fondo de botón (blanco o texto oscuro) en el tema activo. Si no, se usa el verde. Hover, soft e ink se derivan del mismo color.
+- axe en 0 en las 6 vistas, la palette y el reporte, en claro y oscuro, ES y EN (1920×1080).

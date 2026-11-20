@@ -1,3 +1,4 @@
+import type { ThemePref } from '../theme';
 import { fmt } from '../format';
 import { version } from '../../package.json';
 import { sha256Hex } from './sha256';
@@ -47,7 +48,24 @@ function demoScreenshot(id: number, n: number): string {
   return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
+// Demo: ?brand=Nombre&accent=%23RRGGBB muestra la personalización de marca.
+function mockBrand(): { name?: string; accent?: string } | undefined {
+  if (typeof location === 'undefined') return undefined;
+  const q = new URLSearchParams(location.search);
+  const name = q.get('brand') ?? undefined;
+  const accent = q.get('accent') ?? undefined;
+  return name || accent ? { name, accent } : undefined;
+}
+
+function storedTheme(): ThemePref {
+  try {
+    const v = localStorage.getItem('staff_suite_theme');
+    return v === 'dark' || v === 'auto' ? v : 'light';
+  } catch { return 'light'; }
+}
+
 export class MockBackend {
+  private theme: ThemePref = storedTheme();
   private evidenceData = new Map<string, string>();
   locale = 'es';
   now = Date.now() / 1000;
@@ -83,11 +101,13 @@ export class MockBackend {
       type: 'init',
       payload: {
         locale: this.locale,
+        theme: this.theme,
         strings: LOCALES[this.locale],
         version,
         player: { name: ME, rank: 'owner', capabilities: ALL_CAPS },
         config: {
           panel_key: 'F6', locales: ['es', 'en'],
+          brand: mockBrand(),
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
@@ -212,6 +232,11 @@ export class MockBackend {
       case 'close_ui':
         this.emit({ type: 'close' });
         return;
+      case 'set_theme': {
+        this.theme = (p as OutgoingPayloads['set_theme']).theme;
+        try { localStorage.setItem('staff_suite_theme', this.theme); } catch { /* sin storage */ }
+        return;
+      }
       case 'set_locale': {
         const { locale } = p as OutgoingPayloads['set_locale'];
         if (LOCALES[locale]) this.locale = locale;

@@ -90,6 +90,7 @@ function M.ticket(ticket, cfg, onResult)
   local file = ('ticket-%d.txt'):format(ticket.id)
   local payload = json.encode({
     content = t('ticket_export_heading', { id = ticket.id }),
+    allowed_mentions = { parse = {} },
     attachments = { { id = 0, filename = file } },
   })
   local body = table.concat({
@@ -126,6 +127,7 @@ function M.anchor(entry, cfg)
     local payload = json.encode({
       content = t('export_anchor', { seq = entry.seq, hash = entry.hash:sub(1, 16) }),
       username = t('export_username'),
+      allowed_mentions = { parse = {} },
     })
     post(cfg.webhook, payload, cfg, entry.seq, 1)
   end

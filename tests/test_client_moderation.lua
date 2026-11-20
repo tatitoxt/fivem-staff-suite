@@ -221,4 +221,27 @@ function T.test_notices_show_without_taking_focus()
   assert(#msgs == before and chat[1].args[2] == 'Al chat', 'desactivados vuelven al chat')
 end
 
+function T.test_theme_and_brand_come_from_config_and_kvp()
+  local _, env, events, callbacks = sandbox()
+  local msgs, kvp = {}, {}
+  env.SendNUIMessage = function(m) msgs[#msgs + 1] = m end
+  env.TriggerEvent = function() end
+  env.GetResourceMetadata = function() return '1.0' end
+  env.GetPlayerName = function() return 'Fausto' end
+  env.PlayerId = function() return 1 end
+  env.GetResourceKvpString = function(k) return kvp[k] end
+  env.SetResourceKvp = function(k, v) kvp[k] = v end
+  env.Config.Theme = 'dark'
+  env.Config.Brand = { name = 'Los Santos RP', logo = 'javascript:alert(1)', accent = '#1d4ed8' }
+  events['staff_suite:notify']('hola', { kind = 'reply' })
+  local init = msgs[1].payload
+  assert(msgs[1].type == 'init' and init.theme == 'dark' and init.config.theme == 'dark', 'usa Config.Theme sin preferencia guardada')
+  local brand = init.config.brand
+  assert(brand.name == 'Los Santos RP' and brand.accent == '#1d4ed8' and brand.logo == nil, 'descarta logos que no son https ni brand/')
+  callbacks['set_theme']({ theme = 'light' }, function() end)
+  assert(kvp['staff_suite:theme'] == 'light', 'guarda la preferencia en KVP')
+  callbacks['set_theme']({ theme = 'neon' }, function() end)
+  assert(kvp['staff_suite:theme'] == 'light', 'ignora temas inválidos')
+end
+
 return T

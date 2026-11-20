@@ -508,12 +508,13 @@ local modActions = {
       return false, t('ban_invalid_duration')
     end
     local now = os.time()
-    local ban = { id = #chain.entries + 1, actor = m.actor, reason = m.reason, created_at = now,
+    local ban = { id = #chain.entries + 1, actor = m.actor, actor_rank = m.actor_rank, reason = m.reason, created_at = now,
       expires_at = seconds == 0 and 0 or now + seconds }
     for _, id in ipairs(identifiers) do pendingBans[id] = ban end
     m.payload.expires_at = ban.expires_at
     m.payload.identifier = identifier
     m.payload.identifiers = identifiers
+    m.payload.actor_rank = m.actor_rank
     local notify = afterSanction(m, function() DropPlayer(m.tgt, banMessage(ban)) end)
     m.onSaved = function(ok)
       for _, id in ipairs(identifiers) do
@@ -614,7 +615,7 @@ local function doMod(src, action, tgt, reason, duration, templateId)
   if not reason and (spec.reason == true or spec.reason == 'configured' and Config.Moderation.require_reason) then
     return false, t('reason_required')
   end
-  local ctx = { src = tonumber(src), tgt = tgt, actor = actorId(player, src), target = getIdentifier(tgt),
+  local ctx = { src = tonumber(src), tgt = tgt, actor = actorId(player, src), target = getIdentifier(tgt), actor_rank = player.rank,
     reason = reason, duration = duration, payload = { action = action, template = template and template.id } }
   local ok, err = spec.run(ctx)
   if ok == false then return false, err end
@@ -1044,6 +1045,11 @@ RegisterNetEvent('staff_suite:banRevoke', function(id, reason, req)
     end
   end
   if #aliases == 0 then return reply(false, t('ban_not_active')) end
+  -- El rango de quien baneó sale de la entrada auditada (protegida por la cadena), no del snapshot.
+  local origin = chain.entries[id]
+  local decoded, origPayload = pcall(json.decode, origin and origin.action == 'mod_ban' and origin.payload or '')
+  local banRank = decoded and type(origPayload) == 'table' and origPayload.actor_rank or bans[aliases[1]].actor_rank
+  if perms.outranks(banRank, player.rank) then return reply(false, t('mod_target_protected')) end
   table.sort(aliases)
   for _, identifier in ipairs(aliases) do
     local ban = bans[identifier]
@@ -1284,7 +1290,12 @@ end)
 function captureEvidence(ticket, targetSrc, by, notifySrc)
   local id = ticket.id
   exports['screenshot-basic']:requestClientScreenshot(targetSrc, { encoding = 'jpg', quality = 0.6 }, function(err, data)
-    if err or type(data) ~= 'string' or data == '' then
+    -- El data URI lo arma el cliente: se exige JPEG y un tamaño acotado antes de tocar el disco.
+    local maxBytes = limit('evidence_bytes') or 3 * 1024 * 1024
+    -- Base64 válido que empieza con los bytes mágicos de JPEG (FF D8 FF → "/9j/").
+    local jpeg = type(data) == 'string' and #data <= maxBytes and data:sub(1, 23) == 'data:image/jpeg;base64,'
+      and data:sub(24, 27) == '/9j/' and data:find('^[%w+/]+=?=?$', 24) ~= nil
+    if err or not jpeg then
       TriggerClientEvent('staff_suite:notify', notifySrc, t('evidence_failed'))
       return
     end

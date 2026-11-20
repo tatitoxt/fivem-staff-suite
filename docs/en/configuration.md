@@ -85,6 +85,7 @@ Changes are saved in batches, with a JSON checkpoint for pending changes when th
 |---|---|---|
 | `Limits.ticket_body` / `message_body` / `reason` | `1000` / `1000` / `300` | Maximum bytes accepted by the server; control characters are stripped. |
 | `Limits.open_tickets_per_player` | `3` | Simultaneous open reports per player. `nil` disables the cap. |
+| `Limits.evidence_bytes` | `3 MiB` | Maximum size of a `screenshot-basic` capture. Anything that is not a JPEG data URI is rejected (valid base64 starting with the JPEG magic bytes). |
 | `RateLimit[event]` | see `config.lua` | Per-player token bucket: `burst` actions in a row, then `per_second`. `default` applies to events without their own rule and to commands. |
 
 ## `server/config.lua`
@@ -123,3 +124,16 @@ lua5.4 tests/run_all.lua
 ```
 
 The `test_locales` test fails if a key is missing in either language, a text is empty, or placeholders (`%{id}`, `%{name}`…) do not match.
+
+## Theme and brand
+
+```lua
+Config.Theme = 'light'   -- 'light' | 'dark' | 'auto'
+Config.Brand = {
+  name = 'Los Santos RP',            -- replaces "Staff Suite" in the panel (max 40)
+  logo = 'brand/logo.png',           -- https:// URL or a file in ui/public/brand/ (copied to ui/dist/brand/ on build)
+  accent = '#1d4ed8',                -- '#RRGGBB'; ignored if it fails AA contrast in the active theme
+}
+```
+
+`Config.Theme` is the default theme. Each staff member can pick Light, Dark or Auto in Settings, or toggle it with Ctrl+K; the choice is stored on their client (KVP). With the prebuilt Tebex package, put a local logo straight into `ui/dist/brand/`.

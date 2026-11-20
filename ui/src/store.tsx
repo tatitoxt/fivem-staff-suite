@@ -1,3 +1,4 @@
+import { applyTheme, isThemePref, resolveTheme, type ThemePref } from './theme';
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import { fmt } from './format';
 import { isNui, send, subscribe, useMock } from './nui';
@@ -16,6 +17,7 @@ export interface AppState {
   visible: boolean;
   view: ViewId;
   locale: string;
+  theme: ThemePref;
   strings: Record<string, string>;
   version: string;
   player: PlayerInfo | null;
@@ -45,6 +47,7 @@ export interface AppState {
 
 type Action =
   | { type: 'msg'; msg: IncomingMessage }
+  | { type: 'theme'; theme: ThemePref }
   | { type: 'view'; view: ViewId; auditActor?: string }
   | { type: 'checking' }
   | { type: 'setAuditActor'; actor: string }
@@ -67,6 +70,7 @@ export function initialState(visible: boolean): AppState {
     visible,
     view: 'audit',
     locale: 'es',
+    theme: 'light',
     strings: {},
     version: '',
     player: null,
@@ -108,6 +112,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, auditActor: action.actor };
     case 'dismissNotice':
       return { ...state, notices: state.notices.filter((n) => n.id !== action.id) };
+    case 'theme':
+      return { ...state, theme: action.theme };
     case 'palette':
       return { ...state, palette: action.open };
     case 'report':
@@ -140,7 +146,7 @@ function applyMessage(state: AppState, msg: IncomingMessage): AppState {
     case 'init': {
       const p = msg.payload;
       return {
-        ...state, ready: true, locale: p.locale, strings: p.strings ?? {}, version: p.version ?? '',
+        ...state, ready: true, locale: p.locale, theme: isThemePref(p.theme) ? p.theme : isThemePref(p.config?.theme) ? p.config.theme : state.theme, strings: p.strings ?? {}, version: p.version ?? '',
         player: p.player ?? null, config: p.config ?? {},
         staffDialog: state.staffDialog && p.player?.capabilities?.includes(state.staffDialog) ? state.staffDialog : null,
       };
@@ -206,6 +212,14 @@ const Ctx = createContext<AppApi | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, useMock(), initialState);
 
+  useEffect(() => {
+    const apply = () => applyTheme(resolveTheme(state.theme), state.config.brand?.accent);
+    apply();
+    if (state.theme !== 'auto' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener?.('change', apply);
+    return () => mq.removeEventListener?.('change', apply);
+  }, [state.theme, state.config.brand?.accent]);
   const visibleRef = useRef(state.visible);
   visibleRef.current = state.visible;
   useEffect(() => {

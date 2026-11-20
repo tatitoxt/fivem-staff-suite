@@ -1,4 +1,5 @@
-import { CarFront, Info, Keyboard, Languages, MapPin, Megaphone, MessageSquare, Send, ShieldBan } from 'lucide-react';
+import type { ThemePref } from '../theme';
+import { CarFront, Moon, Info, Keyboard, Languages, MapPin, Megaphone, MessageSquare, Send, ShieldBan } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Badge, Button, Segmented, ViewHeader, cx, ui } from '../components/ui';
 import lay from '../components/layout.module.css';
@@ -126,6 +127,7 @@ export function SettingsView() {
             />
             <p className={v.setHint}>{t('ui_set_language_hint')}</p>
           </section>
+          <ThemeCard />
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Keyboard size={15} /></span><h2>{t('ui_set_keybind')}</h2></div>
             <span className={v.kbd}>{cfg.panel_key ?? 'F6'}</span>
@@ -166,5 +168,25 @@ export function SettingsView() {
         </div>
       </div>
     </main>
+  );
+}
+
+function ThemeCard() {
+  const { state, t, send, dispatch } = useApp();
+  return (
+    <section className={cx(ui.card, v.setCard)}>
+      <div className={v.setHead}><span className={v.setIcon}><Moon size={15} /></span><h2>{t('ui_set_theme')}</h2></div>
+      <Segmented
+        label={t('ui_set_theme')}
+        value={state.theme}
+        options={(['light', 'dark', 'auto'] as const).map((value) => ({ value, label: t(`ui_theme_${value}`) }))}
+        onChange={(value) => {
+          const theme = value as ThemePref;
+          dispatch({ type: 'theme', theme });
+          void send('set_theme', { theme });
+        }}
+      />
+      <p className={v.setHint}>{t('ui_set_theme_hint')}</p>
+    </section>
   );
 }
