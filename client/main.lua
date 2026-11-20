@@ -15,6 +15,7 @@ local playerInfo = nil
 local transferTargets = nil
 local exportStatus = nil
 local evidenceEnabled = false
+local sanctionTemplates = {}
 
 local function strings(lang)
   return (Locale and (Locale[lang] or Locale.es)) or {}
@@ -66,6 +67,7 @@ local function sendInit()
       transfer_targets = transferTargets,
       canned = not lite and cannedList() or nil,
       evidence = not lite and evidenceEnabled,
+      sanction_templates = not lite and sanctionTemplates or nil,
     },
   })
 end
@@ -230,7 +232,7 @@ if not lite then
   on('evidence_get', function(d) TriggerServerEvent('staff_suite:evidenceGet', d.id, d.n) end)
   on('ticket_transfer', ticketAction('transfer'))
   on('mod_action', function(d)
-    TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason, d.duration)
+    TriggerServerEvent('staff_suite:modAction', d.action, d.target, d.reason, d.duration, d.template)
   end)
   on('duty_toggle', function()
     ExecuteCommand(Config.Commands.duty)
@@ -245,6 +247,7 @@ RegisterNetEvent('staff_suite:state', function(state)
   if state.transferTargets then transferTargets = state.transferTargets; initDirty = true end
   if state.exportStatus then exportStatus = state.exportStatus; initDirty = true end
   if state.evidenceEnabled ~= nil then evidenceEnabled = state.evidenceEnabled == true; initDirty = true end
+  if state.sanctionTemplates then sanctionTemplates = state.sanctionTemplates; initDirty = true end
   if state.player then
     playerInfo = state.player
     rank = state.player.rank or rank

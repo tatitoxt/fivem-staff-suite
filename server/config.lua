@@ -13,3 +13,10 @@ Config.Export = {
 -- Mapeo opcional por identificador estable en standalone.
 -- Ejemplo: ['license:...'] = 'admin'
 Config.StandaloneRanks = {}
+
+-- Plantillas fijas para Core. reason_key se traduce con el idioma del servidor.
+-- IDs de hasta 32 bytes. duration es obligatoria para ban (0 = permanente).
+Config.SanctionTemplates = {
+  rp_warning = { action = 'warn', reason_key = 'sanction_reason_rp' },
+  evasion_day = { action = 'ban', reason_key = 'sanction_reason_evasion', duration = 86400 },
+}

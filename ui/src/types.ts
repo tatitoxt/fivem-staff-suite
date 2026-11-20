@@ -23,6 +23,13 @@ export interface VerifyResult {
 export type TicketState = 'open' | 'claimed' | 'in_progress' | 'resolved' | 'closed' | 'reopened';
 export type Priority = 'low' | 'normal' | 'high' | 'urgent';
 
+export interface SanctionTemplate {
+  id: string;
+  action: 'warn' | 'kick' | 'ban';
+  reason: string;
+  duration?: number;
+}
+
 export interface Msg {
   author: string;
   body: string;
@@ -141,6 +148,7 @@ export interface UiConfig {
   transfer_targets?: TransferTarget[];
   canned?: CannedResponse[];
   evidence?: boolean;
+  sanction_templates?: SanctionTemplate[];
   limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number };
 }
 
@@ -199,7 +207,7 @@ export interface OutgoingPayloads {
   ticket_message: { id: number; body: string; internal: boolean };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string };
-  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number };
+  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number; template?: string };
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };

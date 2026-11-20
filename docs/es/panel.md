@@ -55,6 +55,8 @@ El panel de moderación del ticket actúa sobre quien hizo el reporte. Congelar 
 
 El idioma inicial es `Config.Locale`. Desde Ajustes cada jugador lo cambia solo para su panel; no se guarda entre sesiones. Los textos salen de `locales/es.lua` y `locales/en.lua` (claves `ui_*`), así que se pueden editar sin recompilar.
 
+En Core, las **Plantillas de sanción** aparecen en la moderación del ticket cuando el staff tiene `mod.template` y el permiso de la sanción. `Config.SanctionTemplates` se configura del lado servidor. Cada plantilla define una acción, una clave de motivo en ES/EN y, para baneos, una duración en segundos. La confirmación muestra el motivo y la duración. La auditoría incluye el ID de la plantilla.
+
 ## Desarrollo
 
 `cd ui && npm run dev` levanta el panel en el navegador con datos de prueba y un backend simulado. Ver `ui/README.md`.

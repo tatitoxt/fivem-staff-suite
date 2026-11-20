@@ -3,6 +3,7 @@ import { version } from '../../package.json';
 import { sha256Hex } from './sha256';
 import type {
   AuditEntry, DashboardPayload, IncomingMessage, OutgoingAction, OutgoingPayloads, StaffStat, Ticket, TicketState,
+  SanctionTemplate,
 } from '../types';
 import { append, verify } from './chain';
 import { ALL_CAPS, ME, STAFF, TAMPER_SEQ, buildAlerts, buildAudit, buildStaff, buildTickets } from './demo';
@@ -90,6 +91,7 @@ export class MockBackend {
           priorities: ['low', 'normal', 'high', 'urgent'],
           require_reason: true, persistence: 'json',
           export: { webhook: true, file: true, anchor_every: 20 },
+          sanction_templates: this.sanctionTemplates(),
           canned: ['greeting', 'investigating', 'need_info', 'resolved']
             .map((id) => ({ id, title: this.s(`canned_${id}_title`), text: this.s(`canned_${id}`) })),
           evidence: true,
@@ -98,6 +100,13 @@ export class MockBackend {
         },
       },
     });
+  }
+
+  private sanctionTemplates(): SanctionTemplate[] {
+    return [
+      { id: 'rp_warning', action: 'warn', reason: this.s('sanction_reason_rp') },
+      { id: 'evasion_day', action: 'ban', reason: this.s('sanction_reason_evasion'), duration: 86400 },
+    ];
   }
 
   emitAudit(withVerify: boolean) {
@@ -304,13 +313,18 @@ export class MockBackend {
         return;
       }
       case 'mod_action': {
-        const { action: mod, target, reason, duration } = p as OutgoingPayloads['mod_action'];
+        const { action: mod, target, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
+        const preset = template ? this.sanctionTemplates().find((item) => item.id === template && item.action === mod) : undefined;
+        if (template && !preset) return this.toast('error', this.s('sanction_template_invalid'));
+        const reason = preset?.reason ?? customReason;
+        const duration = preset?.duration ?? customDuration;
         if (REASON_REQUIRED.has(mod) && !reason.trim()) return this.toast('error', this.s('reason_required'));
         if (mod === 'freeze' || mod === 'unfreeze') {
           this.emit({ type: 'freezeState', payload: { target, frozen: mod === 'freeze' } });
         }
         this.record(ME, `mod_${mod}`, target, reason.trim(), {
           action: mod,
+          template,
           ...(mod === 'ban' && { expires_at: duration === 0 ? 0 : Math.round(Date.now() / 1000) + (duration ?? 86400) }),
         });
         this.emitAudit(false);

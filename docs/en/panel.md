@@ -55,6 +55,8 @@ The ticket's moderation rail acts on the player who filed the report. Freeze and
 
 The initial language is `Config.Locale`. From Settings each player changes it for their own panel only; it is not saved between sessions. Strings come from `locales/es.lua` and `locales/en.lua` (`ui_*` keys), so you can edit them without rebuilding.
 
+In Core, **Sanction templates** appear in ticket moderation for staff with `mod.template` and the corresponding sanction permission. The server-side `Config.SanctionTemplates` defines an action, an ES/EN reason key and, for bans, a duration in seconds. The confirmation shows the reason and duration. The audit entry includes the template ID.
+
 ## Development
 
 `cd ui && npm run dev` serves the panel in the browser with demo data and a mocked backend. See `ui/README.md`.
