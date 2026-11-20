@@ -1,4 +1,4 @@
-import { ArrowUpRight, Search, Check, Clock3, Inbox, LayoutDashboard, Link2, MessageSquare, Settings, ShieldCheck, Users } from 'lucide-react';
+import { ArrowUpRight, Search, ChartNoAxesColumn, Check, Clock3, Inbox, LayoutDashboard, Link2, MessageSquare, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { isLite } from '../edition';
 import { rankLabel } from '../labels';
@@ -18,6 +18,7 @@ export function useNav(): NavDef[] {
       { id: 'dashboard', label: t('ui_nav_dashboard'), icon: <LayoutDashboard size={16} />, cap: 'staff.analytics' } as const,
       { id: 'duty', label: t('ui_nav_duty'), icon: <Clock3 size={16} />, cap: 'staff.duty' } as const,
       { id: 'players', label: t('ui_nav_players'), icon: <Users size={16} />, cap: 'player.online.view' } as const,
+      { id: 'weekly', label: t('ui_nav_weekly'), icon: <ChartNoAxesColumn size={16} />, cap: 'staff.analytics' } as const,
     ]),
     { id: 'myReports', label: t('ui_my_reports'), icon: <MessageSquare size={16} /> },
     { id: 'settings', label: t('ui_nav_settings'), icon: <Settings size={16} /> },

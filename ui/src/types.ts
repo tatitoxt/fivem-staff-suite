@@ -233,6 +233,7 @@ export interface OutgoingPayloads {
   ticket_export: { id: number };
   staff_chat: { body: string };
   online_players: Record<string, never>;
+  staff_weekly: { export: boolean };
   player_profile: { id: number };
   player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
@@ -254,6 +255,15 @@ export interface OutgoingPayloads {
 export type OutgoingAction = keyof OutgoingPayloads;
 
 export interface OnlinePlayerRef { id: number; key: number }
+export interface WeeklyStaffRow {
+  actor: string;
+  duty_seconds: number;
+  sessions: number;
+  resolved: number;
+  ratings: number;
+  avg_rating?: number;
+}
+export interface WeeklyStaffReport { from: number; to: number; staff: WeeklyStaffRow[] }
 export interface OnlinePlayer {
   id: number;
   key?: number;
@@ -277,4 +287,4 @@ export interface BanRow {
 
 export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
 
-export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'players' | 'settings';
+export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'players' | 'weekly' | 'settings';
