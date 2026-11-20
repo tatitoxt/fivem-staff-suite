@@ -2,6 +2,8 @@
 Config.Export = {
   -- En server.cfg usá set staff_suite_webhook "URL", sin replicarlo con setr.
   webhook = GetConvar('staff_suite_webhook', ''),
+  -- Canal Discord dedicado al hilo público de tickets. También es server-only.
+  ticket_webhook = GetConvar('staff_suite_ticket_webhook', ''),
   file = true,
   anchor_every = 20,
   -- Reintentos del webhook ante 429/5xx/sin respuesta: backoff exponencial con tope.

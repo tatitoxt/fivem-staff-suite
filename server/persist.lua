@@ -21,7 +21,7 @@ end
 function M.new(config, snapshot)
   local storage = {}
   local useDb, busy, scheduled, dirty, stopped = false, false, false, false, false
-  local cache, waiting = nil, {}
+  local cache, waiting, durable = nil, {}, {}
   -- revision sube con cada cambio; saved es la última revisión confirmada en disco/DB.
   local revision, saved = 0, 0
   local wantsDb = config.Persistence == 'oxmysql'
@@ -50,8 +50,8 @@ function M.new(config, snapshot)
   flush = function()
     if busy or not dirty or stopped then return end
     busy, dirty = true, false
-    local waiters = waiting
-    waiting = {}
+    local waiters, durableWaiters = waiting, durable
+    waiting, durable = {}, {}
     local state = snapshot()
     local stateRevision = revision
     local jsonOK = checkpoint(state)
@@ -64,6 +64,9 @@ function M.new(config, snapshot)
       if not ok then
         dirty = true
         print(StaffSuiteTranslate('persistence_save_failed'))
+      end
+      for _, cb in ipairs(durableWaiters) do
+        if ok then cb(true) else durable[#durable + 1] = cb end
       end
       for _, cb in ipairs(waiters) do cb(ok) end
       if #waiting > 0 then flush() else schedule(not ok and 60000 or nil) end
@@ -87,7 +90,18 @@ function M.new(config, snapshot)
         if ok then
           useDb, cache = true, dbCache
           local recover = not state or extends(backup, state)
-          cb(recover and backup or state, 'oxmysql')
+          local restored = recover and backup or state
+          -- Un checkpoint puede avanzar el tiempo de juego sin agregar una entrada de auditoría.
+          if not recover and backup and backup.database_checkpoint and backup.chain and state.chain
+            and backup.chain.head == state.chain.head and type(backup.playtime) == 'table' then
+            state.playtime = state.playtime or {}
+            for identifier, elapsed in pairs(backup.playtime) do
+              if type(elapsed) == 'number' and elapsed > (state.playtime[identifier] or 0) then
+                state.playtime[identifier] = elapsed
+              end
+            end
+          end
+          cb(restored, 'oxmysql')
           -- Importa el snapshot legado o el checkpoint antes de la próxima escritura.
           storage.save()
         else
@@ -101,10 +115,13 @@ function M.new(config, snapshot)
     end
   end
 
-  function storage.save(cb)
+  function storage.save(cb, retryCallback)
     dirty = true
     revision = revision + 1
-    if cb then waiting[#waiting + 1] = cb end
+    if cb then
+      local queue = retryCallback and durable or waiting
+      queue[#queue + 1] = cb
+    end
     if cb then flush() else schedule() end
   end
 

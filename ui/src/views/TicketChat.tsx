@@ -79,7 +79,7 @@ export function TicketChat({ id, messages, asReporter = false, allowInternal = f
             </div>
           ))}
         </div>
-      ) : <Empty icon={<MessageSquare size={22} />}>{t('ui_chat_empty')}</Empty>}
+      ) : <Empty icon={<MessageSquare size={18} />}>{t('ui_chat_empty')}</Empty>}
       {(allowPublic || allowInternal) && (
         <div className={cx(v.composer, internal && v.composerInternal)}>
           {canned.length > 0 && (
@@ -128,7 +128,7 @@ export function TicketChat({ id, messages, asReporter = false, allowInternal = f
               </button>
             )}
             <Button variant="primary" size="small" disabled={!canSend} onClick={() => void submit()}>
-              <Send size={16} />{t('ui_send')}
+              <Send size={14} />{t('ui_send')}
             </Button>
           </div>
         </div>
