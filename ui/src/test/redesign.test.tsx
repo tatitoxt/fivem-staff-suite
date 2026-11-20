@@ -116,4 +116,17 @@ describe('NUI rediseño', () => {
     const now = 10 * 86400 + 3600;
     expect(dailySeries([now, now - 60, now - 86400, now - 8 * 86400], 7, now)).toEqual([0, 0, 0, 0, 0, 1, 2]);
   });
+  it('con el panel oculto los datos se aplican recién al abrir', async () => {
+    render(<App />);
+    await screen.findByTestId('chain-status');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('chain-status')).not.toBeInTheDocument());
+    act(() => {
+      window.dispatchEvent(new MessageEvent('message', { data: { type: 'myTickets', payload: { tickets: [
+        { id: 77, category: 'bug', state: 'open', description: 'Diferido', messages: [] },
+      ] } } }));
+      window.dispatchEvent(new MessageEvent('message', { data: { type: 'open', payload: { view: 'myReports' } } }));
+    });
+    expect((await screen.findAllByText(/#77/)).length).toBeGreaterThan(0);
+  });
 });
