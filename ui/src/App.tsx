@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect } from 'react';
 import { CommandPalette } from './components/CommandPalette';
 import { DevHarness } from './components/DevHarness';
+import { Notices } from './components/Notices';
 import { RatePrompt } from './components/RatePrompt';
 import { Sidebar, useNav } from './components/Sidebar';
 import { Toasts } from './components/Toasts';
@@ -118,6 +119,7 @@ function Shell() {
           </div>
         </div>
       )}
+      {!state.visible && <Notices />}
       {!state.visible && state.toasts.some((toast) => toast.outside) && <Toasts outside />}
       {!isLite && state.ratePrompt != null && <RatePrompt />}
       {useMock() && <DevHarness />}
