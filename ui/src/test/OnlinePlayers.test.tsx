@@ -118,6 +118,7 @@ it('requires a reason before requesting deletion of a player vehicle', async () 
   dispatch({ type: 'myTickets', payload: { tickets: [] } });
   fireEvent.click(await screen.findByRole('button', { name: strings.mod_delete_vehicle }));
   const dialog = within(screen.getByRole('dialog', { name: strings.mod_delete_vehicle }));
+  expect(dialog.getByText(/José \(#18\)/)).toBeVisible();
   const submit = dialog.getByRole('button', { name: strings.mod_delete_vehicle });
   expect(submit).toBeDisabled();
   fireEvent.change(dialog.getByRole('textbox', { name: strings.ui_vehicle_reason }), { target: { value: 'bloqueo' } });

@@ -524,20 +524,38 @@ local function frozenPlayers()
   return frozen
 end
 
+local function protectsOccupant(vehicle, src, actor)
+  for _, candidate in ipairs(GetPlayers()) do
+    local id = tonumber(candidate)
+    local ped = GetPlayerPed(id)
+    if id ~= src and ped ~= 0 and GetVehiclePedIsIn(ped, false) == vehicle
+      and perms.outranks(getPlayer(id).rank, actor.rank) then return true end
+  end
+  return false
+end
+
 local function moderateVehicle(m)
   local ped = GetPlayerPed(m.tgt)
   local vehicle = ped ~= 0 and GetVehiclePedIsIn(ped, false) or 0
   if vehicle == 0 or not DoesEntityExist(vehicle) then return false, t('mod_vehicle_missing') end
   local netId = NetworkGetNetworkIdFromEntity(vehicle)
   if netId == 0 then return false, t('mod_vehicle_missing') end
+  local deleting = m.payload.action == 'delete_vehicle'
+  if deleting and protectsOccupant(vehicle, m.src, getPlayer(m.src)) then return false, t('mod_target_protected') end
   m.payload.vehicle = netId
   m.onSaved = afterSanction(m, function()
+    local actor = getPlayer(m.src)
+    if not GetPlayerName(m.src) or actor.identifier ~= m.actor
+      or not can(actor, 'mod.' .. m.payload.action) then return end
     local currentPed = GetPlayerPed(m.tgt)
     if currentPed == 0 or GetVehiclePedIsIn(currentPed, false) ~= vehicle or not DoesEntityExist(vehicle)
       or NetworkGetNetworkIdFromEntity(vehicle) ~= netId then
       return TriggerClientEvent('staff_suite:notify', m.src, t('mod_vehicle_missing'))
     end
-    if m.payload.action == 'delete_vehicle' then
+    if deleting then
+      if protectsOccupant(vehicle, m.src, actor) then
+        return TriggerClientEvent('staff_suite:notify', m.src, t('mod_target_protected'))
+      end
       DeleteEntity(vehicle)
     else
       local owner = NetworkGetEntityOwner(vehicle)

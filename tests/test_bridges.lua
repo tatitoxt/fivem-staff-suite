@@ -894,6 +894,15 @@ function T.test_vehicle_actions_use_the_targets_vehicle_and_persist_before_effec
   s.ace.superadmin = true
   s.event('modAction', 'delete_vehicle', 18, ' ')
   assert(not s.deleted and #s.api.GetChain() == 1)
+  local frameworkPermission = s.env.IsPlayerAceAllowed
+  s.env.IsPlayerAceAllowed = function(src, object)
+    return (src == 19 and object == 'god') or frameworkPermission(src, object)
+  end
+  s.env.GetVehiclePedIsIn = function(ped) return (ped == 180 or ped == 190) and 350 or 0 end
+  s.now = s.now + 5
+  s.event('modAction', 'delete_vehicle', 18, 'bloqueo')
+  assert(not s.deleted and #s.api.GetChain() == 1)
+  s.env.GetVehiclePedIsIn = function(ped) return ped == 180 and 350 or 0 end
   s.now = s.now + 5
   s.event('modAction', 'delete_vehicle', 18, 'bloqueo')
   assert(s.deleted == 350 and s.api.GetChain()[2].reason == 'bloqueo' and s.api.Verify())
