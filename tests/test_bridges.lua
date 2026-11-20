@@ -852,6 +852,27 @@ function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result(
   assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
+function T.test_vehicle_actions_use_the_targets_vehicle_and_persist_before_effects()
+  local s = serverSandbox()
+  s.env.GetVehiclePedIsIn = function(ped) return ped == 180 and 350 or 0 end
+  s.env.DoesEntityExist = function(entity) return entity == 350 end
+  s.env.NetworkGetNetworkIdFromEntity = function(entity) return entity + 1 end
+  s.env.NetworkGetEntityOwner = function() return 19 end
+  s.env.DeleteEntity = function(entity) s.deleted = entity end
+  s.ace.admin = true
+  s.event('modAction', 'delete_vehicle', 18, 'bloqueo')
+  assert(not s.deleted and #s.api.GetChain() == 0)
+  s.event('modAction', 'repair_vehicle', 18)
+  assert(s.recipients[19]['staff_suite:repairVehicle'] == 351)
+  assert(s.api.GetChain()[1].action == 'mod_repair_vehicle')
+  s.ace.superadmin = true
+  s.event('modAction', 'delete_vehicle', 18, ' ')
+  assert(not s.deleted and #s.api.GetChain() == 1)
+  s.now = s.now + 5
+  s.event('modAction', 'delete_vehicle', 18, 'bloqueo')
+  assert(s.deleted == 350 and s.api.GetChain()[2].reason == 'bloqueo' and s.api.Verify())
+end
+
 function T.test_staff_modes_require_capability_and_audit_before_dispatch()
   local s = serverSandbox()
   s.event('staffMode', 'invisible')

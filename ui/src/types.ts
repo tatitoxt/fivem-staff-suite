@@ -281,6 +281,7 @@ export interface BanRow {
   aliases: number;
 }
 
-export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
+export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban'
+  | 'repair_vehicle' | 'delete_vehicle';
 
 export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'players' | 'weekly' | 'settings';

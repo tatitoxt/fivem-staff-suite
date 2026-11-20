@@ -472,6 +472,32 @@ local function frozenPlayers()
   return frozen
 end
 
+local function moderateVehicle(m)
+  local ped = GetPlayerPed(m.tgt)
+  local vehicle = ped ~= 0 and GetVehiclePedIsIn(ped, false) or 0
+  if vehicle == 0 or not DoesEntityExist(vehicle) then return false, t('mod_vehicle_missing') end
+  local netId = NetworkGetNetworkIdFromEntity(vehicle)
+  if netId == 0 then return false, t('mod_vehicle_missing') end
+  m.payload.vehicle = netId
+  m.onSaved = afterSanction(m, function()
+    local currentPed = GetPlayerPed(m.tgt)
+    if currentPed == 0 or GetVehiclePedIsIn(currentPed, false) ~= vehicle or not DoesEntityExist(vehicle)
+      or NetworkGetNetworkIdFromEntity(vehicle) ~= netId then
+      return TriggerClientEvent('staff_suite:notify', m.src, t('mod_vehicle_missing'))
+    end
+    if m.payload.action == 'delete_vehicle' then
+      DeleteEntity(vehicle)
+    else
+      local owner = NetworkGetEntityOwner(vehicle)
+      if owner > 0 then
+        TriggerClientEvent('staff_suite:repairVehicle', owner, netId)
+      else
+        TriggerClientEvent('staff_suite:notify', m.src, t('mod_vehicle_missing'))
+      end
+    end
+  end)
+end
+
 local modActions = {
   ['goto'] = { run = function(m)
     TriggerClientEvent('staff_suite:tp', m.src, GetEntityCoords(GetPlayerPed(m.tgt)))
@@ -482,6 +508,8 @@ local modActions = {
   freeze = { protected = true, run = function(m) return setFrozen(m, true) end },
   unfreeze = { protected = true, cap = 'mod.freeze', run = function(m) return setFrozen(m, false) end },
   heal = { run = function(m) SetEntityHealth(GetPlayerPed(m.tgt), 200) end },
+  repair_vehicle = { protected = true, run = moderateVehicle },
+  delete_vehicle = { protected = true, reason = true, run = moderateVehicle },
   kick = { protected = true, reason = 'configured', run = function(m) DropPlayer(m.tgt, m.reason or t('kick_default_reason')) end },
   revive = { run = function(m)
     if not bridges.revive(m.tgt, Config) then return false, t('mod_unavailable') end
@@ -1356,6 +1384,7 @@ end)
 net('staff_suite:modAction', function(action, tgt, reason, duration, templateId)
   local src = source
   if action == 'warn' and not allowRate(src, 'staff_suite:modWarn') then return end
+  if (action == 'repair_vehicle' or action == 'delete_vehicle') and not allowRate(src, 'staff_suite:modVehicle') then return end
   if templateId ~= nil and not allowRate(src, 'staff_suite:modTemplate') then return end
   local ok, err = doMod(src, action, tgt, reason, duration, templateId)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end

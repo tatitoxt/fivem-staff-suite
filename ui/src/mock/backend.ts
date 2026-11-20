@@ -22,7 +22,7 @@ const TRANSITIONS: Record<TicketState, Partial<Record<string, TicketState>>> = {
   reopened: { claim: 'claimed', close: 'closed' },
 };
 
-const REASON_REQUIRED = new Set(['kick', 'ban', 'warn']);
+const REASON_REQUIRED = new Set(['kick', 'ban', 'warn', 'delete_vehicle']);
 
 export function computeDashboard(tickets: Ticket[], staff: StaffStat[], alerts: DashboardPayload['alerts']): DashboardPayload {
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);

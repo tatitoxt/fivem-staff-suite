@@ -1,6 +1,13 @@
 -- Handlers de moderación de Staff Suite Core.
 local t = StaffSuiteTranslate
 
+RegisterNetEvent('staff_suite:repairVehicle', function(netId)
+  if source ~= 65535 or type(netId) ~= 'number' then return end
+  local vehicle = NetworkGetEntityFromNetworkId(netId)
+  if not DoesEntityExist(vehicle) or not IsEntityAVehicle(vehicle) or not NetworkHasControlOfEntity(vehicle) then return end
+  SetVehicleFixed(vehicle)
+end)
+
 RegisterNetEvent('staff_suite:tp', function(coords)
   if source ~= 65535 or type(coords) ~= 'table' and type(coords) ~= 'vector3' then return end
   local ped = PlayerPedId()
