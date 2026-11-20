@@ -38,6 +38,10 @@ export function useCommands(): Cmd[] {
     if (!isLite && can('staff.waypoint')) {
       list.push({ id: 'waypoint', group: act, label: t('ui_waypoint_go'), icon: <MapPin size={16} />, run: () => void send('goto_waypoint') });
     }
+    if (!isLite && can('mod.spectate')) {
+      list.push({ id: 'spectate-stop', group: act, label: t('spectate_stop'), icon: <X size={16} />,
+        run: () => void send('spectate_stop') });
+    }
     if (other) list.push({ id: 'lang', group: act, label: t('ui_cmd_lang', { lang: t(`ui_lang_${other}`) }), icon: <Languages size={16} />, run: () => void send('set_locale', { locale: other }) });
     list.push({ id: 'refresh', group: act, label: t('ui_cmd_refresh'), icon: <RefreshCw size={16} />, run: () => void send('refresh') });
     list.push({ id: 'close', group: act, label: t('ui_cmd_close'), icon: <X size={16} />, hint: 'Esc', run: () => void send('close_ui') });

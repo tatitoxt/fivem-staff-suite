@@ -25,11 +25,11 @@ files['client/**/*.lua'].read_globals = runtime_with({
   'DoesBlipExist', 'GetBlipInfoIdCoord', 'GetFirstBlipInfoId', 'GetGroundZFor_3dCoord',
   'IsNewLoadSceneLoaded', 'NewLoadSceneStartSphere', 'NewLoadSceneStop',
   'DoesEntityExist', 'FreezeEntityPosition', 'GetEntityCollisionDisabled', 'GetEntityCoords', 'GetEntityHeading', 'GetEntityMaxHealth',
-  'GetGameTimer', 'GetPlayerFromServerId', 'GetPlayerPed', 'IsControlJustPressed', 'IsEntityDead',
+  'ClearFocus', 'GetGameTimer', 'GetPlayerFromServerId', 'GetPlayerPed', 'IsEntityDead',
   'IsEntityPositionFrozen', 'IsEntityVisible', 'IsPedInAnyVehicle', 'NetworkResurrectLocalPlayer', 'NetworkSetInSpectatorMode',
   'PlayerPedId', 'RegisterKeyMapping', 'RegisterNUICallback', 'SendNUIMessage',
   'SetEntityCollision', 'SetEntityCoords', 'SetEntityCoordsNoOffset', 'SetEntityHealth', 'SetEntityVisible',
-  'SetNuiFocus', 'TriggerServerEvent',
+  'SetEntityHeading', 'SetFocusEntity', 'SetNuiFocus', 'TriggerServerEvent',
   'source',
 })
 files['tests/e2e_resource/server.lua'].read_globals = runtime_with({

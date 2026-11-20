@@ -59,26 +59,50 @@ local function stopSpectating(session)
   if observing ~= session then return end
   observing = nil
   local ped = session.ped
-  NetworkSetInSpectatorMode(false, PlayerPedId())
-  if not DoesEntityExist(ped) then return end
-  local pos = session.origin
-  SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
-  SetEntityVisible(ped, session.visible, false)
-  SetEntityCollision(ped, not session.noCollision, false)
-  FreezeEntityPosition(ped, session.frozen)
+  if session.watched then
+    NetworkSetInSpectatorMode(false, PlayerPedId())
+    ClearFocus()
+  end
+  if DoesEntityExist(ped) then
+    if ped == PlayerPedId() and not IsEntityDead(ped) then
+      local pos = session.origin
+      SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
+      SetEntityHeading(ped, session.heading)
+    end
+    SetEntityVisible(ped, session.visible, false)
+    SetEntityCollision(ped, not session.noCollision, false)
+    FreezeEntityPosition(ped, session.frozen)
+  end
+  if session.key then TriggerServerEvent('staff_suite:spectateEnded', session.key) end
 end
 
-RegisterNetEvent('staff_suite:spectate', function(target, coords)
+local function exitSpectate()
+  if observing then stopSpectating(observing) end
+end
+
+RegisterCommand('staffsuitestopspectate', exitSpectate, false)
+RegisterKeyMapping('staffsuitestopspectate', t('spectate_stop'), 'keyboard', 'BACK')
+RegisterNUICallback('spectate_stop', function(_, cb)
+  exitSpectate()
+  cb({ ok = true })
+end)
+
+RegisterNetEvent('staff_suite:spectateStop', function(key)
+  if source == 65535 and observing and observing.key == key then exitSpectate() end
+end)
+
+RegisterNetEvent('staff_suite:spectate', function(target, coords, key)
   if source ~= 65535 then return end
   if observing then stopSpectating(observing) end
   local ped = PlayerPedId()
-  if IsEntityDead(ped) or IsPedInAnyVehicle(ped, false) then
-    SendNUIMessage({ type = 'toast', payload = { kind = 'info', text = t('spectate_unavailable') } })
+  if streamingWaypoint or IsEntityDead(ped) or IsPedInAnyVehicle(ped, false) or IsEntityPositionFrozen(ped) then
+    if key then TriggerServerEvent('staff_suite:spectateEnded', key) end
+    TriggerEvent('chat:addMessage', { args = { t('notify_title'), t('spectate_unavailable') } })
     return
   end
   TriggerEvent('staff_suite:closePanel')
   local session = {
-    ped = ped, origin = GetEntityCoords(ped), visible = IsEntityVisible(ped),
+    ped = ped, key = key, origin = GetEntityCoords(ped), heading = GetEntityHeading(ped), visible = IsEntityVisible(ped),
     frozen = IsEntityPositionFrozen(ped), noCollision = GetEntityCollisionDisabled(ped),
   }
   observing = session
@@ -91,18 +115,21 @@ RegisterNetEvent('staff_suite:spectate', function(target, coords)
 
   CreateThread(function()
     local deadline = GetGameTimer() + 5000
-    local watched = 0
     while observing == session do
-      if IsControlJustPressed(0, 177) or PlayerPedId() ~= ped or IsEntityDead(ped) then break end
+      if PlayerPedId() ~= ped or IsEntityDead(ped) then break end
       local player = GetPlayerFromServerId(target)
       local targetPed = player ~= -1 and GetPlayerPed(player) or 0
-      if targetPed ~= 0 then
-        if targetPed ~= watched then NetworkSetInSpectatorMode(true, targetPed); watched = targetPed end
-      elseif watched ~= 0 or GetGameTimer() >= deadline then
+      if targetPed ~= 0 and DoesEntityExist(targetPed) then
+        if targetPed ~= session.watched then
+          SetFocusEntity(targetPed)
+          NetworkSetInSpectatorMode(true, targetPed)
+          session.watched = targetPed
+        end
+      elseif session.watched or GetGameTimer() >= deadline then
         TriggerEvent('chat:addMessage', { args = { t('notify_title'), t('spectate_unavailable') } })
         break
       end
-      Wait(0)
+      Wait(100)
     end
     stopSpectating(session)
   end)

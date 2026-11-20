@@ -866,6 +866,9 @@ function T.test_spectate_only_dispatches_to_authorized_observer()
   local sent = s.lastClientEvent
   assert(sent[1] == 'staff_suite:spectate' and sent[2] == 17 and sent[3] == 18 and sent[4].x == 180)
   assert(s.api.GetChain()[1].action == 'mod_spectate' and s.api.Verify())
+  s.env.source = 18
+  s.hook('playerDropped')
+  assert(s.recipients[17]['staff_suite:spectateStop'] == sent[5])
 end
 
 function T.test_capture_honors_config_and_only_accepts_documented_server_senders()

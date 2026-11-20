@@ -6,7 +6,7 @@ local function sandbox()
   local env = setmetatable({
     Config = { Locale = 'es' },
     StaffSuiteTranslate = function(key) return key end,
-    RegisterCommand = function() end,
+    RegisterCommand = function(command, fn) client[command] = fn end,
     RegisterKeyMapping = function() end,
     RegisterNetEvent = function(event, fn) events[event] = fn end,
     RegisterNUICallback = function(action, fn) callbacks[action] = fn end,
@@ -25,6 +25,9 @@ local function sandbox()
     DoesEntityExist = function() return true end,
     GetEntityCoords = function() return client.pos end,
     GetEntityHeading = function() return 45 end,
+    SetEntityHeading = function(_, heading) client.heading = heading end,
+    SetFocusEntity = function(ped) client.focus = ped end,
+    ClearFocus = function() client.focus = nil end,
     GetEntityMaxHealth = function() return 200 end,
     GetEntityCollisionDisabled = function() return not client.collision end,
     IsEntityVisible = function() return client.visible end,
@@ -42,7 +45,6 @@ local function sandbox()
     GetPlayerFromServerId = function(src) return src == 42 and client.inScope and 2 or -1 end,
     GetPlayerPed = function(player) return player == 2 and 20 or 0 end,
     GetGameTimer = function() return 100 end,
-    IsControlJustPressed = function(_, control) return control == 177 and client.exit end,
     CreateThread = function(fn) client.thread = coroutine.create(fn) end,
     Wait = coroutine.yield,
   }, { __index = _G })
@@ -79,18 +81,19 @@ end
 function T.test_spectate_checks_sender_and_restores_player_on_exit_or_disconnect()
   local c, env, events, _, hooks = sandbox()
   local spectate = events['staff_suite:spectate']
-  spectate(42, { x = 100, y = 100, z = 10 })
+  spectate(42, { x = 100, y = 100, z = 10 }, 8)
   assert(not c.thread and c.pos.x == 1)
   env.source, c.inScope = 65535, true
-  spectate(42, { x = 100, y = 100, z = 10 })
+  spectate(42, { x = 100, y = 100, z = 10 }, 9)
   assert(not c.visible and c.frozen and not c.collision and c.pos.x == 100)
   assert(coroutine.resume(c.thread))
+  assert(c.watched == 20 and c.focus == 20)
+  events['staff_suite:spectateStop'](8)
   assert(c.watched == 20)
-  c.exit = true
-  assert(coroutine.resume(c.thread))
-  assert(c.pos.x == 1 and c.visible and c.collision and not c.frozen and not c.watched)
+  c.staffsuitestopspectate()
+  assert(c.pos.x == 1 and c.heading == 45 and c.visible and c.collision and not c.frozen and not c.watched and not c.focus)
+  assert(c.args[1] == 'staff_suite:spectateEnded' and c.args[2] == 9)
 
-  c.exit = false
   spectate(42, { x = 200, y = 100, z = 10 })
   assert(coroutine.resume(c.thread))
   assert(c.watched == 20)
