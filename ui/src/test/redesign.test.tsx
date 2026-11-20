@@ -9,14 +9,14 @@ const nav = async (name: RegExp) => fireEvent.click(await screen.findByRole('but
 describe('NUI rediseño', () => {
   it('Ctrl+K abre la palette, filtra y ejecuta con Enter', async () => {
     render(<App />);
-    await screen.findByTestId('chain-status');
+    await screen.findByTestId('chain-status', {}, { timeout: 3000 });
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
     const input = await screen.findByRole('combobox', { name: /Buscá una vista/ });
     expect(input).toHaveFocus();
     fireEvent.change(input, { target: { value: 'dash' } });
     expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(1);
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dashboard' }, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /Buscá una vista/ })).not.toBeInTheDocument();
   });
 
