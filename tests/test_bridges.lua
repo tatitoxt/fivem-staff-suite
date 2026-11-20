@@ -319,8 +319,14 @@ function T.test_staff_chat_checks_sender_and_recipients_and_saves_before_deliver
   s.failWrites = false
   send(' Hola ', 5)
   assert(s.sent[result].ok and s.recipients[17][message] and s.recipients[18][message] and not s.recipients[19])
+  s.api.Flush()
   local entries = s.files[s.env.Config.JsonFile].chain.entries
-  assert(entries[#entries].action == 'staff_chat_message' and s.payloads[tonumber(entries[#entries].payload)].body == 'Hola')
+  local requestEntry, resultEntry = entries[#entries - 1], entries[#entries]
+  local requestData, resultData = s.payloads[tonumber(requestEntry.payload)], s.payloads[tonumber(resultEntry.payload)]
+  assert(requestEntry.action == 'staff_chat_request' and requestData.bytes == 4 and requestData.body == nil)
+  assert(resultEntry.action == 'staff_chat_result' and resultData.request_seq == requestEntry.seq and resultData.recipients == 2)
+  local failed = s.payloads[tonumber(entries[#entries - 2].payload)]
+  assert(entries[#entries - 2].action == 'staff_chat_result' and not failed.ok and failed.recipients == 0)
   send('Otra', 6)
   assert(s.sent[result].error == s.env.StaffSuiteTranslate('rate_limited'))
 end

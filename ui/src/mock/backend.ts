@@ -216,7 +216,8 @@ export class MockBackend {
         return;
       case 'staff_chat': {
         const { body } = p as OutgoingPayloads['staff_chat'];
-        this.record(ME, 'staff_chat_message', 'staff', '', { body });
+        this.record(ME, 'staff_chat_request', 'staff', '', { bytes: new TextEncoder().encode(body).length });
+        this.record(ME, 'staff_chat_result', 'staff', '', { request_seq: this.entries.length, ok: true, recipients: 1 });
         this.emitAudit(false);
         return;
       }
