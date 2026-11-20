@@ -222,9 +222,29 @@ for mode, binding in pairs({
   RegisterKeyMapping(command, binding.label, 'keyboard', binding.key)
 end
 
+local emergencyEntities
+local function restoreEmergencyEntities()
+  if not emergencyEntities then return end
+  for netId, frozen in pairs(emergencyEntities) do
+    netId = tonumber(netId)
+    if NetworkDoesEntityExistWithNetworkId(netId) then
+      local entity = NetworkGetEntityFromNetworkId(netId)
+      if entity == PlayerPedId() or NetworkHasControlOfEntity(entity) then FreezeEntityPosition(entity, frozen) end
+    end
+  end
+  emergencyEntities = nil
+end
+
+RegisterNetEvent('staff_suite:emergencyEntities', function(entities)
+  if source ~= 65535 then return end
+  if entities == false then restoreEmergencyEntities()
+  elseif type(entities) == 'table' then emergencyEntities = entities end
+end)
+
 AddEventHandler('onClientResourceStop', function(resource)
   if resource ~= GetCurrentResourceName() then return end
   if observing then stopSpectating(observing) end
   for mode, state in pairs(modes) do stopMode(mode, state) end
+  restoreEmergencyEntities()
   if streamingWaypoint then NewLoadSceneStop() end
 end)

@@ -453,14 +453,16 @@ end
 
 local function enforceEmergency(session)
   if emergency ~= session then return end
+  local changed, toFreeze = false, {}
   local function freeze(entity, wasSpectating)
     if entity == 0 or not DoesEntityExist(entity) then return end
     local network = NetworkGetNetworkIdFromEntity(entity)
     local current = session.entities[entity]
     if not current or current.network ~= network then
       session.entities[entity] = { network = network, frozen = not wasSpectating and IsEntityPositionFrozen(entity) }
+      changed = true
     end
-    if not IsEntityPositionFrozen(entity) then FreezeEntityPosition(entity, true) end
+    if not IsEntityPositionFrozen(entity) then toFreeze[entity] = true end
   end
   for _, player in ipairs(GetPlayers()) do
     local src = tonumber(player)
@@ -471,8 +473,19 @@ local function enforceEmergency(session)
     end
   end
   for entity in pairs(session.entities) do
-    if not DoesEntityExist(entity) then session.entities[entity] = nil end
+    if not DoesEntityExist(entity) or NetworkGetNetworkIdFromEntity(entity) ~= session.entities[entity].network then
+      session.entities[entity] = nil
+      changed = true
+    end
   end
+  if changed then
+    local restoration = {}
+    for _, saved in pairs(session.entities) do
+      if saved.network > 0 then restoration[tostring(saved.network)] = saved.frozen end
+    end
+    TriggerClientEvent('staff_suite:emergencyEntities', -1, restoration)
+  end
+  for entity in pairs(toFreeze) do FreezeEntityPosition(entity, true) end
   SetTimeout(1000, function() enforceEmergency(session) end)
 end
 
@@ -485,6 +498,7 @@ local function releaseEmergency()
       FreezeEntityPosition(entity, saved.frozen)
     end
   end
+  TriggerClientEvent('staff_suite:emergencyEntities', -1, false)
 end
 
 local function setFrozen(m, frozen)
