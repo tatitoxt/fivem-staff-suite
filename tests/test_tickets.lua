@@ -91,6 +91,29 @@ function T.test_first_response_resolver_and_single_rating()
   assert(err == "already_rated" and s.tickets[1].rating == 4)
 end
 
+function T.test_reporter_cancel()
+  local s = store_with_ticket()
+  local t, e = tickets.transition(s, 1, "cancel", "license:p1", { ts = 105 })
+  assert(t.state == "closed" and e.action == "ticket_cancel" and e.from == "open", "cancel from open closes")
+  assert(#tickets.reporter_view(s, "license:p1") == 0, "cancelled leaves the reporter view")
+end
+
+function T.test_reporter_cancel_after_reopen()
+  local s = store_with_ticket()
+  tickets.transition(s, 1, "claim", "license:s")
+  tickets.transition(s, 1, "resolve", "license:s", { resolution = "x" })
+  tickets.transition(s, 1, "reopen", "license:p1")
+  local t = tickets.transition(s, 1, "cancel", "license:p1")
+  assert(t.state == "closed", "reopened ticket can be cancelled")
+end
+
+function T.test_reporter_cannot_cancel_claimed()
+  local s = store_with_ticket()
+  tickets.transition(s, 1, "claim", "license:s")
+  local _, err = tickets.transition(s, 1, "cancel", "license:p1")
+  assert(err and err:find("invalid_transition"), "claimed ticket cannot be cancelled")
+end
+
 function T.test_reporter_view_keeps_resolved_until_closed()
   local s = store_with_ticket()
   tickets.transition(s, 1, "claim", "license:staff1", { ts = 101 })

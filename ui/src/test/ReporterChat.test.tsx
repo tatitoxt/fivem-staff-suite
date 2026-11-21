@@ -121,3 +121,27 @@ it('changes freeze to unfreeze on server confirmation and uses the same permissi
   dispatch({ type: 'freezeState', payload: { target, frozen: false } });
   expect(screen.getByRole('button', { name: LOCALES.es.mod_freeze })).toBeDisabled();
 });
+
+it('lets the reporter cancel an open report with a two-step confirm', async () => {
+  const transport = setup();
+  transport.mockResolvedValue({ json: async () => ({ ok: true }) });
+  dispatch(profile([]), { type: 'open' }, { type: 'myTickets', payload: { tickets: [{
+    id: 7, state: 'open', category: 'bug', description: 'Me arrepentí', messages: [],
+  }] } });
+  fireEvent.click(await screen.findByRole('button', { name: LOCALES.es.ui_report_cancel }));
+  expect(transport).not.toHaveBeenCalledWith('https://staff_suite/ticket_cancel', expect.anything());
+  fireEvent.click(screen.getByRole('button', { name: LOCALES.es.ui_report_cancel_confirm }));
+  await waitFor(() => expect(transport).toHaveBeenCalledWith('https://staff_suite/ticket_cancel',
+    expect.objectContaining({ body: JSON.stringify({ id: 7 }) })));
+  dispatch({ type: 'myTickets', payload: { tickets: [] } });
+  expect(screen.getByText(LOCALES.es.ui_my_reports_empty)).toBeInTheDocument();
+});
+
+it('hides the cancel button once the report is claimed', async () => {
+  setup();
+  dispatch(profile([]), { type: 'open' }, { type: 'myTickets', payload: { tickets: [{
+    id: 8, state: 'claimed', category: 'bug', description: 'Ya la vieron', messages: [],
+  }] } });
+  await screen.findByRole('heading', { name: LOCALES.es.ui_my_reports });
+  expect(screen.queryByRole('button', { name: LOCALES.es.ui_report_cancel })).not.toBeInTheDocument();
+});
