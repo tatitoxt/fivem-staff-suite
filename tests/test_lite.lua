@@ -335,4 +335,22 @@ function T.test_lite_ticket_history_lists_chain_entries()
   assert(result.data.rows[#result.data.rows].action == 'ticket_label', 'orden cronológico')
 end
 
+function T.test_lite_ticket_invite_validates_target_and_sender()
+  local call, _, sent = server()
+  local function last()
+    for i = #sent, 1, -1 do
+      if sent[i].name == 'staff_suite:ticketInviteResult' then return sent[i].value end
+    end
+  end
+  call(1, 'ticketCreate', 'bug', nil, 'Invitación', 1)
+  call(1, 'ticketInvite', 1, 'license:2', 2)
+  assert(last() == nil or last().ok == false, 'jugador no invita')
+  call(2, 'ticketInvite', 1, 'license:2', 3)
+  assert(last() and last().ok == false, 'self denied')
+  call(2, 'ticketInvite', 1, 'license:1', 4)
+  assert(last() and last().ok == false, 'player target denied')
+  call(2, 'ticketInvite', 1, 'license:9', 5)
+  assert(last() and last().ok == false, 'offline denied')
+end
+
 return T

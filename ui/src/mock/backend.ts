@@ -299,6 +299,11 @@ export class MockBackend {
           .map((e) => ({ seq: e.seq, ts: e.ts, actor: e.actor, action: e.action, reason: e.reason }));
         return { ok: true, data: { rows } };
       }
+      case 'ticket_invite': {
+        const { id, identifier } = p as OutgoingPayloads['ticket_invite'];
+        this.record(ME, 'ticket_invite', `ticket:${id}`, identifier, { invited: identifier });
+        return { ok: true };
+      }
       case 'ticket_export': {
         const { id } = p as OutgoingPayloads['ticket_export'];
         this.record(ME, 'ticket_export_request', `ticket:${id}`);

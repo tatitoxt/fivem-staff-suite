@@ -312,6 +312,27 @@ RegisterNetEvent('staff_suite:ticketHistory', function(id, req)
   reply(true, nil, { rows = rows })
 end)
 
+RegisterNetEvent('staff_suite:ticketInvite', function(id, invited, req)
+  local src = source
+  req = positiveInteger(req)
+  local function reply(ok, err)
+    if req then TriggerClientEvent('staff_suite:ticketInviteResult', src, { req = req, ok = ok, error = err }) end
+  end
+  if not allowRate(src, 'staff_suite:ticketInvite') then return reply(false, t('rate_limited')) end
+  if not isStaff(src) then return reply(false, t('no_permission')) end
+  id = positiveInteger(id)
+  if not id or not store.tickets[id] then return reply(false, t('ticket_export_missing')) end
+  local targetSrc
+  for _, candidate in ipairs(GetPlayers()) do
+    if identifier(tonumber(candidate)) == invited then targetSrc = tonumber(candidate); break end
+  end
+  if not targetSrc or not isStaff(targetSrc) then return reply(false, t('ticket_invite_unavailable')) end
+  if targetSrc == src then return reply(false, t('ticket_invite_self')) end
+  record('ticket_invite', identifier(src), 'ticket:' .. id, invited, { invited = invited })
+  notify(targetSrc, 'ticket_invited', { id = id, actor = identifier(src) })
+  reply(true)
+end)
+
 net('staff_suite:verify', function()
   local src = source
   if not isStaff(src) then return end

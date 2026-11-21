@@ -23,7 +23,7 @@ const DONE = new Set<TicketState>(['resolved', 'closed']);
 const MODS: ModAction[] = ['goto', 'bring', 'spectate', 'freeze', 'heal', 'revive', 'warn', 'kick', 'ban'];
 const NEEDS_REASON = new Set<ModAction>(['warn', 'ban']);
 
-type DialogState = null | { kind: 'transfer' | 'resolve' | 'ban' | 'create' };
+type DialogState = null | { kind: 'transfer' | 'invite' | 'resolve' | 'ban' | 'create' };
 
 function TicketCard({ tk, selected, onSelect }: { tk: Ticket; selected: boolean; onSelect: () => void }) {
   const { t, state } = useApp();
@@ -94,6 +94,7 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
   const canTransfer = !isLite && st === 'claimed' && can('report.resolve');
+  const canInvite = st !== 'closed' && st !== 'resolved' && can('report.view');
   const canResolve = (st === 'claimed' || st === 'in_progress') && can('report.resolve');
   const canClose = st !== 'closed' && can('report.resolve');
   const canReopen = DONE.has(st) && can('report.resolve');
@@ -171,6 +172,7 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
             <div className={v.railGrid}>
               <Button variant="primary" className={v.railWide} disabled={!canClaim} onClick={() => void send('ticket_claim', { id: tk.id })}>{t('claim')}</Button>
               {!isLite && <Button disabled={!canTransfer} onClick={() => openDialog({ kind: 'transfer' })}>{t('transfer')}</Button>}
+              <Button disabled={!canInvite} onClick={() => openDialog({ kind: 'invite' })}>{t('ui_invite')}</Button>
               <Button disabled={!canResolve} onClick={() => openDialog({ kind: 'resolve' })}>{t('resolve')}</Button>
               <Button disabled={!canClose} onClick={() => void send('ticket_close', { id: tk.id })}>{t('close')}</Button>
               <Button disabled={!canReopen} onClick={() => void send('ticket_reopen', { id: tk.id })}>{t('reopen')}</Button>
@@ -384,6 +386,25 @@ export function TicketsView() {
             </select>
           </label>
           {!staff.length && <p className={v.setHint}>{t('ui_transfer_none')}</p>}
+        </Dialog>
+      )}
+      {dialog?.kind === 'invite' && tk && (
+        <Dialog
+          title={t('ui_invite_title', { id: tk.id })}
+          onClose={close}
+          footer={<>
+            <Button onClick={close}>{t('ui_cancel')}</Button>
+            <Button variant="primary" disabled={!target} onClick={() => { void send('ticket_invite', { id: tk.id, identifier: target }); close(); }}>{t('ui_invite')}</Button>
+          </>}
+        >
+          <label className={ui.field}>
+            <span className={ui.label}>{t('ui_invite_to')}</span>
+            <select className={ui.input} value={target} onChange={(e) => setTarget(e.target.value)} disabled={!staff.length}>
+              <option value="">—</option>
+              {staff.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+            </select>
+          </label>
+          {!staff.length && <p className={v.setHint}>{t('ui_invite_none')}</p>}
         </Dialog>
       )}
       {dialog?.kind === 'resolve' && tk && (
