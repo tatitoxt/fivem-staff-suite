@@ -18,7 +18,7 @@ Reemplazar antes de publicar: `{{TEBEX_URL}}`, `{{GITHUB_URL}}`, `{{DISCORD_URL}
 
 **`[RESMON PENDIENTE]`** queda visible a propósito en el foro, el video y las capturas: el resmon de **cliente** todavía no está medido (`docs/es/qa.md` → "resmon en cliente"). Se mide entrando al server, `resmon 1` con el panel cerrado y abierto. Hasta entonces no se publica el topic de Releases (las reglas piden números de rendimiento).
 
-## Regla de honestidad: matriz de claims (verificada contra `main` el 19/11/2026, con moderación, captura, SQL, tickets F2, ediciones, auditoría de seguridad y E2E en FXServer ya mergeados)
+## Regla de honestidad: matriz de claims (verificada contra `main` el 21/11/2026, release 0.3.0 con moderación completa, tickets avanzados, appeals, ediciones, auditoría de seguridad R3 y E2E en FXServer ya mergeados)
 Cada feature mencionada en estos materiales sale de esta tabla. Lo que no esté en ✅ no se vende como disponible.
 
 ### Free Lite (MIT, GitHub/foro)
@@ -27,7 +27,7 @@ Cada feature mencionada en estos materiales sale de esta tabla. Lo que no esté 
 | `/report <categoría> <descripción>`, máximo 3 reportes abiertos por jugador | ✅ | `server/lite.lua`, `editions/lite/config.lua` (`Limits`) |
 | Cola de tickets en el panel (F6, `/reports`): reclamar (sin doble reclamo), resolver con texto, cerrar, reabrir | ✅ | `server/lite.lua` (`actions`), `TicketsView.tsx` con `isLite` |
 | Cadena SHA-256 de lo que pasa por el panel, visor con filtros y "Verificar cadena" (`/audit` o consola) | ✅ | `core/audit_chain.lua`, `AuditView.tsx` |
-| Standalone, un solo permiso ACE (`staff_suite.lite`), JSON, ES/EN | ✅ | `editions/lite/` |
+| Standalone, un solo permiso ACE (`staff_suite.lite`), JSON, ES/EN/PT/FR/DE | ✅ | `editions/lite/` |
 | Rate limit y límites de texto | ✅ | `core/ratelimit.lua`, `tests/test_lite.lua` |
 | Mis reportes: el jugador ve sus reportes abiertos y responde el hilo público; el staff contesta desde la cola y al jugador le llega un aviso | ✅ | `server/lite.lua` (`staff_suite:ticketReply`), `MyReportsView.tsx` |
 | Licencia MIT, Lua editable | ✅ | `editions/lite/LICENSE` |
@@ -56,13 +56,28 @@ Cada feature mencionada en estos materiales sale de esta tabla. Lo que no esté 
 | JSON u oxmysql con migraciones automáticas al iniciar, transacciones y respaldo JSON; importa el JSON de Lite | ✅ | `server/persist_sql.lua`, `sql/001_*.sql`, `sql/002_*.sql` |
 | Exports: `Record`, `Verify`, `GetChain`, `CreateTicket`, `TicketAction`, `GetState`, `SetDuty`, `Flush`, `GetPersistence` (devuelven `false, código` en error) | ✅ | `server/main.lua` |
 | Rate limit por jugador y evento, límites de texto en bytes, 3 tickets abiertos por jugador | ✅ | `Config.RateLimit`, `Config.Limits` |
-| Export de tickets a Discord, modo demo | ⏳ próximamente | roadmap F2 |
+| Export del hilo del ticket a Discord (webhook) | ✅ | `staff_suite:ticketExport`, `server/export.lua` |
+| Etiquetas de triaje en tickets con filtro | ✅ | `staff_suite:ticketLabel`, `Config.TicketLabels`, migración 004 |
+| Historial/timeline por ticket | ✅ | `staff_suite:ticketHistory` |
+| Invitación de staff al ticket (auditada) | ✅ | `staff_suite:ticketInvite` |
+| Cancelación del reporte por el jugador + aviso "sin staff" | ✅ | `staff_suite:ticketCancel`, `report_no_staff` |
+| TP a waypoint y a coordenadas (`staff.coords`, admin+) | ✅ | `staff_suite:waypoint`, `staff_suite:coords` |
+| Noclip + invisibilidad auditados, con atajos | ✅ | `staff_suite:noclip`, `staff_suite:invisible` |
+| Reparar/borrar vehículo del jugador; limpieza global con countdown y cancelación (saltea trenes y ocupados) | ✅ | `modActions.repair_vehicle/delete_vehicle`, `staff_suite:vehicleCleanup` |
+| Congelamiento de emergencia con restauración por snapshot | ✅ | `staff_suite:emergencyFreeze` |
+| Edición de rangos/overrides desde el panel (dos fases, auditada) | ✅ | `staff_suite:ownerPermissions` |
+| Staff chat + anuncios | ✅ | `staff_suite:staffChat`, `staff_suite:announce` |
+| Actividad semanal por staff + export CSV | ✅ | `staff_suite:staffWeekly` |
+| Apelaciones de baneo (estado + nota; sobreviven revocación/restart) | ✅ | `staff_suite:banAppeal`, migración 005 |
+| Tema oscuro opcional + `Config.Brand` | ✅ | `Config.Theme`, `Config.Brand` |
+| Idiomas ES/EN/PT/FR/DE (556 claves c/u, selector en panel) | ✅ | `locales/*.lua`, `Config.Locale` |
+| Modo demo | ⏳ próximamente | roadmap |
 
 ### Calidad y rendimiento
 | Dato | Valor | Fuente |
 |---|---|---|
-| Tests unitarios | 83 Lua + 18 de la NUI | `lua5.4 tests/run_all.lua`, `cd ui && npm test` |
-| E2E en FXServer real | Core 30/30 · Lite 32/32 | `scripts/e2e-fxserver.sh` (dato de la corrida informada por el equipo) |
+| Tests unitarios | 148 Lua + 68 de la NUI | `lua5.4 tests/run_all.lua`, `cd ui && npx vitest run` |
+| E2E en FXServer real | Core 34/34 · Lite 32/32 | `scripts/e2e-fxserver.sh` (corrida del 20/11/2026) |
 | Costo por llamada (server) | `Record` 0.09 ms · `GetState` 0.30 ms | métricas del E2E; no es costo por tick: el server no tiene loops por tick |
 | resmon de cliente | **[RESMON PENDIENTE]** | medir a mano |
 | Líneas | Core ~2.400 Lua sin tests ni locales + panel React · Lite ~700 Lua + panel | recontar al empaquetar |
