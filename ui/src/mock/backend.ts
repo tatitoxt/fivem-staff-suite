@@ -284,6 +284,15 @@ export class MockBackend {
         this.emitAudit(false);
         return { ok: true };
       }
+      case 'ban_appeal': {
+        const { id, state: appealState, note } = p as OutgoingPayloads['ban_appeal'];
+        const ban = this.bans.find((row) => row.id === id);
+        if (!ban) return { ok: false, error: this.s('ban_review_failed') };
+        ban.appeal = { state: appealState as 'pending' | 'approved' | 'rejected', note: note?.trim() || undefined, by: ME, ts: Date.now() / 1000 };
+        this.record(ME, 'ban_appeal', ban.identifier, note?.trim() || appealState, { ban_id: id, appeal_state: appealState });
+        this.emitAudit(false);
+        return { ok: true };
+      }
       case 'ticket_export': {
         const { id } = p as OutgoingPayloads['ticket_export'];
         this.record(ME, 'ticket_export_request', `ticket:${id}`);

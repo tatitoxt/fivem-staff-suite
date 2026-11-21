@@ -1666,6 +1666,47 @@ function T.test_ban_review_loads_legacy_aliases_and_only_revokes_after_persisten
   error('Se perdió el baneo revocado del historial')
 end
 
+function T.test_ban_appeal_records_state_and_note_on_all_aliases()
+  local s = serverSandbox()
+  s.env.Config.Framework = 'standalone'
+  perSourceAce(s, { [17] = { ['staff_suite.senior_admin'] = true } })
+  s.event('modAction', 'ban', 18, 'Cheater', 0)
+  local bans = s.api.GetState().bans
+  local ban
+  for _, row in pairs(bans) do ban = row.id and row end
+  assert(ban and ban.id)
+  local appealResult = 'staff_suite:banAppealResult'
+  s.env.source = 19
+  s.event('banAppeal', ban.id, 'pending', 'por favor', 1)
+  assert(not s.sent[appealResult].ok)
+  s.env.source = 17
+  s.event('banAppeal', ban.id, 'bogus', nil, 2)
+  assert(not s.sent[appealResult].ok)
+  s.event('banAppeal', 9999, 'pending', nil, 3)
+  assert(not s.sent[appealResult].ok)
+  s.now = s.now + 10
+  s.event('banAppeal', ban.id, 'approved', 'Apeló por Discord', 4)
+  assert(s.sent[appealResult].ok)
+  for _, row in pairs(s.api.GetState().bans) do
+    if row.id == ban.id then
+      assert(row.appeal and row.appeal.state == 'approved' and row.appeal.note == 'Apeló por Discord')
+      assert(row.appeal.by == 'license:account17')
+    end
+  end
+  s.event('banList', 1, 5)
+  local listed = s.sent['staff_suite:banListResult'].data.rows[1]
+  assert(listed.appeal and listed.appeal.state == 'approved')
+  local chain = s.api.GetChain()
+  assert(chain[#chain - 1].action == 'ban_appeal' and chain[#chain].action == 'ban_list_view' and s.api.Verify())
+
+  local reboot = serverSandbox({ files = s.files })
+  local kept = false
+  for _, row in pairs(reboot.api.GetState().bans) do
+    if row.id == ban.id and row.appeal and row.appeal.state == 'approved' then kept = true end
+  end
+  assert(kept, 'la apelación sobrevive a un reinicio')
+end
+
 function T.test_resolve_and_rating_feed_staff_analytics()
   local s = serverSandbox()
   s.ace.admin = true
