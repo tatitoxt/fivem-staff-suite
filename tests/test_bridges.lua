@@ -1699,12 +1699,32 @@ function T.test_ban_appeal_records_state_and_note_on_all_aliases()
   local chain = s.api.GetChain()
   assert(chain[#chain - 1].action == 'ban_appeal' and chain[#chain].action == 'ban_list_view' and s.api.Verify())
 
-  local reboot = serverSandbox({ files = s.files })
-  local kept = false
-  for _, row in pairs(reboot.api.GetState().bans) do
-    if row.id == ban.id and row.appeal and row.appeal.state == 'approved' then kept = true end
+  -- La apelación se conserva al revocar el ban...
+  s.now = s.now + 10
+  s.event('banRevoke', ban.id, 'Revisado', 6)
+  assert(s.sent['staff_suite:banRevokeResult'].ok)
+  s.event('banList', 1, 7)
+  local revoked = s.sent['staff_suite:banListResult'].data.rows[1]
+  assert(revoked.status == 'revoked' and revoked.appeal and revoked.appeal.state == 'approved',
+    'la apelación sobrevive a la revocación')
+  -- ...y una apelación nueva sobre el ban ya revocado también.
+  s.event('banAppeal', ban.id, 'rejected', 'Sin pruebas nuevas', 8)
+  assert(s.sent[appealResult].ok)
+
+  for _, entry in ipairs(s.api.GetChain()) do
+    if entry.action == 'mod_unban' or entry.action == 'mod_unban_failed' or entry.action == 'ban_appeal' then
+      local token = entry.payload
+      s.files[token] = s.payloads[tonumber(token)]
+    end
   end
-  assert(kept, 'la apelación sobrevive a un reinicio')
+  local reboot = serverSandbox({ files = s.files })
+  reboot.ace.god = true
+  reboot.event('banList', 1, 1)
+  local kept = false
+  for _, row in ipairs(reboot.sent['staff_suite:banListResult'].data.rows) do
+    if row.id == ban.id and row.appeal and row.appeal.state == 'rejected' then kept = true end
+  end
+  assert(kept, 'la apelación sobre un ban revocado sobrevive a un reinicio')
 end
 
 function T.test_resolve_and_rating_feed_staff_analytics()
