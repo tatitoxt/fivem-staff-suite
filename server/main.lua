@@ -923,7 +923,7 @@ local function createReport(src, category, priority, body)
         record(ev2.action, ev2.actor, 'ticket:' .. ticket.id, ev2.reason,
           { auto = true, from = ev2.from, to = ev2.to })
         TriggerClientEvent('staff_suite:notify', bestSrc,
-          t('ticket_auto_assigned', { id = ticket.id }))
+          t('ticket_auto_assigned', { id = ticket.id }), { kind = 'report' })
         sendTickets(bestSrc, bestPlayer)
         updateReporter(tk2)
         ticket = tk2
