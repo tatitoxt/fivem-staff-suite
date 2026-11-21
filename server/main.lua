@@ -31,6 +31,8 @@ local verifyCache = {}
 local waypointRequests = {}
 local labelSet = {}
 for _, label in ipairs(Config.TicketLabels or {}) do labelSet[label] = true end
+
+local coordsRequests = {}
 local cleanupRequest
 local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local staffModes, staffModeSeq = {}, 0
@@ -1910,6 +1912,60 @@ net('staff_suite:waypointResult', function(sequence, outcome)
   end
 end)
 
+-- Teletransporte a coordenadas explícitas (paridad txAdmin). Mismo patrón de dos
+-- fases que el waypoint: la solicitud se audita antes de autorizar y el cliente
+-- reporta el resultado correlacionado por secuencia.
+local coordsMessages = { ok = 'coords_ok', unavailable = 'coords_unavailable',
+  save_failed = 'coords_save_failed' }
+
+local function finishCoords(src, request, outcome)
+  coordsRequests[src] = nil
+  record('staff_coords_result', request.actor, request.actor, outcome, { request_seq = request.seq })
+  if GetPlayerName(src) and getPlayer(src).identifier == request.actor then
+    TriggerClientEvent('staff_suite:notify', src, t(coordsMessages[outcome]))
+  end
+end
+
+local function coordInRange(value, lo, hi)
+  value = tonumber(value)
+  return value and value == value and math.abs(value) ~= math.huge
+    and value >= lo and value <= hi and value or nil
+end
+
+net('staff_suite:coords', function(x, y, z)
+  local src = source
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'staff.coords') or coordsRequests[src] then return end
+  x, y, z = coordInRange(x, -12000, 12000), coordInRange(y, -12000, 12000), coordInRange(z, -1000, 9000)
+  if not (x and y and z) then
+    return TriggerClientEvent('staff_suite:notify', src, t('coords_invalid'))
+  end
+  local request = { actor = player.identifier, seq = #chain.entries + 1 }
+  coordsRequests[src] = request
+  record('staff_coords_request', request.actor, request.actor, '', { x = x, y = y, z = z }, function(saved)
+    if coordsRequests[src] ~= request then return end
+    if not saved then return finishCoords(src, request, 'save_failed') end
+    local current = getPlayer(src)
+    if not GetPlayerName(src) or current.identifier ~= request.actor or not can(current, 'staff.coords') then
+      return finishCoords(src, request, 'unavailable')
+    end
+    request.dispatched = true
+    TriggerClientEvent('staff_suite:coords', src, request.seq, x, y, z)
+    SetTimeout(12000, function()
+      if coordsRequests[src] == request then finishCoords(src, request, 'unavailable') end
+    end)
+  end)
+end)
+
+net('staff_suite:coordsResult', function(sequence, outcome)
+  local src = source
+  local request = coordsRequests[src]
+  if outcome ~= 'ok' and outcome ~= 'unavailable' then return end
+  if request and request.dispatched and sequence == request.seq and getPlayer(src).identifier == request.actor then
+    finishCoords(src, request, outcome)
+  end
+end)
+
 net('staff_suite:verify', function()
   local src = source
   local player = getPlayer(src)
@@ -2044,6 +2100,11 @@ AddEventHandler('playerDropped', function()
   if request then
     waypointRequests[src] = nil
     record('staff_waypoint_result', request.actor, request.actor, 'disconnected', { request_seq = request.seq })
+  end
+  local pendingCoords = coordsRequests[src]
+  if pendingCoords then
+    coordsRequests[src] = nil
+    record('staff_coords_result', pendingCoords.actor, pendingCoords.actor, 'disconnected', { request_seq = pendingCoords.seq })
   end
   stopPlaytime(src)
   ratelimit.forget(limiter, src)

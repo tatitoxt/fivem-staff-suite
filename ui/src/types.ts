@@ -253,6 +253,7 @@ export interface OutgoingPayloads {
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
   goto_waypoint: Record<string, never>;
+  goto_coords: { x: number; y: number; z: number };
   spectate_stop: Record<string, never>;
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;

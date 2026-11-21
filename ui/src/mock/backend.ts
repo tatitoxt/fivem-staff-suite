@@ -452,6 +452,14 @@ export class MockBackend {
       case 'goto_waypoint':
         this.toast('info', this.s('waypoint_no_marker'));
         return;
+      case 'goto_coords': {
+        const { x, y, z } = p as OutgoingPayloads['goto_coords'];
+        this.toast('info', this.s('coords_ok'));
+        this.record(ME, 'staff_coords_request', ME, '', { x, y, z });
+        this.record(ME, 'staff_coords_result', ME, 'ok', { x, y, z });
+        this.emitAudit(false);
+        return;
+      }
       case 'spectate_stop':
         return { ok: true };
       case 'staff_mode':

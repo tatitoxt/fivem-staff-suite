@@ -852,6 +852,40 @@ function T.test_waypoint_authorizes_only_self_and_correlates_the_audited_result(
   assert(s.recipients[17]['staff_suite:waypoint'] == sequence and chain[4].reason == 'save_failed')
 end
 
+function T.test_coords_authorizes_only_self_validates_and_correlates_the_result()
+  local s = serverSandbox()
+  s.ace.mod = true
+  s.event('coords', 100, 200, 30)
+  assert(#s.api.GetChain() == 0, 'moderator lacks staff.coords')
+  s.ace.admin = true
+  s.env.source = 18
+  s.event('coords', 'not a number', 0, 0)
+  assert(#s.api.GetChain() == 0 and s.recipients[18]['staff_suite:notify'] == s.env.StaffSuiteTranslate('coords_invalid'), 'invalid input')
+  s.env.source = 17
+  s.event('coords', 999999, 0, 0)
+  assert(s.recipients[17]['staff_suite:notify'] == s.env.StaffSuiteTranslate('coords_invalid'), 'out of range')
+  s.now = s.now + 10
+  s.event('coords', 100, 200, 30)
+  local seq = s.recipients[17]['staff_suite:coords']
+  local last = s.lastClientEvent
+  assert(seq == 1 and last[3] == 1 and last[4] == 100 and last[5] == 200 and last[6] == 30, 'dispatched with seq and coords')
+  local chain = s.api.GetChain()
+  assert(chain[1].action == 'staff_coords_request' and s.payloads[tonumber(chain[1].payload)].x == 100)
+  s.env.source = 18
+  s.event('coordsResult', 1, 'ok')
+  assert(#chain == 1, 'other player cannot report the outcome')
+  s.env.source = 17
+  s.event('coordsResult', 1, 'untrusted')
+  assert(#chain == 1)
+  s.event('coordsResult', 1, 'ok')
+  assert(chain[2].action == 'staff_coords_result' and chain[2].reason == 'ok')
+  assert(s.payloads[tonumber(chain[2].payload)].request_seq == 1 and s.api.Verify())
+  s.event('coords', 0, 0, 0)
+  assert(s.api.GetChain()[3].action == 'staff_coords_request', 'segundo uso del burst despacha')
+  s.event('coords', 0, 0, 0)
+  assert(s.sent['staff_suite:notify'] == s.env.Locale.es.rate_limited, 'rate limited')
+end
+
 function T.test_owner_acl_revocation_ends_active_spectate()
   local s = serverSandbox()
   local ace = s.env.IsPlayerAceAllowed
