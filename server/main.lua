@@ -1322,6 +1322,7 @@ RegisterNetEvent('staff_suite:announce', function(body, req)
     if saved then
       TriggerClientEvent('staff_suite:announcement', -1, message)
       if Config.RadioStation then TriggerEvent('radio_ai:announce', Config.RadioStation, message) end
+      if Config.NpcAnnounce then TriggerEvent('npc_ai:announce', message) end
     end
     if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
       reply(saved, not saved and t('announcement_failed') or nil)
