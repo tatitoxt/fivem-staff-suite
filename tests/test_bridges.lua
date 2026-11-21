@@ -1910,4 +1910,22 @@ function T.test_attached_screenshot_rejects_oversized_or_non_jpeg_data()
   assert(saved == 1)
 end
 
+function T.test_report_tells_reporter_when_no_staff_is_online()
+  local s = serverSandbox()
+  perSourceAce(s, {})
+  s.commands.report(19, { 'bug', 'sin nadie' })
+  assert(s.recipients[19]['staff_suite:notify'] == s.env.StaffSuiteTranslate('report_no_staff'),
+    'sin staff conectado se avisa al reportante')
+
+  perSourceAce(s, { [17] = { support = true }, [19] = {} })
+  s.commands.report(19, { 'bug', 'con staff' })
+  assert(s.recipients[19]['staff_suite:notify'] == s.env.StaffSuiteTranslate('report_created', { id = 2 }),
+    'con staff conectado solo se confirma la creación')
+
+  -- un reportante que también es staff no recibe el aviso de "sin staff"
+  perSourceAce(s, { [19] = { support = true } })
+  s.env.source = 19
+  s.event('ticketCreate', 'bug', 'normal', 'yo soy staff', nil)
+  assert(s.recipients[19]['staff_suite:notify'] == s.env.StaffSuiteTranslate('report_created', { id = 3 }))
+end
 return T

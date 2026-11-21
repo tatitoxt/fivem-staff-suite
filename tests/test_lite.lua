@@ -66,7 +66,7 @@ local function server(disk)
     env.source = src
     events['staff_suite:' .. name](...)
   end
-  return call, commands, sent, disk, env.StaffSuiteModules.loadmod('core.audit_chain'), events
+  return call, commands, sent, disk, env.StaffSuiteModules.loadmod('core.audit_chain'), events, env
 end
 
 function T.test_basic_tickets_are_authorized_audited_and_restored()
@@ -252,6 +252,20 @@ function T.test_lite_limits_text_open_tickets_and_rate()
   for _ = 1, 6 do call(2, 'verify') end
   assert(#disk.snapshot.chain.entries == 3 + 3, 'verify limitado a 3 por burst')
   assert(audit.verify(disk.snapshot.chain))
+end
+
+function T.test_lite_report_tells_reporter_when_no_staff_is_online()
+  local call, _, _, _, _, _, env = server()
+  local notices = {}
+  local original = env.TriggerClientEvent
+  env.TriggerClientEvent = function(name, src, value)
+    if name == 'staff_suite:notify' then notices[#notices + 1] = { src = src, value = value } end
+    return original(name, src, value)
+  end
+  env.IsPlayerAceAllowed = function() return false end
+  call(1, 'ticketCreate', 'bug', nil, 'sin staff', 1)
+  assert(notices[#notices].value == 'No hay staff conectado ahora mismo. Tu reporte quedó en la cola y lo van a ver al entrar.',
+    'sin staff el reportante recibe el aviso')
 end
 
 function T.test_lite_ticket_create_replies_to_panel()

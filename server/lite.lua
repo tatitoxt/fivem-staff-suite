@@ -154,6 +154,11 @@ local function createReport(src, category, body)
   })
   record(ev.action, ev.actor, ev.target, '', { ticket = ticket.id, category = selected })
   notify(src, 'report_created', { id = ticket.id })
+  local staffOnline = false
+  for _, candidate in ipairs(GetPlayers()) do
+    if isStaff(tonumber(candidate)) then staffOnline = true; break end
+  end
+  if not staffOnline then notify(src, 'report_no_staff') end
   publishUpdates(ticket)
   return true
 end
