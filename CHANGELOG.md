@@ -1,6 +1,46 @@
 # Changelog
 
-[Español](#020--español) · [English](#020--english)
+[Español](#030--español) · [English](#030--english)
+
+## 0.3.0 · Español
+
+### Cambios desde 0.2.0
+
+- **Moderación completa desde el panel.** Lista de jugadores conectados con acciones, goto/bring/spectate/freeze/heal/revive, noclip e invisibilidad auditados con atajos, plantillas de sanción y auto-escalado de warns a kick/ban. La revocación de bans respeta la jerarquía del rango que baneó. [#31](https://github.com/tatitoxt/fivem-staff-suite/pull/31) · [#33](https://github.com/tatitoxt/fivem-staff-suite/pull/33) · [#34](https://github.com/tatitoxt/fivem-staff-suite/pull/34)
+- **Mundo y emergencias.** Reparar o borrar el vehículo del jugador, limpieza global de vehículos vacíos con cuenta regresiva y cancelación (los trenes se saltean), y congelamiento de emergencia con restauración por snapshot. [#43](https://github.com/tatitoxt/fivem-staff-suite/pull/43)
+- **Servicio y permisos.** El turno se cierra al revocar `staff.duty`, los modos de staff se apagan al quitar su capability, y los rangos/overrides ACE se editan desde el panel con auditoría en dos fases (`admin_permissions_change`).
+- **Tickets avanzados.** Cancelación por el reportante, aviso de "sin staff conectado", etiquetas de triaje con filtro, historial/timeline por ticket, invitación de staff al ticket, evidencia con captura validada (tope y JPEG real) y export del hilo a Discord. [#55](https://github.com/tatitoxt/fivem-staff-suite/pull/55) · [#58](https://github.com/tatitoxt/fivem-staff-suite/pull/58) · [#60](https://github.com/tatitoxt/fivem-staff-suite/pull/60) · [#61](https://github.com/tatitoxt/fivem-staff-suite/pull/61)
+- **Bans.** Apelaciones con estado y nota de revisión que sobreviven revocación y reinicio (migración `005_ban_appeal.sql`). [#59](https://github.com/tatitoxt/fivem-staff-suite/pull/59)
+- **Staff tools.** TP a waypoint y a coordenadas (`staff.coords`, admin+), staff chat, anuncios, actividad semanal por staff con export CSV, Ctrl+K con acciones contextuales y tema oscuro opcional con `Config.Brand`. [#36](https://github.com/tatitoxt/fivem-staff-suite/pull/36) · [#57](https://github.com/tatitoxt/fivem-staff-suite/pull/57)
+- **Idiomas.** El panel y el recurso corren en ES, EN, PT, FR y DE (556 claves por idioma).
+- **Auditoría y robustez.** Tercera ronda de la auditoría de seguridad documentada en `plan/SECURITY_AUDIT.md` (R3). Migraciones nuevas: `003_ban_review.sql`, `004_ticket_labels.sql`, `005_ban_appeal.sql`. 148 tests Lua + 68 vitest + E2E en FXServer (Core 34/34, Lite 32/32).
+
+### Actualizar de 0.2.0 a 0.3.0
+
+1. Detené `staff_suite` y respaldá datos + config como en la migración a 0.2.0 (incluí la base si usás oxmysql).
+2. Reemplazá la carpeta con el ZIP 0.3.0 de tu edición y conservá el nombre `staff_suite`. Pasá tus ajustes al `config.lua` nuevo — hay opciones nuevas (`Config.TicketLabels`, `Config.VehicleCleanup`, `Config.Brand`, theme).
+3. **oxmysql (Core).** Al arrancar se aplican automáticamente las migraciones 003–005; el usuario de oxmysql necesita `CREATE`/`ALTER`. Si falla, Core avisa en consola y usa el JSON.
+4. Iniciá el recurso, verificá el backend en consola y corré `audit` para confirmar la cadena.
+
+## 0.3.0 · English
+
+### Changes since 0.2.0
+
+- **Full moderation from the panel.** Connected-players list with actions, goto/bring/spectate/freeze/heal/revive, audited noclip and invisibility with hotkeys, sanction templates and warn auto-escalation to kick/ban. Ban revocation respects the banning rank's hierarchy.
+- **World and emergencies.** Repair or delete a player's vehicle, global cleanup of empty vehicles with countdown and cancel (trains are skipped), and emergency freeze with snapshot restore.
+- **Duty and permissions.** Duty closes when `staff.duty` is revoked, staff modes shut off when their capability is removed, and ACE ranks/overrides are editable from the panel with a two-phase audited apply (`admin_permissions_change`).
+- **Advanced tickets.** Reporter cancellation, "no staff online" notice, triage labels with filter, per-ticket history/timeline, staff invites to tickets, validated screenshot evidence (size cap and real JPEG) and ticket-thread export to Discord.
+- **Bans.** Appeals with state and review note that survive revocation and restart (migration `005_ban_appeal.sql`).
+- **Staff tools.** Teleport to waypoint and to explicit coordinates (`staff.coords`, admin+), staff chat, announcements, weekly staff activity with CSV export, Ctrl+K with contextual actions and an optional dark theme via `Config.Brand`.
+- **Languages.** Panel and resource run in ES, EN, PT, FR and DE (556 keys each).
+- **Audit and robustness.** Third security-audit round documented in `plan/SECURITY_AUDIT.md` (R3). New migrations: `003_ban_review.sql`, `004_ticket_labels.sql`, `005_ban_appeal.sql`. 148 Lua tests + 68 vitest + FXServer E2E (Core 34/34, Lite 32/32).
+
+### Upgrading from 0.2.0 to 0.3.0
+
+1. Stop `staff_suite` and back up data + config as in the 0.2.0 migration (include the database if you use oxmysql).
+2. Replace the folder with your edition's 0.3.0 ZIP and keep the `staff_suite` name. Move your settings to the new `config.lua` — new options exist (`Config.TicketLabels`, `Config.VehicleCleanup`, `Config.Brand`, theme).
+3. **oxmysql (Core).** Migrations 003–005 apply automatically on start; the oxmysql user needs `CREATE`/`ALTER`. If it fails, Core logs it and falls back to JSON.
+4. Start the resource, check the backend in console and run `audit` to confirm the chain.
 
 ## 0.2.0 · Español
 
