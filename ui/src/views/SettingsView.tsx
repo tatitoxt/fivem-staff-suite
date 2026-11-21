@@ -47,7 +47,9 @@ function CoordsForm() {
   const [fields, setFields] = useState({ x: '', y: '', z: '' });
   const [sending, setSending] = useState(false);
   const parsed = {
-    x: Number(fields.x), y: Number(fields.y), z: Number(fields.z),
+    x: Number(fields.x.trim().replace(',', '.')),
+    y: Number(fields.y.trim().replace(',', '.')),
+    z: Number(fields.z.trim().replace(',', '.')),
   };
   const valid = fields.x.trim() !== '' && fields.y.trim() !== '' && fields.z.trim() !== ''
     && Object.values(parsed).every((value) => Number.isFinite(value));
