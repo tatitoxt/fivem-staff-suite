@@ -21,6 +21,7 @@ Locale['es'] = {
   reopen = 'Reabrir',
   claimed_by = 'Atendido por %{name}',
   already_claimed = 'Este reporte ya fue reclamado por otro staff.',
+  ticket_auto_assigned = 'Te fue asignado el reporte #%{id} (auto-asignación).',
   input_too_long = 'El texto supera el máximo de %{max} caracteres.',
   rate_limited = 'Estás enviando acciones demasiado rápido. Esperá unos segundos.',
   report_failed = 'No se pudo crear el reporte. Probá de nuevo.',

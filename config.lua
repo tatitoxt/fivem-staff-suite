@@ -94,6 +94,11 @@ Config.VehicleCleanup = {
   countdowns = { 10, 30, 60 },
 }
 
+-- Auto-asignación de tickets: al crearse un reporte se claimea al staff en
+-- duty con menos tickets activos en la mano (round-robin por carga real).
+-- Requiere que el staff haya hecho /duty y tenga permiso report.claim.
+Config.AutoAssign = false
+
 -- Límites de texto (en bytes) y tickets abiertos por jugador. El servidor rechaza lo que exceda.
 Config.Limits = {
   ticket_body = 1000,
