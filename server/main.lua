@@ -1627,7 +1627,7 @@ RegisterNetEvent('staff_suite:ticketCancel', function(id, req)
   sendReporterTickets(src, player.identifier)
   for _, candidate in ipairs(GetPlayers()) do
     local staff = tonumber(candidate)
-    if staff ~= tonumber(src) and can(getPlayer(staff), 'report.view') then
+    if can(getPlayer(staff), 'report.view') then
       sendTickets(staff, getPlayer(staff))
     end
   end
