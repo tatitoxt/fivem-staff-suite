@@ -18,7 +18,8 @@ export function useCommands(): Cmd[] {
   return useMemo(() => {
     const go = t('ui_cmd_views');
     const act = t('ui_cmd_actions');
-    const other = (state.config.locales?.length ? state.config.locales : ['es', 'en']).find((l) => l !== state.locale);
+    const langs = state.config.locales?.length ? state.config.locales : ['es', 'en'];
+    const other = langs.length > 1 ? langs[(langs.indexOf(state.locale) + 1) % langs.length] : undefined;
     const list: Cmd[] = nav.map((n, i) => ({
       id: `view:${n.id}`, group: go, label: n.label, icon: n.icon, hint: String(i + 1),
       run: () => dispatch({ type: 'view', view: n.id }),
