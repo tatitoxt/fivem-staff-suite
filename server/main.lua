@@ -900,6 +900,36 @@ local function createReport(src, category, priority, body)
   if staffOnline == 0 then
     TriggerClientEvent('staff_suite:notify', src, t('report_no_staff'))
   end
+  -- Auto-asignación: el staff en duty con menos tickets en la mano recibe el
+  -- ticket ya claimeado (round-robin por carga real, no por orden de llegada).
+  if Config.AutoAssign then
+    local best, bestN, bestSrc, bestPlayer
+    for _, cand in ipairs(GetPlayers()) do
+      local csrc = tonumber(cand)
+      local cp = getPlayer(csrc)
+      local shift = cp and cp.identifier and dreg.staff[cp.identifier]
+      if cp and csrc ~= src and shift and shift.on_duty and canReceiveTransfer(cp) then
+        local n = 0
+        for _, tk in pairs(store.tickets) do
+          if tk.claimer == cp.identifier and tickets.is_open(tk) then n = n + 1 end
+        end
+        if not bestN or n < bestN then best, bestN, bestSrc, bestPlayer = cp.identifier, n, csrc, cp end
+      end
+    end
+    if best then
+      local tk2, ev2 = tickets.transition(store, ticket.id, 'claim', best, { ts = os.time() })
+      if tk2 then
+        afterTransition(tk2, ev2)
+        record(ev2.action, ev2.actor, 'ticket:' .. ticket.id, ev2.reason,
+          { auto = true, from = ev2.from, to = ev2.to })
+        TriggerClientEvent('staff_suite:notify', bestSrc,
+          t('ticket_auto_assigned', { id = ticket.id }), { kind = 'report' })
+        sendTickets(bestSrc, bestPlayer)
+        updateReporter(tk2)
+        ticket = tk2
+      end
+    end
+  end
   sendTickets(src, player)
   sendReporterTickets(src, player.identifier)
   return true, nil, ticket
