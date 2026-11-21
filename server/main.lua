@@ -1289,7 +1289,10 @@ RegisterNetEvent('staff_suite:announce', function(body, req)
   if not message or message == '' then return reply(false, err or t('announcement_empty')) end
 
   record('staff_announce', player.identifier, 'server', message, nil, function(saved)
-    if saved then TriggerClientEvent('staff_suite:announcement', -1, message) end
+    if saved then
+      TriggerClientEvent('staff_suite:announcement', -1, message)
+      if Config.RadioStation then TriggerEvent('radio_ai:announce', Config.RadioStation, message) end
+    end
     if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
       reply(saved, not saved and t('announcement_failed') or nil)
     end

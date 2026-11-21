@@ -84,6 +84,11 @@ Config.Notifications = {
   sound = false,                     -- sonido para reportes nuevos, p. ej. { name = 'Text_Arrive_Tone', set = 'Phone_SoundSet_Default' }
 }
 
+-- Orkelya Radio IA (opcional): los anuncios de staff también se leen al aire
+-- por TTS en la emisora indicada. Sin radio instalado no hace nada.
+-- Config.RadioStation = 'orkelya_fm'
+Config.RadioStation = nil
+
 -- Limpieza de vehículos vacíos desde Ajustes: cuentas regresivas que puede elegir el staff (segundos).
 Config.VehicleCleanup = {
   countdowns = { 10, 30, 60 },

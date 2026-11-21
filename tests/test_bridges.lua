@@ -223,6 +223,11 @@ local function serverSandbox(options)
     hooks[name] = hooks[name] or {}
     hooks[name][#hooks[name] + 1] = fn
   end
+  env.TriggerEvent = function(name, ...)
+    server.serverEvents = server.serverEvents or {}
+    server.serverEvents[#server.serverEvents + 1] = { name = name, args = { ... } }
+    for _, fn in ipairs(hooks[name] or {}) do fn(...) end
+  end
   env.GetInvokingResource = function() return server.invoker end
   env.CreateThread = function(handler) threads[#threads + 1] = handler end
   env.SetTimeout = function(ms, handler)
@@ -1373,6 +1378,26 @@ function T.test_announcement_requires_permission_and_saved_audit_before_broadcas
   s.event('announce', 'No enviarlo', 5)
   assert(s.recipients[-1]['staff_suite:announcement'] == 'Aviso ñ')
   assert(s.sent['staff_suite:announceResult'].error == s.env.StaffSuiteTranslate('announcement_failed'))
+end
+
+function T.test_announcement_forwards_to_radio_station_when_configured()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { admin = true } })
+  s.env.source = 17
+  s.event('announce', 'Sin radio', 1)
+  for _, ev in ipairs(s.serverEvents or {}) do
+    assert(ev.name ~= 'radio_ai:announce', 'sin Config.RadioStation no debe disparar el hook')
+  end
+
+  s.env.Config.RadioStation = 'orkelya_fm'
+  s.now = s.now + 30
+  s.event('announce', 'Con radio', 2)
+  local fired
+  for _, ev in ipairs(s.serverEvents or {}) do
+    if ev.name == 'radio_ai:announce' then fired = ev end
+  end
+  assert(fired and fired.args[1] == 'orkelya_fm' and fired.args[2] == 'Con radio',
+    'el anuncio va a la emisora configurada con el mismo texto')
 end
 
 function T.test_malformed_inputs_do_not_crash_or_mutate_state()
