@@ -285,7 +285,7 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
 }
 
 export function TicketsView() {
-  const { state, t, can, send } = useApp();
+  const { state, dispatch, t, can, send } = useApp();
   const resolutionMax = state.config.limits?.resolution ?? state.config.limits?.message_body;
   const [group, setGroup] = useState<Group>('all');
   const [priority, setPriority] = useState<'' | Priority>('');
@@ -321,7 +321,7 @@ export function TicketsView() {
   const targets = Array.isArray(state.config.transfer_targets)
     ? state.config.transfer_targets.map((x) => ({ value: x.identifier, label: x.name || shortId(x.identifier) }))
     : (state.duty?.staff ?? []).map((s) => ({ value: s.actor, label: shortId(s.actor) }));
-  const staff = targets.filter((x) => x.value !== tk?.claimer);
+  const staff = targets.filter((x) => x.value !== tk?.claimer && x.value !== state.player?.identifier);
   const priorities = state.config.priorities ?? ['low', 'normal', 'high', 'urgent'];
   const ticketLabels = state.config.ticket_labels ?? [];
 
@@ -394,7 +394,15 @@ export function TicketsView() {
           onClose={close}
           footer={<>
             <Button onClick={close}>{t('ui_cancel')}</Button>
-            <Button variant="primary" disabled={!target} onClick={() => { void send('ticket_invite', { id: tk.id, identifier: target }); close(); }}>{t('ui_invite')}</Button>
+            <Button variant="primary" disabled={!target} onClick={() => {
+              void (send('ticket_invite', { id: tk.id, identifier: target }) as Promise<TicketCreateResult | null>)
+                .then((result) => {
+                  if (result && result.ok === false) {
+                    dispatch({ type: 'toast', kind: 'error', text: result.error ?? t('ticket_invite_failed') });
+                  }
+                });
+              close();
+            }}>{t('ui_invite')}</Button>
           </>}
         >
           <label className={ui.field}>

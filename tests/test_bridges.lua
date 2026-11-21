@@ -1196,9 +1196,12 @@ function T.test_state_lists_transfer_targets_without_analytics()
 
   s.env.source = 18
   s.event('getState')
+  assert(#s.sent['staff_suite:state'].transferTargets == 2)
+  s.env.source = 19
+  s.event('getState')
   assert(next(s.sent['staff_suite:state'].transferTargets) == nil)
   s.env.source = 17
-  perms.revoke(permissions, 'license:account17', 'report.resolve')
+  perms.revoke(permissions, 'license:account17', 'report.view')
   s.event('getState')
   assert(next(s.sent['staff_suite:state'].transferTargets) == nil)
 end

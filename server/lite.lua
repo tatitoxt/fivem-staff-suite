@@ -102,11 +102,23 @@ local function record(action, actor, target, reason, payload)
   save()
 end
 
+local function staffRoster()
+  local list = {}
+  for _, p in ipairs(GetPlayers()) do
+    local s = tonumber(p)
+    if s and isStaff(s) then
+      list[#list + 1] = { identifier = playerIdentifier(s) or ('src:' .. s), name = GetPlayerName(s) }
+    end
+  end
+  return list
+end
+
 local function sendState(src)
   local staff = isStaff(src)
   local reporter = playerIdentifier(src)
   TriggerClientEvent('staff_suite:state', src, {
     tickets = staff and store.tickets or {},
+    transferTargets = staff and staffRoster() or nil,
     myTickets = tickets.reporter_view(store, reporter),
     audit = staff and chain.entries or {},
     verify = staff and verifyCached() or {},
@@ -121,7 +133,8 @@ local function publishUpdates(ticket, staffReply)
   for _, player in ipairs(GetPlayers()) do
     local src = tonumber(player)
     if isStaff(src) then
-      TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets, audit = chain.entries })
+      TriggerClientEvent('staff_suite:state', src,
+        { tickets = store.tickets, audit = chain.entries, transferTargets = staffRoster() })
     end
     if ticket and playerIdentifier(src) == ticket.reporter then
       TriggerClientEvent('staff_suite:state', src, { myTickets = tickets.reporter_view(store, ticket.reporter) })
