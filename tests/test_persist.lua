@@ -104,8 +104,18 @@ local function fresh()
     duty = duty.new_registry(), bans = {} }
 end
 
+local function serJson(value)
+  if type(value) ~= 'table' then return tostring(value) end
+  local names, parts = {}, {}
+  for key in pairs(value) do names[#names + 1] = key end
+  table.sort(names, function(a, b) return tostring(a) < tostring(b) end)
+  for _, key in ipairs(names) do parts[#parts + 1] = tostring(key) .. '=' .. serJson(value[key]) end
+  return '{' .. table.concat(parts, ',') .. '}'
+end
+
 local function boot(state, memory, db, dbStarted)
   memory.values = memory.values or {}
+  memory.jsonCache = memory.jsonCache or {}
   local timers = {}
   local env = setmetatable({
     exports = { oxmysql = db },
@@ -124,8 +134,13 @@ local function boot(state, memory, db, dbStarted)
     print = function(msg) memory.printed = memory.printed or {}; memory.printed[#memory.printed + 1] = msg end,
     SetTimeout = function(ms, fn) timers[#timers + 1] = { ms = ms, fn = fn } end,
     json = { encode = function(value)
-      memory.values[#memory.values + 1] = copy(value)
-      return tostring(#memory.values)
+      -- Determinista como el json real: el mismo valor produce el mismo texto.
+      local key = serJson(value)
+      if not memory.jsonCache[key] then
+        memory.values[#memory.values + 1] = copy(value)
+        memory.jsonCache[key] = tostring(#memory.values)
+      end
+      return memory.jsonCache[key]
     end, decode = function(raw) return copy(memory.values[tonumber(raw)]) end },
   }, { __index = _G })
   env.require = function(name)
@@ -168,6 +183,7 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   tickets.add_message(state.tickets, ticket.id, 'license:staff', "O'Brien", true, 3)
   tickets.add_message(state.tickets, ticket.id, 'license:staff', 'respuesta', false, 4)
   ticket.resolved_by = 'license:staff'
+  tickets.set_label(state.tickets, ticket.id, 'rdm', 'license:staff', true, 5)
   ticket.evidence = { { n = 1, ts = 6, by = 'license:staff', sha256 = ('a'):rep(64), size = 10, audit_seq = 1 } }
   duty.clock_in(state.duty, 'license:staff', 5)
   duty.record_resolved(state.duty, 'license:staff', 50)
@@ -189,6 +205,7 @@ function T.test_oxmysql_round_trip_for_all_tables_and_batches_changes()
   assert(restored.tickets.tickets[1].messages[1].body == "O'Brien")
   local back = restored.tickets.tickets[1]
   assert(back.first_response_ts == 4 and back.resolved_by == 'license:staff')
+  assert(back.labels[1] == 'rdm' and #back.labels == 1, 'labels persisten por SQL')
   assert(back.evidence[1].by == 'license:staff' and back.evidence[1].sha256 == ('a'):rep(64) and back.evidence[1].audit_seq == 1)
   assert(restored.tickets.tickets[1].messages[1].internal and not restored.tickets.tickets[1].messages[2].internal)
   assert(restored.duty.staff['license:staff'].since == 5 and restored.duty.staff['license:staff'].ratings_n == 1)
@@ -272,11 +289,11 @@ function T.test_migrations_apply_once_and_are_recorded()
   local _, _, backend = boot(fresh(), memory, db)
   assert(backend == 'oxmysql')
   assert(db.schema[1] == 'sql/001_staff_suite.sql' and db.schema[2] == 'sql/002_tickets_f2.sql')
-  assert(db.schema[3] == 'sql/003_ban_review.sql')
-  assert(db.alters == 4 and db.tables.staff_evidence and db.tables.staff_tickets)
+  assert(db.schema[4] == 'sql/004_ticket_labels.sql')
+  assert(db.alters == 5 and db.tables.staff_evidence and db.tables.staff_tickets)
   local creates = count(db.queries, 'CREATE TABLE IF NOT EXISTS staff_tickets')
   local _, _, again = boot(fresh(), memory, db)
-  assert(again == 'oxmysql' and db.alters == 4)
+  assert(again == 'oxmysql' and db.alters == 5)
   assert(count(db.queries, 'CREATE TABLE IF NOT EXISTS staff_tickets') == creates, 'no reaplica migraciones registradas')
 
   -- Instalación que ya aplicó 002 y 003 a mano antes de staff_schema.
@@ -285,8 +302,9 @@ function T.test_migrations_apply_once_and_are_recorded()
   manual.columns['staff_tickets.resolved_by'] = true
   manual.columns['staff_bans.ban_id'] = true
   manual.columns['staff_bans.revoked_at'] = true
+  manual.columns['staff_tickets.labels'] = true
   local _, _, manualBackend = boot(fresh(), {}, manual)
-  assert(manualBackend == 'oxmysql' and manual.alters == 0 and manual.schema[2] and manual.schema[3])
+  assert(manualBackend == 'oxmysql' and manual.alters == 0 and manual.schema[2] and manual.schema[4])
 end
 
 function T.test_failed_migration_falls_back_to_json_with_clear_error()
@@ -306,7 +324,7 @@ function T.test_failed_migration_falls_back_to_json_with_clear_error()
 
   db.failOn = nil
   local _, _, recovered = boot(fresh(), memory, db)
-  assert(recovered == 'oxmysql' and db.schema[2] and db.schema[3] and db.alters == 4)
+  assert(recovered == 'oxmysql' and db.schema[2] and db.schema[3] and db.schema[4] and db.alters == 5)
 end
 
 function T.test_manual_schema_without_create_privilege()

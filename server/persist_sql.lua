@@ -8,6 +8,7 @@ M.MIGRATIONS = {
   { version = 1, file = 'sql/001_staff_suite.sql' },
   { version = 2, file = 'sql/002_tickets_f2.sql' },
   { version = 3, file = 'sql/003_ban_review.sql' },
+  { version = 4, file = 'sql/004_ticket_labels.sql' },
 }
 
 local specs = {
@@ -16,7 +17,8 @@ local specs = {
     numbers = { 'seq', 'ts' } },
   { name = 'tickets', keys = { 'id' },
     columns = { 'id', 'reporter', 'category', 'priority', 'description', 'state', 'claimer',
-      'created_ts', 'updated_ts', 'resolution', 'rating', 'first_response_ts', 'resolved_by' },
+      'created_ts', 'updated_ts', 'resolution', 'rating', 'first_response_ts', 'resolved_by',
+      'labels' },
     numbers = { 'id', 'created_ts', 'updated_ts', 'rating', 'first_response_ts' } },
   { name = 'messages', keys = { 'ticket_id', 'position' },
     columns = { 'ticket_id', 'position', 'author', 'body', 'internal', 'ts' },
@@ -61,6 +63,7 @@ local function rowValues(spec, row)
   local values = {}
   for i, column in ipairs(spec.columns) do
     local value = row[column]
+    if type(value) == 'table' then value = json.encode(value) end
     if value == nil then value = false end -- Marcador de SQL NULL, nunca se manda a oxmysql.
     values[i] = value
   end
@@ -80,6 +83,7 @@ local function restore(tables, meta)
   }
   local store = state.tickets
   for _, ticket in ipairs(tables.tickets) do
+    ticket.labels = decode(ticket.labels) or {}
     ticket.messages = {}
     store.tickets[ticket.id] = ticket
     store.next_id = math.max(store.next_id, ticket.id + 1)
