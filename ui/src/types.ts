@@ -253,6 +253,7 @@ export interface OutgoingPayloads {
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
   ban_appeal: { id: number; state: string; note?: string };
+  ticket_history: { id: number };
   goto_waypoint: Record<string, never>;
   goto_coords: { x: number; y: number; z: number };
   spectate_stop: Record<string, never>;
@@ -296,6 +297,14 @@ export interface BanRow {
   status: 'active' | 'expired' | 'revoked';
   aliases: number;
   appeal?: { state: 'pending' | 'approved' | 'rejected'; note?: string; by?: string; ts?: number };
+}
+
+export interface TicketHistoryEntry {
+  seq: number;
+  ts: number;
+  actor: string;
+  action: string;
+  reason?: string;
 }
 
 export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban'

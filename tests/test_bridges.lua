@@ -2086,4 +2086,25 @@ function T.test_reporter_cannot_cancel_others_or_claimed()
   assert(s.sent['staff_suite:ticketCancelResult'].error == s.env.StaffSuiteTranslate('no_permission'), 'missing ticket')
 end
 
+function T.test_ticket_history_lists_chain_entries_for_the_ticket()
+  local s = serverSandbox()
+  s.commands.report(19, { 'bug', 'historial' })
+  perSourceAce(s, { [17] = { support = true } })
+  s.env.source = 17
+  s.event('ticketAction', 1, 'claim')
+  s.now = s.now + 10
+  s.event('ticketHistory', 1, 9)
+  local result = s.sent['staff_suite:ticketHistoryResult']
+  assert(result and result.ok and type(result.data.rows) == 'table', 'history ok')
+  local expected = 0
+  for _, e in ipairs(s.api.GetChain()) do
+    if e.target == 'ticket:1' then expected = expected + 1 end
+  end
+  assert(#result.data.rows == expected and expected > 0, 'cada entrada auditada del ticket aparece')
+  assert(result.data.rows[#result.data.rows].action == 'ticket_claim', 'orden cronológico')
+  s.env.source = 19
+  s.event('ticketHistory', 1, 10)
+  assert(s.sent['staff_suite:ticketHistoryResult'].error == s.env.StaffSuiteTranslate('no_permission'), 'player denied')
+end
+
 return T

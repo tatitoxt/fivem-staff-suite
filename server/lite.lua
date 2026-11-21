@@ -293,6 +293,25 @@ RegisterNetEvent('staff_suite:ticketReply', function(id, body, req)
   receiveTicketMessage(source, id, body, false, true, req)
 end)
 
+RegisterNetEvent('staff_suite:ticketHistory', function(id, req)
+  local src = source
+  req = positiveInteger(req)
+  local function reply(ok, err, data)
+    if req then TriggerClientEvent('staff_suite:ticketHistoryResult', src, { req = req, ok = ok, error = err, data = data }) end
+  end
+  if not allowRate(src, 'staff_suite:ticketHistory') then return reply(false, t('rate_limited')) end
+  if not isStaff(src) then return reply(false, t('no_permission')) end
+  id = positiveInteger(id)
+  if not id or not store.tickets[id] then return reply(false, t('ticket_export_missing')) end
+  local target, rows = 'ticket:' .. id, {}
+  for _, entry in ipairs(chain.entries) do
+    if entry.target == target then
+      rows[#rows + 1] = { seq = entry.seq, ts = entry.ts, actor = entry.actor, action = entry.action, reason = entry.reason }
+    end
+  end
+  reply(true, nil, { rows = rows })
+end)
+
 net('staff_suite:verify', function()
   local src = source
   if not isStaff(src) then return end
