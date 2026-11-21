@@ -5,7 +5,7 @@ import { ReportDialog } from '../components/ReportDialog';
 import { Badge, Button, Empty, ViewHeader, cx, ui } from '../components/ui';
 import { categoryLabel, stateLabel, stateTone } from '../labels';
 import { useApp } from '../store';
-import type { TicketState } from '../types';
+import type { TicketCreateResult, TicketState } from '../types';
 import { TicketChat } from './TicketChat';
 import v from './views.module.css';
 
@@ -27,11 +27,25 @@ function Progress({ state: st }: { state: TicketState }) {
 }
 
 export function MyReportsView() {
-  const { state, dispatch, t } = useApp();
+  const { state, dispatch, t, send } = useApp();
   const [selected, setSelected] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string>();
   const tickets = state.myTickets;
   const active = tickets.find((ticket) => ticket.id === selected) ?? tickets[0];
   const openReport = () => dispatch({ type: 'report', open: true });
+  const cancellable = active?.state === 'open' || active?.state === 'reopened';
+
+  async function cancelReport() {
+    if (!active) return;
+    setCancelling(true);
+    setCancelError(undefined);
+    const response = await send('ticket_cancel', { id: active.id }) as TicketCreateResult | null;
+    setCancelling(false);
+    setConfirming(false);
+    if (!response?.ok) setCancelError(response?.error ?? t('ticket_cancel_failed'));
+  }
 
   return (
     <main className={lay.main}>
@@ -75,6 +89,23 @@ export function MyReportsView() {
                 <Progress state={active.state} />
               </div>
               <div className={v.desc}>{active.description}</div>
+              {cancellable && (
+                <div className={v.banLine}>
+                  {confirming ? (
+                    <>
+                      <Button size="small" disabled={cancelling} onClick={() => setConfirming(false)}>{t('ui_cancel')}</Button>
+                      <Button variant="danger" size="small" disabled={cancelling} onClick={() => void cancelReport()}>
+                        {t('ui_report_cancel_confirm')}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="small" onClick={() => { setConfirming(true); setCancelError(undefined); }}>
+                      {t('ui_report_cancel')}
+                    </Button>
+                  )}
+                  {cancelError && <span className={v.setHint} role="alert">{cancelError}</span>}
+                </div>
+              )}
             </section>
             <TicketChat
               key={active.id}

@@ -1604,6 +1604,35 @@ net('staff_suite:ticketAction', function(id, action, extra)
   updateReporter(ticket)
 end)
 
+-- El reportante puede cancelar su ticket mientras siga en la cola (open o reabierto, sin claim).
+RegisterNetEvent('staff_suite:ticketCancel', function(id, req)
+  local src = source
+  req = positiveInteger(req)
+  local function reply(ok, err)
+    if req then TriggerClientEvent('staff_suite:ticketCancelResult', src, { req = req, ok = ok, error = err }) end
+  end
+  if not allowRate(src, 'staff_suite:ticketCancel') then return reply(false, t('rate_limited')) end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  id = positiveInteger(id)
+  local ticket = id and store.tickets[id]
+  if not player.identifier or not ticket or ticket.reporter ~= player.identifier then
+    return reply(false, t('no_permission'))
+  end
+  if ticket.state ~= 'open' and ticket.state ~= 'reopened' then return reply(false, t('ticket_cancel_late')) end
+  local tk, ev = tickets.transition(store, id, 'cancel', player.identifier, { ts = os.time() })
+  if not tk then return reply(false, t(ev:match('^[^:]+') or 'invalid_transition')) end
+  record(ev.action, ev.actor, 'ticket:' .. id, '', { from = ev.from, to = ev.to })
+  reply(true)
+  sendReporterTickets(src, player.identifier)
+  for _, candidate in ipairs(GetPlayers()) do
+    local staff = tonumber(candidate)
+    if can(getPlayer(staff), 'report.view') then
+      sendTickets(staff, getPlayer(staff))
+    end
+  end
+end)
+
 local function addTicketMessage(src, id, body, internal, asReporter)
   id = positiveInteger(id)
   local err

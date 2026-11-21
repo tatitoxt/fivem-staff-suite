@@ -15,12 +15,12 @@ import { LOCALES } from './locales';
 // con los mismos mensajes NUI. Solo se carga en `npm run dev` y en tests.
 
 const TRANSITIONS: Record<TicketState, Partial<Record<string, TicketState>>> = {
-  open: { claim: 'claimed', close: 'closed' },
+  open: { claim: 'claimed', close: 'closed', cancel: 'closed' },
   claimed: { unclaim: 'open', transfer: 'claimed', resolve: 'resolved', close: 'closed' },
   in_progress: { resolve: 'resolved', unclaim: 'claimed', close: 'closed' },
   resolved: { close: 'closed', reopen: 'reopened' },
   closed: { reopen: 'reopened' },
-  reopened: { claim: 'claimed', close: 'closed' },
+  reopened: { claim: 'claimed', close: 'closed', cancel: 'closed' },
 };
 
 const REASON_REQUIRED = new Set(['kick', 'ban', 'warn', 'delete_vehicle']);
@@ -346,6 +346,18 @@ export class MockBackend {
         const { id, resolution } = p as OutgoingPayloads['ticket_resolve'];
         this.transition(id, 'resolve', { resolution });
         return;
+      }
+      case 'ticket_cancel': {
+        const { id } = p as OutgoingPayloads['ticket_cancel'];
+        const t = this.tickets.find((x) => x.id === id);
+        if (!t || t.reporter !== ME) return { ok: false, error: this.s('no_permission') };
+        if (t.state !== 'open' && t.state !== 'reopened') return { ok: false, error: this.s('ticket_cancel_late') };
+        t.state = 'closed';
+        t.updated_ts = Math.round(Date.now() / 1000);
+        this.record(ME, 'ticket_cancel', `ticket:${id}`, '', { from: 'open', to: 'closed' });
+        this.emitTickets();
+        this.emitAudit(false);
+        return { ok: true };
       }
       case 'ticket_reply':
       case 'ticket_message': {

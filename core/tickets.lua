@@ -6,12 +6,12 @@ M.STATES = { "open", "claimed", "in_progress", "resolved", "closed", "reopened" 
 
 -- transiciones válidas: estado -> { acción -> estado destino }
 local TRANSITIONS = {
-  open        = { claim = "claimed", close = "closed" },
+  open        = { claim = "claimed", close = "closed", cancel = "closed" },
   claimed     = { start = "in_progress", unclaim = "open", transfer = "claimed", resolve = "resolved", close = "closed" },
   in_progress = { resolve = "resolved", unclaim = "claimed", close = "closed" },
   resolved    = { close = "closed", reopen = "reopened" },
   closed      = { reopen = "reopened" },
-  reopened    = { claim = "claimed", close = "closed" },
+  reopened    = { claim = "claimed", close = "closed", cancel = "closed" },
 }
 
 function M.new_store()

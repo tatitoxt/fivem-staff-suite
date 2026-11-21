@@ -116,6 +116,7 @@ Config.RateLimit = {
   ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
   ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
   ['staff_suite:ticketEvidence'] = { burst = 3, per_second = 1 / 20 },
+  ['staff_suite:ticketCancel'] = { burst = 2, per_second = 1 / 10 },
   ['staff_suite:announce'] = { burst = 1, per_second = 1 / 30 },
   ['staff_suite:banList'] = { burst = 5, per_second = 1 },
   ['staff_suite:banRevoke'] = { burst = 2, per_second = 1 / 10 },

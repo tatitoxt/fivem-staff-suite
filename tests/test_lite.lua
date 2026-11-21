@@ -254,6 +254,25 @@ function T.test_lite_limits_text_open_tickets_and_rate()
   assert(audit.verify(disk.snapshot.chain))
 end
 
+function T.test_lite_reporter_cancels_own_open_ticket()
+  local call, _, sent, disk = server()
+  call(1, 'ticketCreate', 'bug', nil, 'Me arrepentí', 1)
+  local function last()
+    for i = #sent, 1, -1 do
+      if sent[i].name == 'staff_suite:ticketCancelResult' then return sent[i].value end
+    end
+  end
+  call(2, 'ticketCancel', 1, 2)
+  assert(last().error == 'No tenés permiso para esta acción.' or last().error ~= nil, 'staff no cancela como reporter')
+  assert(disk.snapshot.tickets.tickets[1].state == 'open')
+  call(1, 'ticketCancel', 1, 3)
+  assert(last().req == 3 and last().ok, 'reporter cancels')
+  assert(disk.snapshot.tickets.tickets[1].state == 'closed')
+  assert(disk.snapshot.chain.entries[#disk.snapshot.chain.entries].action == 'ticket_cancel')
+  call(1, 'ticketCancel', 1, 4)
+  assert(last().req == 4 and not last().ok, 'closed cannot be cancelled again')
+end
+
 function T.test_lite_ticket_create_replies_to_panel()
   local call, _, sent = server()
   local function last()

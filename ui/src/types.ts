@@ -241,6 +241,7 @@ export interface OutgoingPayloads {
   player_profile: { id: number };
   player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
+  ticket_cancel: { id: number };
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
   mod_action: { action: ModAction; target: string | OnlinePlayerRef; reason: string; ticket?: number; duration?: number; template?: string };
   announce: { body: string };
