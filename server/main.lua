@@ -262,8 +262,18 @@ local function appendAudit(action, actor, target, reason, payload)
   return e
 end
 
+-- Cuenta de staff en duty para orkelya_scoreboard (evento por cliente).
+local function broadcastStaffCount(target)
+  if not Config.ScoreboardStaff then return end
+  if GetResourceState('orkelya_scoreboard') ~= 'started' then return end
+  local n = 0
+  for _, s in pairs(dreg.staff) do if s.on_duty then n = n + 1 end end
+  TriggerClientEvent('orkelya_score:staff', target, n)
+end
+
 local function record(action, actor, target, reason, payload, onSaved)
   local e = appendAudit(action, actor, target, reason, payload)
+  if action:sub(1, 5) == 'duty.' then broadcastStaffCount(-1) end
   local retryCallback
   if action == 'player_profile_note' then
     local reply = onSaved
@@ -1246,7 +1256,10 @@ RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected,
       if saved then pmodel = pendingPermissions end
       pendingPermissions, pendingDuty = nil, nil
       if saved then
-        if dutyEntry then duty.clock_out(dreg, player.identifier, dutyEntry.ts) end
+        if dutyEntry then
+          duty.clock_out(dreg, player.identifier, dutyEntry.ts)
+          broadcastStaffCount(-1)
+        end
         for _, candidate in ipairs(GetPlayers()) do
           local observer = tonumber(candidate)
           local current = getPlayer(observer)
@@ -2220,7 +2233,10 @@ CreateThread(function()
 end)
 
 AddEventHandler('playerJoining', function()
-  if ready then startPlaytime(source) end
+  if ready then
+    startPlaytime(source)
+    broadcastStaffCount(tonumber(source))
+  end
 end)
 
 AddEventHandler('playerDropped', function()

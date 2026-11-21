@@ -99,6 +99,10 @@ Config.NpcAnnounce = false
 -- Config.NotifyStyle = 'info'
 Config.NotifyStyle = nil
 
+-- Orkelya Scoreboard (opcional): alimenta la línea "N STAFF" del board con
+-- los staff en duty (al cambiar el duty y al entrar cada jugador).
+Config.ScoreboardStaff = false
+
 -- Limpieza de vehículos vacíos desde Ajustes: cuentas regresivas que puede elegir el staff (segundos).
 Config.VehicleCleanup = {
   countdowns = { 10, 30, 60 },
