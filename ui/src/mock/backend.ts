@@ -24,6 +24,7 @@ const TRANSITIONS: Record<TicketState, Partial<Record<string, TicketState>>> = {
 };
 
 const REASON_REQUIRED = new Set(['kick', 'ban', 'warn', 'delete_vehicle']);
+const TICKET_LABELS = ['cheater', 'harassment', 'rdm', 'vdm', 'question', 'other'];
 
 export function computeDashboard(tickets: Ticket[], staff: StaffStat[], alerts: DashboardPayload['alerts']): DashboardPayload {
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -112,6 +113,7 @@ export class MockBackend {
           brand: mockBrand(),
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],
+          ticket_labels: TICKET_LABELS,
           require_reason: true, persistence: 'json',
           export: { webhook: true, file: true, anchor_every: 20, tickets: true },
           sanction_templates: this.sanctionTemplates(),
@@ -358,6 +360,21 @@ export class MockBackend {
         this.emitTickets();
         this.emitAudit(false);
         return { ok: true };
+      }
+      case 'ticket_label': {
+        const { id, label, enabled } = p as OutgoingPayloads['ticket_label'];
+        const t = this.tickets.find((x) => x.id === id);
+        if (!t || !TICKET_LABELS.includes(label)) return;
+        t.labels = t.labels ?? [];
+        const index = t.labels.indexOf(label);
+        if (enabled && index === -1) t.labels.push(label);
+        else if (!enabled && index !== -1) t.labels.splice(index, 1);
+        else return;
+        t.updated_ts = Math.round(Date.now() / 1000);
+        this.record(ME, 'ticket_label', `ticket:${id}`, label, { enabled });
+        this.emitTickets();
+        this.emitAudit(false);
+        return;
       }
       case 'ticket_reply':
       case 'ticket_message': {

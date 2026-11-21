@@ -114,6 +114,7 @@ local function sendInit()
       }) or nil,
       transfer_targets = transferTargets,
       canned = not lite and cannedList() or nil,
+      ticket_labels = Config.TicketLabels,
       evidence = not lite and evidenceEnabled,
       sanction_templates = not lite and sanctionTemplates or nil,
       warn_escalation = warnEscalation,
@@ -236,6 +237,9 @@ on('ticket_claim', ticketAction('claim'))
 on('ticket_resolve', ticketAction('resolve'))
 on('ticket_close', ticketAction('close'))
 on('ticket_reopen', ticketAction('reopen'))
+on('ticket_label', function(d)
+  TriggerServerEvent('staff_suite:ticketLabel', d.id, d.label, d.enabled == true)
+end)
 -- Los callbacks esperan al servidor para conservar el borrador si falla el envío.
 local pendingRequests, requestSeq = {}, 0
 local function ticketRequest(action, result, failure, send, afterSuccess, timeout)

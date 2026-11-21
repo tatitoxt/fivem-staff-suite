@@ -5,6 +5,8 @@ Config = {
   Theme = 'light', -- 'light' | 'dark' | 'auto'
   Brand = { name = '', logo = '', accent = '' }, -- ver config.lua de Core
   Categories = { 'bug', 'player', 'staff', 'question', 'other' },
+  -- Etiquetas de triaje del staff sobre tickets; se validan contra esta lista.
+  TicketLabels = { 'cheater', 'harassment', 'rdm', 'vdm', 'question', 'other' },
   Commands = { report = 'report', reports = 'reports', audit = 'audit' },
   JsonFile = 'staff_suite_data.json',
   CoreUrl = '', -- URL HTTPS del paquete en Tebex, si está disponible.
@@ -16,5 +18,6 @@ Config = {
     ['staff_suite:ticketCreate'] = { burst = 5, per_second = 1 / 60 },
     ['staff_suite:ticketMessage'] = { burst = 10, per_second = 1 },
     ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
+    ['staff_suite:ticketLabel'] = { burst = 6, per_second = 1 },
   },
 }

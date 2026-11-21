@@ -215,6 +215,20 @@ net('staff_suite:ticketAction', function(id, action, extra)
   publishUpdates(ticket)
 end)
 
+local labelSet = {}
+for _, label in ipairs(Config.TicketLabels or {}) do labelSet[label] = true end
+
+net('staff_suite:ticketLabel', function(id, label, enabled)
+  local src = source
+  if not isStaff(src) then return end
+  if type(id) ~= 'number' or type(label) ~= 'string' or type(enabled) ~= 'boolean'
+    or not labelSet[label] then return end
+  local ticket, ev = tickets.set_label(store, id, label, identifier(src), enabled, os.time())
+  if not ticket or not ev then return end
+  record(ev.action, ev.actor, 'ticket:' .. id, label, { enabled = enabled })
+  publishUpdates(ticket)
+end)
+
 local function addTicketMessage(src, id, body, asReporter)
   local reporter = playerIdentifier(src)
   local ticket = store.tickets[positiveInteger(id)]

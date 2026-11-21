@@ -29,6 +29,9 @@ export function priorityLabel(t: T, p: string) {
 export function categoryLabel(t: T, c: string) {
   return tr(t, `cat_${c}`, c);
 }
+export function ticketLabelText(t: T, label: string) {
+  return tr(t, `ui_label_${label}`, label);
+}
 export function actionLabel(t: T, action: string) {
   return tr(t, `ui_act_${action.replace(/\./g, '_')}`, action);
 }

@@ -1282,6 +1282,29 @@ local function perSourceAce(s, bySource)
   end
 end
 
+function T.test_staff_labels_ticket_and_only_real_changes_are_audited()
+  local s = serverSandbox()
+  s.event('ticketCreate', 'player', 'high', 'Reporte')
+  s.env.source = 18
+  s.event('ticketLabel', 1, 'rdm', true)
+  assert(#s.api.GetChain() == 1, 'sin staff no etiqueta')
+  perSourceAce(s, { [18] = { helper = true } })
+  s.event('ticketLabel', 1, 'rdm', true)
+  local chain = s.api.GetChain()
+  assert(chain[2].action == 'ticket_label' and chain[2].reason == 'rdm'
+    and s.payloads[tonumber(chain[2].payload)].enabled == true)
+  local tk = s.api.GetState().tickets.tickets[1]
+  assert(tk.labels[1] == 'rdm')
+  s.event('ticketLabel', 1, 'rdm', true)
+  assert(#chain == 2, 'repetir la misma etiqueta no audita')
+  s.event('ticketLabel', 1, 'no_configurada', true)
+  assert(#chain == 2, 'etiqueta fuera de Config.TicketLabels')
+  s.event('ticketLabel', 2, 'vdm', true)
+  assert(#chain == 2, 'ticket inexistente')
+  s.event('ticketLabel', 1, 'rdm', false)
+  assert(#tk.labels == 0 and #chain == 3 and s.api.Verify())
+end
+
 function T.test_announcement_requires_permission_and_saved_audit_before_broadcast()
   local s = serverSandbox()
   perSourceAce(s, { [17] = { admin = true }, [18] = { mod = true } })
