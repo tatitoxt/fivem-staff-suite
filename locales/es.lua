@@ -11,6 +11,7 @@ Locale['es'] = {
   report_description = 'Descripción',
   report_submit = 'Enviar reporte',
   report_created = 'Reporte #%{id} creado. El equipo lo revisará.',
+  report_no_staff = 'No hay staff conectado ahora mismo. Tu reporte quedó en la cola y lo van a ver al entrar.',
   queue_empty = 'No hay reportes pendientes.',
   claim = 'Reclamar',
   unclaim = 'Liberar',

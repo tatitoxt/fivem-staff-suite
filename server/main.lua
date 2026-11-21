@@ -870,11 +870,21 @@ local function createReport(src, category, priority, body)
   TriggerClientEvent('staff_suite:notify', src, t('report_created', { id = ticket.id }))
   local catKey, priKey = 'cat_' .. category, 'pri_' .. priority
   local notice = t('report_new_staff', { id = ticket.id, category = t(catKey), priority = t(priKey) })
+  local staffOnline = 0
   for _, candidate in ipairs(GetPlayers()) do
     local staff = tonumber(candidate)
-    if staff ~= src and can(getPlayer(staff), 'report.view') then
-      TriggerClientEvent('staff_suite:notify', staff, notice, { kind = 'report', priority = priority })
+    if can(getPlayer(staff), 'report.view') then
+      staffOnline = staffOnline + 1
+      if staff ~= src then
+        TriggerClientEvent('staff_suite:notify', staff, notice, { kind = 'report', priority = priority })
+      end
     end
+  end
+  -- Paridad rcore: avisar al jugador cuando no hay nadie atendiendo ahora.
+  -- Va sin kind 'report': ese kind lo descarta Config.Notifications.staff_reports
+  -- y está pensado para avisos a staff, no al reportante.
+  if staffOnline == 0 then
+    TriggerClientEvent('staff_suite:notify', src, t('report_no_staff'))
   end
   sendTickets(src, player)
   sendReporterTickets(src, player.identifier)
