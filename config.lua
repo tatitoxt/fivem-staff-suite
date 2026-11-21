@@ -93,6 +93,12 @@ Config.RadioStation = nil
 -- (barks) de los NPCs con `announce = true`. Sin npc_ai instalado no hace nada.
 Config.NpcAnnounce = false
 
+-- Orkelya Notify (opcional): los anuncios de staff también salen como toast
+-- glass pill a todos los jugadores. 'info' | 'ok' | 'warn' | 'bad' | 'money' | 'doc'.
+-- Sin orkelya_notify instalado no hace nada.
+-- Config.NotifyStyle = 'info'
+Config.NotifyStyle = nil
+
 -- Limpieza de vehículos vacíos desde Ajustes: cuentas regresivas que puede elegir el staff (segundos).
 Config.VehicleCleanup = {
   countdowns = { 10, 30, 60 },

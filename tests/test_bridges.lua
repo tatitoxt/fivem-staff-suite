@@ -1400,6 +1400,29 @@ function T.test_announcement_forwards_to_radio_station_when_configured()
     'el anuncio va a la emisora configurada con el mismo texto')
 end
 
+function T.test_announcement_broadcasts_to_orkelya_notify_when_configured()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { admin = true } })
+  s.env.source = 17
+  s.env.Config.NotifyStyle = 'warn'
+  -- Sin el recurso instalado no llama al export.
+  s.event('announce', 'Sin notify', 1)
+  s.states.orkelya_notify = 'started'
+  local calls = {}
+  s.env.exports.orkelya_notify = {
+    Broadcast = function(_, text, style, ms) calls[#calls + 1] = { text, style, ms } end,
+  }
+  s.env.Config.NotifyStyle = nil
+  s.now = s.now + 30
+  s.event('announce', 'Sin estilo', 2)
+  assert(#calls == 0, 'sin Config.NotifyStyle no se anuncia por toasts')
+  s.env.Config.NotifyStyle = 'warn'
+  s.now = s.now + 30
+  s.event('announce', 'Con notify', 3)
+  assert(#calls == 1 and calls[1][1] == 'Con notify' and calls[1][2] == 'warn',
+    'el anuncio llega a orkelya_notify:Broadcast con el estilo configurado')
+end
+
 function T.test_malformed_inputs_do_not_crash_or_mutate_state()
   local s = serverSandbox()
   s.ace.god = true
