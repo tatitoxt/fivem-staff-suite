@@ -174,7 +174,7 @@ local function recoverBanIds()
 end
 
 local function recoverRevokedBans()
-  local requests = {}
+  local requests, appeals = {}, {}
   for _, entry in ipairs(chain.entries) do
     if entry.action == 'mod_unban' or entry.action == 'mod_unban_failed' then
       local ok, payload = pcall(json.decode, entry.payload)
@@ -185,9 +185,19 @@ local function recoverRevokedBans()
           requests[payload.request_seq] = nil
         end
       end
+    elseif entry.action == 'ban_appeal' then
+      -- Las apelaciones posteriores a la revocación se re-aplican sobre la fila recuperada.
+      local ok, payload = pcall(json.decode, entry.payload)
+      if ok and type(payload) == 'table' and type(payload.ban_id) == 'number' then
+        appeals[payload.ban_id] = { state = payload.appeal_state, note = payload.note,
+          by = entry.actor, ts = entry.ts }
+      end
     end
   end
-  for _, row in pairs(requests) do revokedBans[row.id] = row end
+  for _, row in pairs(requests) do
+    row.appeal = appeals[row.id] or row.appeal
+    revokedBans[row.id] = row
+  end
 end
 
 local function restore(data)
@@ -1410,7 +1420,8 @@ RegisterNetEvent('staff_suite:banList', function(page, req)
       if not group then
         local status = ban.revoked_at and 'revoked' or (activeBan(ban, now) and 'active' or 'expired')
         group = { id = ban.id, identifier = identifier, actor = ban.actor, reason = ban.reason,
-          created_at = ban.created_at, expires_at = ban.expires_at, status = status, aliases = 0 }
+          created_at = ban.created_at, expires_at = ban.expires_at, status = status, aliases = 0,
+          appeal = ban.appeal }
         if ban.id then groups[ban.id] = group end
         rows[#rows + 1] = group
       end
@@ -1456,11 +1467,12 @@ RegisterNetEvent('staff_suite:banRevoke', function(id, reason, req)
   for _, identifier in ipairs(aliases) do
     local ban = bans[identifier]
     pendingRevocations[identifier] = { id = ban.id, actor = ban.actor, reason = ban.reason, created_at = ban.created_at,
-      expires_at = ban.expires_at, revoked_at = now }
+      expires_at = ban.expires_at, revoked_at = now, appeal = ban.appeal }
   end
   local original, requestSeq = bans[aliases[1]], #chain.entries + 1
   local review = { id = id, identifier = aliases[1], actor = original.actor, reason = original.reason,
-    created_at = original.created_at, expires_at = original.expires_at, status = 'revoked', aliases = #aliases }
+    created_at = original.created_at, expires_at = original.expires_at, status = 'revoked', aliases = #aliases,
+    appeal = original.appeal }
   local payload = { ban_id = id, identifiers = aliases, review = review }
   record('mod_unban', player.identifier, aliases[1], why, payload, function(saved)
     for _, identifier in ipairs(aliases) do
@@ -1475,6 +1487,43 @@ RegisterNetEvent('staff_suite:banRevoke', function(id, reason, req)
     if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then
       reply(saved, not saved and t('mod_save_failed') or nil)
     end
+  end)
+end)
+
+local APPEAL_STATES = { pending = true, approved = true, rejected = true }
+
+RegisterNetEvent('staff_suite:banAppeal', function(id, appealState, note, req)
+  local src = source
+  local player, reply = banRequest(src, 'staff_suite:banAppeal', req, 'ban.revoke', { burst = 4, per_second = 1 / 5 })
+  if not player then return end
+  id = positiveInteger(id)
+  if not id or type(appealState) ~= 'string' or not APPEAL_STATES[appealState] then
+    return reply(false, t('ban_review_failed'))
+  end
+  local clean
+  if type(note) == 'string' and note ~= '' then
+    local err
+    clean, err = cleanText(note, limit('reason') or 300)
+    if not clean then return reply(false, err or t('ban_review_failed')) end
+  end
+  -- La apelación se guarda sobre el ban entero (todos sus aliases) y en la fila de la cola.
+  local appeal = { state = appealState, note = clean, by = player.identifier, ts = os.time() }
+  local target
+  for identifier, ban in pairs(bans) do
+    if ban.id == id then
+      ban.appeal = appeal
+      if not target or identifier < target then target = identifier end
+    end
+  end
+  local review = revokedBans[id]
+  if review then
+    review.appeal = appeal
+    target = target or review.identifier
+  end
+  if not target then return reply(false, t('ban_review_failed')) end
+  record('ban_appeal', player.identifier, target, clean or appealState,
+    { ban_id = id, appeal_state = appealState, note = clean }, function(saved)
+    reply(saved, not saved and t('mod_save_failed') or nil)
   end)
 end)
 

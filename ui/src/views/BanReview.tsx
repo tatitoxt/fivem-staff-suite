@@ -17,6 +17,9 @@ export function BanReview({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string>();
   const [revoke, setRevoke] = useState<number>();
   const [reason, setReason] = useState('');
+  const [appealFor, setAppealFor] = useState<number>();
+  const [appealState, setAppealState] = useState('pending');
+  const [appealNote, setAppealNote] = useState('');
   const max = state.config.limits?.reason ?? 300;
   const canRevoke = state.player?.capabilities?.includes('ban.revoke');
 
@@ -54,6 +57,22 @@ export function BanReview({ onClose }: { onClose: () => void }) {
     await load(page);
   }
 
+  async function submitAppeal(event: FormEvent) {
+    event.preventDefault();
+    if (!appealFor || !canRevoke || busy || overLimit(appealNote, max)) return;
+    setBusy(true);
+    setError(undefined);
+    const response = await send('ban_appeal', { id: appealFor, state: appealState, note: appealNote.trim() }) as TicketCreateResult | null;
+    if (!response?.ok) {
+      setError(response?.error ?? t('ban_review_failed'));
+      setBusy(false);
+      return;
+    }
+    setAppealFor(undefined);
+    setAppealNote('');
+    await load(page);
+  }
+
   return (
     <Dialog title={t('ban_review_title')} onClose={onClose} footer={<>
       <Button size="small" disabled={busy} onClick={() => void load(1)}>{t('ban_review_refresh')}</Button>
@@ -72,6 +91,12 @@ export function BanReview({ onClose }: { onClose: () => void }) {
                   <Badge tone={ban.status === 'active' ? 'red' : 'gray'}>{t(`ban_review_${ban.status}`)}</Badge>
                 </div>
                 <p>{ban.reason}</p>
+                {ban.appeal && <p className={v.setHint}>
+                  <Badge tone={ban.appeal.state === 'approved' ? 'green' : ban.appeal.state === 'rejected' ? 'red' : 'blue'}>
+                    {t(`ban_appeal_${ban.appeal.state}`)}
+                  </Badge>
+                  {ban.appeal.note ? ` ${ban.appeal.note}` : ''}
+                </p>}
                 <p className={v.setHint}>{t('ban_review_actor', { actor: shortId(ban.actor) })}
                   {' · '}{ban.expires_at ? t('ban_review_until', { date: formatDateTime(ban.expires_at, state.locale) }) : t('ban_review_permanent')}
                   {' · '}{t('ban_review_aliases', { n: ban.aliases })}
@@ -92,6 +117,33 @@ export function BanReview({ onClose }: { onClose: () => void }) {
                     </form>
                   ) : <Button size="small" disabled={busy} onClick={() => { setRevoke(ban.id); setReason(''); }}>
                     {t('ban_review_revoke')}
+                  </Button>
+                )}
+                {canRevoke && ban.id && (
+                  appealFor === ban.id ? (
+                    <form className={v.actionForm} onSubmit={submitAppeal}>
+                      <select className={ui.input} aria-label={t('ban_appeal_state')} value={appealState} disabled={busy}
+                        onChange={(event) => setAppealState(event.target.value)}>
+                        <option value="pending">{t('ban_appeal_pending')}</option>
+                        <option value="approved">{t('ban_appeal_approved')}</option>
+                        <option value="rejected">{t('ban_appeal_rejected')}</option>
+                      </select>
+                      <input className={ui.input} aria-label={t('ban_appeal_note')} placeholder={t('ban_appeal_note')}
+                        value={appealNote} disabled={busy} onChange={(event) => setAppealNote(event.target.value)} />
+                      <LimitHint text={appealNote} max={max} />
+                      <div className={v.banLine}>
+                        <Button size="small" disabled={busy} onClick={() => setAppealFor(undefined)}>{t('ui_cancel')}</Button>
+                        <Button size="small" type="submit" disabled={busy || overLimit(appealNote, max)}>
+                          {t('ban_appeal_save')}
+                        </Button>
+                      </div>
+                    </form>
+                  ) : <Button size="small" disabled={busy} onClick={() => {
+                    setAppealFor(ban.id);
+                    setAppealState(ban.appeal?.state ?? 'pending');
+                    setAppealNote(ban.appeal?.note ?? '');
+                  }}>
+                    {t('ban_appeal_edit')}
                   </Button>
                 )}
               </li>

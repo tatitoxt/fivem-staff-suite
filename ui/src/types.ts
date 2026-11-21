@@ -252,6 +252,7 @@ export interface OutgoingPayloads {
   vehicle_cleanup_cancel: Record<string, never>;
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
+  ban_appeal: { id: number; state: string; note?: string };
   goto_waypoint: Record<string, never>;
   goto_coords: { x: number; y: number; z: number };
   spectate_stop: Record<string, never>;
@@ -294,6 +295,7 @@ export interface BanRow {
   expires_at: number;
   status: 'active' | 'expired' | 'revoked';
   aliases: number;
+  appeal?: { state: 'pending' | 'approved' | 'rejected'; note?: string; by?: string; ts?: number };
 }
 
 export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban'
