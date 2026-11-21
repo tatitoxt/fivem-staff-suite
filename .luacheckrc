@@ -16,19 +16,26 @@ end
 
 files['server/**/*.lua'].read_globals = runtime_with({
   'CancelEvent', 'DeleteEntity', 'DoesEntityExist', 'DropPlayer', 'GetAllVehicles', 'GetPedInVehicleSeat', 'GetVehiclePedIsIn', 'GetVehicleType', 'FreezeEntityPosition', 'GetConvar', 'GetEntityCoords', 'GetPlayerIdentifiers',
+  'NetworkGetEntityOwner', 'NetworkGetNetworkIdFromEntity',
   'GetGameTimer', 'GetInvokingResource', 'GetNumPlayerTokens', 'GetPlayerToken', 'GetResourcePath',
-  'GetPlayerName', 'GetPlayerPed', 'GetPlayerRoutingBucket', 'GetPlayers', 'IsEntityPositionFrozen', 'IsPlayerAceAllowed', 'PerformHttpRequest',
+  'GetPlayerName', 'GetPlayerPing', 'GetPlayerPed', 'GetPlayerRoutingBucket', 'GetPlayers',
+  'IsEntityPositionFrozen', 'IsPlayerAceAllowed', 'PerformHttpRequest',
   'SaveResourceFile', 'SetEntityHealth', 'SetTimeout', 'StaffSuiteModules', 'TriggerClientEvent', 'TriggerLatentClientEvent', 'source',
 })
 files['client/**/*.lua'].read_globals = runtime_with({
+  'IsEntityAVehicle', 'NetworkGetEntityFromNetworkId', 'NetworkHasControlOfEntity', 'SetVehicleFixed',
+  'NetworkDoesEntityExistWithNetworkId',
+  'SetVehicleEngineHealth', 'SetVehicleUndriveable',
+  'DisableControlAction', 'GetDisabledControlNormal', 'GetFrameTime', 'GetGameplayCamRot',
+  'IsControlPressed', 'SetEntityVelocity',
   'DoesBlipExist', 'GetBlipInfoIdCoord', 'GetFirstBlipInfoId', 'GetGroundZFor_3dCoord',
   'IsNewLoadSceneLoaded', 'NewLoadSceneStartSphere', 'NewLoadSceneStop',
   'DoesEntityExist', 'FreezeEntityPosition', 'GetEntityCollisionDisabled', 'GetEntityCoords', 'GetEntityHeading', 'GetEntityMaxHealth',
-  'GetGameTimer', 'GetPlayerFromServerId', 'GetPlayerPed', 'IsControlJustPressed', 'IsEntityDead',
+  'ClearFocus', 'GetGameTimer', 'GetPlayerFromServerId', 'GetPlayerPed', 'IsEntityDead',
   'IsEntityPositionFrozen', 'IsEntityVisible', 'IsPedInAnyVehicle', 'NetworkResurrectLocalPlayer', 'NetworkSetInSpectatorMode',
   'PlayerPedId', 'RegisterKeyMapping', 'RegisterNUICallback', 'SendNUIMessage',
   'SetEntityCollision', 'SetEntityCoords', 'SetEntityCoordsNoOffset', 'SetEntityHealth', 'SetEntityVisible',
-  'SetNuiFocus', 'GetResourceKvpString', 'SetResourceKvp', 'TriggerServerEvent',
+  'SetEntityHeading', 'SetFocusEntity', 'SetNuiFocus', 'GetResourceKvpString', 'SetResourceKvp', 'TriggerServerEvent',
   'source',
 })
 files['tests/e2e_resource/server.lua'].read_globals = runtime_with({

@@ -1,5 +1,3 @@
-# Panel (NUI)
-
 > Documented version: **0.2.0**. Anything marked **(coming soon)** is planned but not implemented yet.
 
 Open the panel with `/staffsuite` or the `F6` key (`Config.PanelKey`) and close it with `Esc`. It is built with React 18 + TypeScript + Vite (source in `ui/`) and the resource loads the compiled build from `ui/dist/`.
@@ -24,6 +22,8 @@ The server only sends the data the player's capabilities allow (see [Ranks and p
 | Reports | `report.view` | Ticket queue, ticket chat, internal notes and the moderation rail. |
 | My reports | none | Your open reports and their public conversations with staff. |
 | Dashboard | `staff.analytics` | KPIs (open, resolved, response time, staff on duty), leaderboard and alerts, such as a broken audit chain. |
+| Players | `player.online.view` | ID, name, ping and playtime. Search by name or ID. Staff with `report.view` also see open ticket counts. Quick actions use their existing moderation permissions. |
+| Weekly activity | `staff.analytics` | Last seven days of duty time, shift starts, resolutions and ratings from the audit chain. Senior admins and owners can prepare a copyable CSV with `staff.analytics.export`. |
 | Duty | `staff.duty` | Button to go on or off duty (same as `/duty`), your hours and sessions, and the team's status. |
 | Settings | none | Panel language (ES/EN), open key, export status (webhook, file, anchor every N entries), version, your rank and persistence. In Core, `staff.chat` enables staff chat. |
 
@@ -73,3 +73,8 @@ In Core, **Sanction templates** appear in ticket moderation for staff with `mod.
 ## Development
 
 `cd ui && npm run dev` serves the panel in the browser with demo data and a mocked backend. See `ui/README.md`.
+
+### Ranks and ACE permissions (Core)
+
+The owner can open **Ranks and ACE permissions** from Settings or Ctrl+K and choose a connected player. **Inherit** restores the bridge rank or, for an individual permission, access from the rank and native `staff_suite.cap.<capability>` grants. **Allow** and **Deny** save an exception for that account in Staff Suite. Each change requires a reason and is saved with its audit entry. Configure owner rank in the server or framework.
+# Panel (NUI)

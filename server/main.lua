@@ -30,6 +30,19 @@ local limiter = ratelimit.new()
 local verifyCache = {}
 local waypointRequests = {}
 local cleanupRequest
+local spectators, pendingSpectators, spectateSequence = {}, {}, 0
+local staffModes, staffModeSeq = {}, 0
+local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
+local emergency, emergencyChange
+local pendingPermissions, pendingDuty
+local editableCaps, editableCap = {}, {}
+for _, cap in ipairs(perms.CAPS) do
+  if cap ~= 'admin.permissions' then
+    editableCaps[#editableCaps + 1] = cap
+    editableCap[cap] = true
+  end
+end
+local onlineRefs, onlineViewedAt, onlineRefSeq = {}, {}, 0
 local profileHistory = {}
 local profileAuditIntact = true
 local playtime, activePlaytime, playtimeSources = {}, {}, {}
@@ -97,6 +110,17 @@ end
 
 local storage = persist.new(Config, function()
   local state = snapshot()
+  state.perms = pendingPermissions or pmodel
+  if pendingDuty and pendingDuty.entry then
+    -- El snapshot cierra el turno junto con el permiso. El estado en memoria espera la confirmación.
+    local actor = pendingDuty.actor
+    state.duty = { staff = {} }
+    for id, shift in pairs(dreg.staff) do state.duty.staff[id] = shift end
+    local closed = {}
+    for key, value in pairs(dreg.staff[actor]) do closed[key] = value end
+    state.duty.staff[actor] = closed
+    duty.clock_out(state.duty, actor, pendingDuty.entry.ts)
+  end
   if next(pendingBans) or next(pendingRevocations) then
     state.bans = {}
     for id, ban in pairs(bans) do state.bans[id] = ban end
@@ -213,13 +237,19 @@ local function restore(data)
 end
 
 -- ===== Auditoría =====
-local function record(action, actor, target, reason, payload, onSaved)
+local function appendAudit(action, actor, target, reason, payload)
   local e = audit.append(chain, {
     ts = os.time(), actor = actor or 'system', action = action,
     target = target or '', reason = reason or '',
     payload = payload and json.encode(payload) or '',
   })
   entry_count = entry_count + 1
+  if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
+  return e
+end
+
+local function record(action, actor, target, reason, payload, onSaved)
+  local e = appendAudit(action, actor, target, reason, payload)
   local retryCallback
   if action == 'player_profile_note' then
     local reply = onSaved
@@ -235,14 +265,29 @@ local function record(action, actor, target, reason, payload, onSaved)
   elseif profileAuditIntact then
     indexProfileEntry(e)
   end
-  if entry_count % Config.Export.anchor_every == 0 then export.anchor(e, Config.Export) end
   storage.save(onSaved, retryCallback)
   return e
 end
 
 -- ===== Permisos / rangos =====
+local function effectiveRank(model, identifier, baseRank)
+  local override = (model.ranks or {})[identifier]
+  if baseRank ~= 'owner' and override and override ~= 'inherit' and perms.editableRank(override) then
+    return override
+  end
+  return baseRank
+end
+
 local function getPlayer(src)
-  return bridges.resolve(src, Config)
+  local player = bridges.resolve(src, Config)
+  player.baseRank = player.rank
+  if player.rank ~= 'owner' then
+    player.rank = effectiveRank(pmodel, player.identifier, player.baseRank)
+    if player.identifier then
+      player.ace = function(cap) return IsPlayerAceAllowed(src, 'staff_suite.cap.' .. cap) end
+    end
+  end
+  return player
 end
 
 local function accountPlaytime(identifier, session, now)
@@ -310,7 +355,7 @@ local function getIdentifier(src)
 end
 
 local function can(player, cap)
-  return perms.can(pmodel, player.identifier, player.rank, cap)
+  return perms.can(pmodel, player.identifier, player.rank, cap, player.ace)
 end
 
 local function findPlayerByIdentifier(identifier)
@@ -447,9 +492,60 @@ local function afterSanction(ctx, fn)
   end
 end
 
+local function enforceEmergency(session)
+  if emergency ~= session then return end
+  local changed, toFreeze = false, {}
+  local function freeze(entity, wasSpectating)
+    if entity == 0 or not DoesEntityExist(entity) then return end
+    local network = NetworkGetNetworkIdFromEntity(entity)
+    local current = session.entities[entity]
+    if not current or current.network ~= network then
+      session.entities[entity] = { network = network, frozen = not wasSpectating and IsEntityPositionFrozen(entity) }
+      changed = true
+    end
+    if not IsEntityPositionFrozen(entity) then toFreeze[entity] = true end
+  end
+  for _, player in ipairs(GetPlayers()) do
+    local src = tonumber(player)
+    local ped = GetPlayerPed(src)
+    if ped ~= 0 then
+      freeze(ped, session.spectators[src] == ped)
+      freeze(GetVehiclePedIsIn(ped, false))
+    end
+  end
+  for entity in pairs(session.entities) do
+    if not DoesEntityExist(entity) or NetworkGetNetworkIdFromEntity(entity) ~= session.entities[entity].network then
+      session.entities[entity] = nil
+      changed = true
+    end
+  end
+  if changed then
+    local restoration = {}
+    for _, saved in pairs(session.entities) do
+      if saved.network > 0 then restoration[tostring(saved.network)] = saved.frozen end
+    end
+    TriggerClientEvent('staff_suite:emergencyEntities', -1, restoration)
+  end
+  for entity in pairs(toFreeze) do FreezeEntityPosition(entity, true) end
+  SetTimeout(1000, function() enforceEmergency(session) end)
+end
+
+local function releaseEmergency()
+  if not emergency then return end
+  local session = emergency
+  emergency = nil
+  for entity, saved in pairs(session.entities) do
+    if DoesEntityExist(entity) and NetworkGetNetworkIdFromEntity(entity) == saved.network then
+      FreezeEntityPosition(entity, saved.frozen)
+    end
+  end
+  TriggerClientEvent('staff_suite:emergencyEntities', -1, false)
+end
+
 local function setFrozen(m, frozen)
   local ped = GetPlayerPed(m.tgt)
   if ped == 0 then return false, t('mod_invalid_target') end
+  if emergency then return false, t('emergency_individual_blocked') end
   FreezeEntityPosition(ped, frozen)
   for _, player in ipairs(GetPlayers()) do
     local src = tonumber(player)
@@ -469,6 +565,50 @@ local function frozenPlayers()
   return frozen
 end
 
+local function protectsOccupant(vehicle, src, actor)
+  for _, candidate in ipairs(GetPlayers()) do
+    local id = tonumber(candidate)
+    local ped = GetPlayerPed(id)
+    if id ~= src and ped ~= 0 and GetVehiclePedIsIn(ped, false) == vehicle
+      and perms.outranks(getPlayer(id).rank, actor.rank) then return true end
+  end
+  return false
+end
+
+local function moderateVehicle(m)
+  local ped = GetPlayerPed(m.tgt)
+  local vehicle = ped ~= 0 and GetVehiclePedIsIn(ped, false) or 0
+  if vehicle == 0 or not DoesEntityExist(vehicle) then return false, t('mod_vehicle_missing') end
+  local netId = NetworkGetNetworkIdFromEntity(vehicle)
+  if netId == 0 then return false, t('mod_vehicle_missing') end
+  local deleting = m.payload.action == 'delete_vehicle'
+  if deleting and protectsOccupant(vehicle, m.src, getPlayer(m.src)) then return false, t('mod_target_protected') end
+  m.payload.vehicle = netId
+  m.onSaved = afterSanction(m, function()
+    local actor = getPlayer(m.src)
+    if not GetPlayerName(m.src) or actor.identifier ~= m.actor
+      or not can(actor, 'mod.' .. m.payload.action) then return end
+    local currentPed = GetPlayerPed(m.tgt)
+    if currentPed == 0 or GetVehiclePedIsIn(currentPed, false) ~= vehicle or not DoesEntityExist(vehicle)
+      or NetworkGetNetworkIdFromEntity(vehicle) ~= netId then
+      return TriggerClientEvent('staff_suite:notify', m.src, t('mod_vehicle_missing'))
+    end
+    if deleting then
+      if protectsOccupant(vehicle, m.src, actor) then
+        return TriggerClientEvent('staff_suite:notify', m.src, t('mod_target_protected'))
+      end
+      DeleteEntity(vehicle)
+    else
+      local owner = NetworkGetEntityOwner(vehicle)
+      if owner > 0 then
+        TriggerClientEvent('staff_suite:repairVehicle', owner, netId)
+      else
+        TriggerClientEvent('staff_suite:notify', m.src, t('mod_vehicle_missing'))
+      end
+    end
+  end)
+end
+
 local modActions = {
   ['goto'] = { run = function(m)
     TriggerClientEvent('staff_suite:tp', m.src, GetEntityCoords(GetPlayerPed(m.tgt)))
@@ -479,16 +619,35 @@ local modActions = {
   freeze = { protected = true, run = function(m) return setFrozen(m, true) end },
   unfreeze = { protected = true, cap = 'mod.freeze', run = function(m) return setFrozen(m, false) end },
   heal = { run = function(m) SetEntityHealth(GetPlayerPed(m.tgt), 200) end },
+  repair_vehicle = { protected = true, run = moderateVehicle },
+  delete_vehicle = { protected = true, reason = true, run = moderateVehicle },
   kick = { protected = true, reason = 'configured', run = function(m) DropPlayer(m.tgt, m.reason or t('kick_default_reason')) end },
   revive = { run = function(m)
     if not bridges.revive(m.tgt, Config) then return false, t('mod_unavailable') end
   end },
   spectate = { run = function(m)
     local ped = GetPlayerPed(m.tgt)
-    if m.src == m.tgt or ped == 0 or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
+    if emergency or m.src == m.tgt or ped == 0 or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
       return false, t('spectate_unavailable')
     end
-    TriggerClientEvent('staff_suite:spectate', m.src, m.tgt, GetEntityCoords(ped))
+    spectateSequence = spectateSequence + 1
+    local session = { target = m.tgt, key = spectateSequence }
+    pendingSpectators[m.src] = session
+    m.onSaved = function(saved)
+      if pendingSpectators[m.src] ~= session then return end
+      pendingSpectators[m.src] = nil
+      local currentPed = GetPlayerPed(m.tgt)
+      local observer = getPlayer(m.src)
+      if not saved or emergency or not GetPlayerName(m.src) or currentPed == 0
+        or observer.identifier ~= m.actor or not can(observer, 'mod.spectate')
+        or getIdentifier(m.tgt) ~= m.target
+        or GetPlayerRoutingBucket(m.src) ~= GetPlayerRoutingBucket(m.tgt) then
+        TriggerClientEvent('staff_suite:notify', m.src, t(saved and 'spectate_unavailable' or 'mod_save_failed'))
+        return
+      end
+      spectators[m.src] = session
+      TriggerClientEvent('staff_suite:spectate', m.src, m.tgt, GetEntityCoords(currentPed), session.key)
+    end
   end },
   warn = { protected = true, reason = true, run = function(m)
     m.onSaved = afterSanction(m, function()
@@ -601,7 +760,17 @@ local function doMod(src, action, tgt, reason, duration, templateId)
     if not template or template.action ~= action then return false, t('sanction_template_invalid') end
     reason, duration = template.reason, template.duration
   end
-  tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
+  if type(tgt) == 'table' then
+    if not can(player, 'player.online.view') then return false, t('no_permission') end
+    local id = positiveInteger(tgt.id)
+    local ref = onlineRefs[id]
+    if not ref or ref.key ~= tgt.key or ref.identifier ~= getPlayer(id).identifier then
+      return false, t('online_player_changed')
+    end
+    tgt = id
+  else
+    tgt = positiveInteger(tgt) or findPlayerByIdentifier(tgt)
+  end
   if not tgt or not GetPlayerName(tgt) then
     return false, t('mod_invalid_target')
   end
@@ -729,6 +898,9 @@ command(Config.Commands.duty, function(src)
   local player = getPlayer(src)
   if not can(player, 'staff.duty') then TriggerClientEvent('staff_suite:notify', src, t('no_permission')); return end
   local id = actorId(player, src)
+  if pendingDuty and pendingDuty.actor == id then
+    return TriggerClientEvent('staff_suite:notify', src, t('permissions_pending'))
+  end
   local s = dreg.staff[id]
   local ev
   if s and s.on_duty then ev = duty.clock_out(dreg, id, os.time()); TriggerClientEvent('staff_suite:notify', src, t('duty_out', { time = string.format('%.1fh', (ev.seconds or 0) / 3600) }))
@@ -782,12 +954,16 @@ RegisterNetEvent('staff_suite:staffChat', function(body, req)
   end)
 end)
 
+local function playedSeconds(identifier, now)
+  local session = activePlaytime[identifier]
+  local elapsed = session and math.max(now - session.since, 0) or 0
+  return ((playtime[identifier] or 0) + elapsed) // 1000
+end
+
 local function recentPlayerProfile(identifier)
   local profile = profileHistory[identifier] or {}
-  local session = activePlaytime[identifier]
-  local elapsed = session and math.max(GetGameTimer() - session.since, 0) or 0
   local result = { warns = profile.warns or {}, bans = profile.bans or {}, notes = profile.notes or {}, tickets = {},
-    played_seconds = ((playtime[identifier] or 0) + elapsed) // 1000 }
+    played_seconds = playedSeconds(identifier, GetGameTimer()) }
   -- Los IDs de ticket son monotónicos y el almacenamiento puede tener huecos.
   for _, ticket in pairs(store.tickets) do
     if ticket.reporter == identifier then
@@ -837,6 +1013,213 @@ profileEvent('staff_suite:playerProfileNote', 'staff_suite:playerProfileNoteResu
       reply(saved == true, not saved and t('mod_save_failed') or nil, saved and recentPlayerProfile(identifier) or nil)
     end)
   end)
+
+RegisterNetEvent('staff_suite:onlinePlayers', function(req)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, errorKey, rows)
+    TriggerClientEvent('staff_suite:onlinePlayersResult', src, { req = req, ok = ok,
+      error = errorKey and t(errorKey), data = rows })
+  end
+  if not allowRate(src, 'staff_suite:onlinePlayers') then return reply(false, 'rate_limited') end
+  if not ready then return reply(false, 'persistence_starting') end
+  local viewer = getPlayer(src)
+  if not viewer.identifier or not can(viewer, 'player.online.view') then return reply(false, 'no_permission') end
+  local counts = {}
+  local canSeeTickets = can(viewer, 'report.view')
+  if canSeeTickets then
+    for _, ticket in pairs(store.tickets) do
+      if tickets.is_open(ticket) then counts[ticket.reporter] = (counts[ticket.reporter] or 0) + 1 end
+    end
+  end
+  local rows, now = {}, GetGameTimer()
+  for _, entry in ipairs(GetPlayers()) do
+    local id = tonumber(entry)
+    local identifier = playtimeSources[id]
+    local ref = onlineRefs[id]
+    if identifier and (not ref or ref.identifier ~= identifier) then
+      onlineRefSeq = onlineRefSeq + 1
+      ref = { identifier = identifier, key = onlineRefSeq }
+      onlineRefs[id] = ref
+    end
+    rows[#rows + 1] = { id = id, name = GetPlayerName(id) or tostring(id), ping = GetPlayerPing(id), self = id == src,
+      key = identifier and ref.key or nil,
+      played_seconds = identifier and playedSeconds(identifier, now) or 0,
+      tickets = canSeeTickets and (counts[identifier] or 0) or nil }
+  end
+  local ts = os.time()
+  -- Limita la auditoría de las lecturas repetidas por la actualización del panel.
+  if not onlineViewedAt[src] or ts - onlineViewedAt[src] >= 300 then
+    onlineViewedAt[src] = ts
+    record('player_online_view', viewer.identifier, '', '', { count = #rows })
+  end
+  reply(true, nil, rows)
+end)
+
+RegisterNetEvent('staff_suite:staffWeekly', function(req, exporting)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, errorKey, data)
+    TriggerClientEvent('staff_suite:staffWeeklyResult', src, { req = req, ok = ok,
+      error = errorKey and t(errorKey), data = data })
+  end
+  if not allowRate(src, 'staff_suite:staffWeekly') then return reply(false, 'rate_limited') end
+  if not ready then return reply(false, 'persistence_starting') end
+  local player = getPlayer(src)
+  local cap = exporting == true and 'staff.analytics.export' or 'staff.analytics'
+  if not player.identifier or not can(player, cap) or not can(player, 'staff.analytics') then
+    return reply(false, 'no_permission')
+  end
+  if not verifyCached()[1] then return reply(false, 'staff_weekly_unverified') end
+  local data = duty.weekly(chain.entries, os.time(), json.decode)
+  local action = exporting == true and 'staff_weekly_export' or 'staff_weekly_view'
+  record(action, player.identifier, 'staff', '', { from = data.from, to = data.to, rows = #data.staff }, function(saved)
+    if not GetPlayerName(src) or getPlayer(src).identifier ~= player.identifier then return end
+    if not saved then return reply(false, 'mod_save_failed') end
+    return reply(true, nil, data)
+  end)
+end)
+
+RegisterNetEvent('staff_suite:emergencyFreeze', function(req, enabled, reason)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, key)
+    TriggerClientEvent('staff_suite:emergencyFreezeResult', src, { req = req, ok = ok, error = key and t(key),
+      data = ok and { enabled = emergency ~= nil } or nil })
+  end
+  if not allowRate(src, 'staff_suite:emergencyFreeze') then return reply(false, 'rate_limited') end
+  if not ready then return reply(false, 'persistence_starting') end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'mod.emergency_freeze') then return reply(false, 'no_permission') end
+  if enabled == nil then return reply(true) end
+  if type(enabled) ~= 'boolean' then return reply(false, 'mod_unavailable') end
+  if emergencyChange then return reply(false, 'emergency_pending') end
+  if enabled == (emergency ~= nil) then return reply(true) end
+  local cleaned, err = cleanText(reason, limit('reason') or 300)
+  if err then
+    TriggerClientEvent('staff_suite:emergencyFreezeResult', src, { req = req, ok = false, error = err })
+    return
+  end
+  if not cleaned or cleaned == '' then return reply(false, 'reason_required') end
+  emergencyChange = true
+  record('mod_emergency_freeze', player.identifier, 'server', cleaned, { enabled = enabled }, function(saved)
+    emergencyChange = nil
+    local current = GetPlayerName(src) and getPlayer(src)
+    if not current or current.identifier ~= player.identifier then return end
+    if not saved then return reply(false, 'mod_save_failed') end
+    if not can(current, 'mod.emergency_freeze') then return reply(false, 'no_permission') end
+    if enabled then
+      emergency = { entities = {}, spectators = {} }
+      for observer, session in pairs(spectators) do
+        emergency.spectators[observer] = GetPlayerPed(observer)
+        spectators[observer] = nil
+        TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+      end
+      enforceEmergency(emergency)
+    else
+      releaseEmergency()
+    end
+    TriggerClientEvent('staff_suite:notify', -1, t(enabled and 'emergency_started' or 'emergency_released'), { kind = 'announce' })
+    reply(true)
+  end)
+end)
+
+RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected, field, value, reason)
+  local src = tonumber(source)
+  req = positiveInteger(req)
+  if not src or not req then return end
+  local function reply(ok, errorText, data)
+    TriggerClientEvent('staff_suite:ownerPermissionsResult', src, { req = req, ok = ok, error = errorText, data = data })
+  end
+  if not allowRate(src, 'staff_suite:ownerPermissions') then return reply(false, t('rate_limited')) end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local owner = getPlayer(src)
+  if not owner.identifier or not can(owner, 'admin.permissions') then return reply(false, t('no_permission')) end
+  if target == nil then
+    local players = {}
+    for _, candidate in ipairs(GetPlayers()) do
+      local id = tonumber(candidate)
+      local player = getPlayer(id)
+      if player.identifier and player.baseRank ~= 'owner' then
+        players[#players + 1] = { id = id, name = player.name }
+      end
+    end
+    table.sort(players, function(a, b) return a.id < b.id end)
+    return reply(true, nil, { players = players, ranks = perms.EDITABLE_RANKS, capabilities = editableCaps })
+  end
+  local id = positiveInteger(target)
+  if not id or not GetPlayerName(id) then return reply(false, t('online_player_changed')) end
+  local player = getPlayer(id)
+  if not player.identifier or player.baseRank == 'owner' then return reply(false, t('no_permission')) end
+  local function details()
+    local state = { id = id, identifier = player.identifier, baseRank = player.baseRank,
+      rank = (pmodel.ranks or {})[player.identifier] or 'inherit', rules = {} }
+    for _, cap in ipairs(editableCaps) do state.rules[cap] = perms.override(pmodel, player.identifier, cap) end
+    return state
+  end
+  if field == nil then return reply(true, nil, details()) end
+  if expected ~= player.identifier then return reply(false, t('online_player_changed')) end
+  if pendingPermissions then return reply(false, t('permissions_pending')) end
+  if field == 'rank' then
+    if not perms.editableRank(value) then return reply(false, t('permissions_invalid')) end
+  elseif type(field) ~= 'string' or not editableCap[field]
+      or (value ~= 'allow' and value ~= 'deny' and value ~= 'inherit') then
+    return reply(false, t('permissions_invalid'))
+  end
+  local cleaned, err = cleanText(reason, limit('reason') or 300)
+  if err then return reply(false, err) end
+  if not cleaned or cleaned == '' then return reply(false, t('reason_required')) end
+  local previous = field == 'rank' and ((pmodel.ranks or {})[player.identifier] or 'inherit')
+    or perms.override(pmodel, player.identifier, field)
+  if previous == value then return reply(true, nil, details()) end
+  pendingPermissions = perms.edit(pmodel, player.identifier, field, value)
+  local shift = dreg.staff[player.identifier]
+  local rank = effectiveRank(pendingPermissions, player.identifier, player.baseRank)
+  local dutyEntry
+  if not perms.can(pendingPermissions, player.identifier, rank, 'staff.duty', player.ace) then
+    if shift and shift.on_duty then
+      dutyEntry = appendAudit('duty.out', player.identifier, player.identifier, 'permission_revoked', {
+        owner = owner.identifier,
+      })
+    end
+    pendingDuty = { actor = player.identifier, entry = dutyEntry }
+  end
+  record('admin_permissions_change', owner.identifier, player.identifier, cleaned,
+    { field = field, previous = previous, value = value }, function(saved)
+      if saved then pmodel = pendingPermissions end
+      pendingPermissions, pendingDuty = nil, nil
+      if saved then
+        if dutyEntry then duty.clock_out(dreg, player.identifier, dutyEntry.ts) end
+        for _, candidate in ipairs(GetPlayers()) do
+          local observer = tonumber(candidate)
+          local current = getPlayer(observer)
+          if current.identifier == player.identifier then
+            if not can(current, 'mod.spectate') then
+              pendingSpectators[observer] = nil
+              local session = spectators[observer]
+              if session then
+                spectators[observer] = nil
+                TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+              end
+            end
+          end
+        end
+      end
+      if not saved then
+        record('admin_permissions_failed', owner.identifier, player.identifier, dutyEntry and tostring(dutyEntry.seq) or '',
+          { field = field, value = value })
+      end
+      if not GetPlayerName(src) or getPlayer(src).identifier ~= owner.identifier then return end
+      if saved and can(getPlayer(src), 'admin.permissions') then
+        reply(true, nil, details())
+      else
+        reply(false, t(saved and 'no_permission' or 'mod_save_failed'))
+      end
+    end)
+end)
 
 local function net(name, fn)
   RegisterNetEvent(name, function(...)
@@ -1128,7 +1511,7 @@ net('staff_suite:getState', function()
   local player = getPlayer(src)
   local capabilities = {}
   for _, cap in ipairs(perms.CAPS) do
-    local available = cap:sub(1, 4) ~= 'mod.' or cap == 'mod.template' or modActions[cap:sub(5)]
+    local available = cap:sub(1, 4) ~= 'mod.' or cap == 'mod.template' or cap == 'mod.emergency_freeze' or modActions[cap:sub(5)]
       or cap == 'mod.warn_escalate' and canEscalate(player)
     if available and can(player, cap) then capabilities[#capabilities + 1] = cap end
   end
@@ -1362,9 +1745,70 @@ end)
 net('staff_suite:modAction', function(action, tgt, reason, duration, templateId)
   local src = source
   if action == 'warn' and not allowRate(src, 'staff_suite:modWarn') then return end
+  if (action == 'repair_vehicle' or action == 'delete_vehicle') and not allowRate(src, 'staff_suite:modVehicle') then return end
   if templateId ~= nil and not allowRate(src, 'staff_suite:modTemplate') then return end
   local ok, err = doMod(src, action, tgt, reason, duration, templateId)
   if not ok then TriggerClientEvent('staff_suite:notify', src, err) end
+end)
+
+net('staff_suite:spectateEnded', function(key)
+  local src = tonumber(source)
+  local session = spectators[src]
+  if session and session.key == key then spectators[src] = nil end
+end)
+
+local function monitorStaffMode(src, mode, modes, state)
+  if state.monitoring then return end
+  state.monitoring = true
+  SetTimeout(5000, function()
+    state.monitoring = false
+    if staffModes[src] ~= modes or modes[mode] ~= state then return end
+    if can(getPlayer(src), staffModeCaps[mode]) then return monitorStaffMode(src, mode, modes, state) end
+    modes[mode] = nil
+    TriggerClientEvent('staff_suite:staffMode', src, mode, false, state.key)
+    record('staff_' .. mode, state.actor, state.actor, 'permission_revoked', { enabled = false })
+  end)
+end
+
+net('staff_suite:staffMode', function(mode)
+  local src = tonumber(source)
+  local cap = staffModeCaps[mode]
+  local player = getPlayer(src)
+  if not cap or not player.identifier or not can(player, cap) then
+    return TriggerClientEvent('staff_suite:notify', src, t('no_permission'))
+  end
+  local modes = staffModes[src] or {}
+  staffModes[src] = modes
+  local previous = modes[mode]
+  if previous and previous.pending then return end
+  staffModeSeq = staffModeSeq + 1
+  local state = { key = staffModeSeq, enabled = not (previous and previous.enabled), pending = true, actor = player.identifier }
+  modes[mode] = state
+  record('staff_' .. mode, player.identifier, player.identifier, '', { enabled = state.enabled }, function(saved)
+    if staffModes[src] ~= modes or modes[mode] ~= state then return end
+    if not saved or not GetPlayerName(src) or getPlayer(src).identifier ~= player.identifier then
+      modes[mode] = previous
+      if previous and previous.enabled then monitorStaffMode(src, mode, modes, previous) end
+      return TriggerClientEvent('staff_suite:notify', src, t('mod_save_failed'))
+    end
+    state.pending = false
+    if state.enabled and not can(getPlayer(src), cap) then
+      modes[mode] = nil
+      return record('staff_' .. mode, state.actor, state.actor, 'permission_revoked', { enabled = false })
+    end
+    TriggerClientEvent('staff_suite:staffMode', src, mode, state.enabled, state.key)
+    if state.enabled then monitorStaffMode(src, mode, modes, state) end
+  end)
+end)
+
+net('staff_suite:staffModeEnded', function(mode, key, outcome)
+  if outcome ~= 'ended' and outcome ~= 'unavailable' then return end
+  local src = tonumber(source)
+  local modes = staffModes[src]
+  local state = modes and modes[mode]
+  if not state or not state.enabled or state.pending or state.key ~= key then return end
+  modes[mode] = nil
+  record('staff_mode_result', state.actor, state.actor, outcome, { mode = mode, key = key })
 end)
 
 local waypointMessages = { ok = 'waypoint_ok', no_marker = 'waypoint_no_marker',
@@ -1491,6 +1935,7 @@ expose('GetState', snapshot)
 expose('SetDuty', function(actor, onDuty)
   actor = idText(actor)
   if not actor or type(onDuty) ~= 'boolean' then return nil, 'invalid_input' end
+  if pendingDuty and pendingDuty.actor == actor then return false, 'permissions_pending' end
   local ev, err
   if onDuty then ev, err = duty.clock_in(dreg, actor, os.time()) else ev, err = duty.clock_out(dreg, actor, os.time()) end
   if not ev then return false, err end
@@ -1524,6 +1969,19 @@ end)
 
 AddEventHandler('playerDropped', function()
   local src = tonumber(source)
+  staffModes[src] = nil
+  spectators[src] = nil
+  pendingSpectators[src] = nil
+  for observer, session in pairs(pendingSpectators) do
+    if session.target == src then pendingSpectators[observer] = nil end
+  end
+  for observer, session in pairs(spectators) do
+    if session.target == src then
+      spectators[observer] = nil
+      TriggerClientEvent('staff_suite:spectateStop', observer, session.key)
+    end
+  end
+  onlineRefs[src], onlineViewedAt[src] = nil, nil
   local request = waypointRequests[src]
   if request then
     waypointRequests[src] = nil
@@ -1536,6 +1994,7 @@ end)
 -- Los lotes pendientes se respaldan antes de apagar el recurso.
 AddEventHandler('onResourceStop', function(res)
   if ready and res == GetCurrentResourceName() then
+    releaseEmergency()
     checkpointPlaytime()
     storage.stop()
   end

@@ -89,7 +89,7 @@ staff_suite/
 Claim con lock (un staff por ticket), transfer, notas internas, canned responses, rating del jugador al resolver. Todo transición = entrada de auditoría.
 
 ## Moderación — action registry
-Cada acción = `{capability, handler, requires_reason, audit_payload}`. El dispatcher verifica permiso server-side + razón obligatoria antes de ejecutar vía bridge. Acciones Core: goto/bring/spectate/freeze/heal/revive/kick/ban/warn. **No** noclip/god/spawn (territorio txAdmin).
+Cada acción = `{capability, handler, requires_reason, audit_payload}`. El dispatcher verifica permiso server-side y motivo antes de ejecutar. Acciones Core: goto/bring/spectate/freeze/heal/revive/kick/ban/warn. Core también ofrece noclip e invisibilidad sobre el propio personaje, con autorización y auditoría previa. God y spawn se delegan a txAdmin.
 
 ## NUI
 - React + TypeScript + Vite (estándar del mercado, AI-friendly para iterar).

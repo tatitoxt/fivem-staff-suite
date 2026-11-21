@@ -233,17 +233,23 @@ export interface OutgoingPayloads {
   ticket_message: { id: number; body: string; internal: boolean };
   ticket_export: { id: number };
   staff_chat: { body: string };
+  online_players: Record<string, never>;
+  staff_weekly: { export: boolean };
+  staff_mode: { mode: 'noclip' | 'invisible' };
+  emergency_freeze: { enabled?: boolean; reason?: string };
+  owner_permissions: { target?: number; identifier?: string; field?: string; value?: string; reason?: string };
   player_profile: { id: number };
   player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
-  mod_action: { action: ModAction; target: string; reason: string; ticket?: number; duration?: number; template?: string };
+  mod_action: { action: ModAction; target: string | OnlinePlayerRef; reason: string; ticket?: number; duration?: number; template?: string };
   announce: { body: string };
   vehicle_cleanup: { seconds: number };
   vehicle_cleanup_cancel: Record<string, never>;
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
   goto_waypoint: Record<string, never>;
+  spectate_stop: Record<string, never>;
   duty_toggle: Record<string, never>;
   refresh: Record<string, never>;
   ticket_rate: { id: number; score: number };
@@ -253,6 +259,26 @@ export interface OutgoingPayloads {
 }
 
 export type OutgoingAction = keyof OutgoingPayloads;
+
+export interface OnlinePlayerRef { id: number; key: number }
+export interface WeeklyStaffRow {
+  actor: string;
+  duty_seconds: number;
+  sessions: number;
+  resolved: number;
+  ratings: number;
+  avg_rating?: number;
+}
+export interface WeeklyStaffReport { from: number; to: number; staff: WeeklyStaffRow[] }
+export interface OnlinePlayer {
+  id: number;
+  key?: number;
+  self?: boolean;
+  name: string;
+  ping: number;
+  played_seconds: number;
+  tickets?: number;
+}
 
 export interface BanRow {
   id?: number;
@@ -265,6 +291,7 @@ export interface BanRow {
   aliases: number;
 }
 
-export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban';
+export type ModAction = 'goto' | 'bring' | 'spectate' | 'freeze' | 'unfreeze' | 'heal' | 'revive' | 'warn' | 'kick' | 'ban'
+  | 'repair_vehicle' | 'delete_vehicle';
 
-export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'settings';
+export type ViewId = 'audit' | 'tickets' | 'myReports' | 'dashboard' | 'duty' | 'players' | 'weekly' | 'settings';

@@ -23,7 +23,7 @@ const TRANSITIONS: Record<TicketState, Partial<Record<string, TicketState>>> = {
   reopened: { claim: 'claimed', close: 'closed' },
 };
 
-const REASON_REQUIRED = new Set(['kick', 'ban', 'warn']);
+const REASON_REQUIRED = new Set(['kick', 'ban', 'warn', 'delete_vehicle']);
 
 export function computeDashboard(tickets: Ticket[], staff: StaffStat[], alerts: DashboardPayload['alerts']): DashboardPayload {
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -67,6 +67,8 @@ function storedTheme(): ThemePref {
 export class MockBackend {
   private theme: ThemePref = storedTheme();
   private evidenceData = new Map<string, string>();
+  private ownerAccess = { id: 18, identifier: 'license:demo18', baseRank: 'helper',
+    rank: 'inherit', rules: {} as Record<string, string> };
   locale = 'es';
   now = Date.now() / 1000;
   entries: AuditEntry[] = buildAudit(this.now);
@@ -294,6 +296,18 @@ export class MockBackend {
         this.emitAudit(false);
         return;
       }
+      case 'online_players':
+        return { ok: true, data: [
+          { id: 12, key: 1, name: 'Tomás', ping: 43, played_seconds: 6930, tickets: 1 },
+          { id: 37, key: 2, name: 'Meli', ping: 61, played_seconds: 3410, tickets: 1 },
+          { id: 42, key: 3, name: 'Vale', ping: 29, played_seconds: 1580, tickets: 0 },
+        ] };
+      case 'staff_weekly': {
+        const now = Math.floor(Date.now() / 1000);
+        return { ok: true, data: { from: now - 604800, to: now, staff: [
+          { actor: ME, duty_seconds: 7200, sessions: 2, resolved: 5, ratings: 4, avg_rating: 4.5 },
+        ] } };
+      }
       case 'player_profile':
       case 'player_profile_note': {
         const { id, body } = p as { id: number; body?: string };
@@ -409,8 +423,37 @@ export class MockBackend {
       case 'goto_waypoint':
         this.toast('info', this.s('waypoint_no_marker'));
         return;
+      case 'spectate_stop':
+        return { ok: true };
+      case 'staff_mode':
+        return { ok: true };
+      case 'owner_permissions': {
+        const { target, field, value, reason } = p as OutgoingPayloads['owner_permissions'];
+        const capabilities = ALL_CAPS.filter((cap) => cap !== 'admin.permissions');
+        if (target === undefined) return { ok: true, data: { players: [{ id: 18, name: 'Dani' }],
+          ranks: ['helper', 'moderator', 'admin', 'senior_admin'], capabilities } };
+        const access = this.ownerAccess;
+        if (field && value) {
+          const previous = field === 'rank' ? access.rank : access.rules[field] ?? 'inherit';
+          if (field === 'rank') access.rank = value;
+          else access.rules[field] = value;
+          this.record(ME, 'admin_permissions_change', access.identifier, reason, { field, previous, value });
+          this.emitAudit(false);
+        }
+        return { ok: true, data: { ...access, rules: { ...access.rules } } };
+      }
+      case 'emergency_freeze': {
+        const { enabled, reason } = p as OutgoingPayloads['emergency_freeze'];
+        const last = [...this.entries].reverse().find((entry) => entry.action === 'mod_emergency_freeze');
+        if (enabled !== undefined) {
+          this.record(ME, 'mod_emergency_freeze', 'server', reason, { enabled });
+          this.emitAudit(false);
+        }
+        return { ok: true, data: { enabled: enabled ?? (last?.payload?.includes('"enabled":true') ?? false) } };
+      }
       case 'mod_action': {
-        const { action: mod, target, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
+        const { action: mod, target: destination, reason: customReason, duration: customDuration, template } = p as OutgoingPayloads['mod_action'];
+        const target = typeof destination === 'string' ? destination : `src:${destination.id}`;
         const preset = template ? this.sanctionTemplates().find((item) => item.id === template && item.action === mod) : undefined;
         if (template && !preset) return this.toast('error', this.s('sanction_template_invalid'));
         const reason = preset?.reason ?? customReason;

@@ -18,6 +18,10 @@ import { SettingsView } from './views/SettingsView';
 import { StaffChatComposer } from './views/StaffChatComposer';
 import { TicketsView } from './views/TicketsView';
 import { MyReportsView } from './views/MyReportsView';
+import { OnlinePlayersView } from './views/OnlinePlayersView';
+import { WeeklyStaffView } from './views/WeeklyStaffView';
+import { EmergencyFreezeDialog } from './views/EmergencyFreezeDialog';
+import { OwnerPermissionsDialog } from './views/OwnerPermissionsDialog';
 
 function CurrentView() {
   const { state, dispatch, t, send } = useApp();
@@ -52,6 +56,8 @@ function CurrentView() {
     case 'myReports': return <MyReportsView />;
     case 'dashboard': return isLite ? null : <DashboardView />;
     case 'duty': return isLite ? null : <DutyView />;
+    case 'players': return isLite ? null : <OnlinePlayersView />;
+    case 'weekly': return isLite ? null : <WeeklyStaffView />;
     case 'settings': return <SettingsView />;
   }
 }
@@ -115,6 +121,8 @@ function Shell() {
             {state.ready && state.palette && <CommandPalette />}
             {!isLite && state.staffDialog === 'ban.view' && <BanReview onClose={closeStaffDialog} />}
             {!isLite && state.staffDialog === 'staff.chat' && <StaffChatComposer onClose={closeStaffDialog} />}
+            {!isLite && state.staffDialog === 'mod.emergency_freeze' && <EmergencyFreezeDialog onClose={closeStaffDialog} />}
+            {!isLite && state.staffDialog === 'admin.permissions' && <OwnerPermissionsDialog onClose={closeStaffDialog} />}
             <Toasts />
           </div>
         </div>
