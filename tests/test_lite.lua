@@ -318,4 +318,21 @@ function T.test_lite_staff_labels_ticket()
   assert(#disk.snapshot.tickets.tickets[1].labels == 0)
 end
 
+function T.test_lite_ticket_history_lists_chain_entries()
+  local call, _, sent = server()
+  local function last()
+    for i = #sent, 1, -1 do
+      if sent[i].name == 'staff_suite:ticketHistoryResult' then return sent[i].value end
+    end
+  end
+  call(1, 'ticketCreate', 'bug', nil, 'Historial', 1)
+  call(2, 'ticketLabel', 1, 'rdm', true)
+  call(1, 'ticketHistory', 1, 7)
+  assert(last() == nil or last().ok == false, 'jugador no lee historial')
+  call(2, 'ticketHistory', 1, 8)
+  local result = last()
+  assert(result and result.ok and #result.data.rows >= 1, 'staff lee el historial')
+  assert(result.data.rows[#result.data.rows].action == 'ticket_label', 'orden cronológico')
+end
+
 return T

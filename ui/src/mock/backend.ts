@@ -284,6 +284,12 @@ export class MockBackend {
         this.emitAudit(false);
         return { ok: true };
       }
+      case 'ticket_history': {
+        const { id } = p as OutgoingPayloads['ticket_history'];
+        const rows = this.entries.filter((e) => e.target === `ticket:${id}`)
+          .map((e) => ({ seq: e.seq, ts: e.ts, actor: e.actor, action: e.action, reason: e.reason }));
+        return { ok: true, data: { rows } };
+      }
       case 'ticket_export': {
         const { id } = p as OutgoingPayloads['ticket_export'];
         this.record(ME, 'ticket_export_request', `ticket:${id}`);

@@ -57,9 +57,9 @@ it('loads only the selected reporter and lets eligible staff add a bounded note'
   expect(save).toBeDisabled();
   fireEvent.change(input, { target: { value: 'Revisar caso' } });
   fireEvent.click(save);
-  expect(await dialog.findByText('Revisar caso')).toBeInTheDocument();
-  expect(transport).toHaveBeenNthCalledWith(1, 'https://staff_suite/player_profile',
+  expect((await dialog.findAllByText('Revisar caso')).length).toBeGreaterThan(0);
+  expect(transport).toHaveBeenNthCalledWith(2, 'https://staff_suite/player_profile',
     expect.objectContaining({ body: JSON.stringify({ id: 42 }) }));
-  expect(transport).toHaveBeenNthCalledWith(2, 'https://staff_suite/player_profile_note',
+  expect(transport).toHaveBeenNthCalledWith(3, 'https://staff_suite/player_profile_note',
     expect.objectContaining({ body: JSON.stringify({ id: 42, body: 'Revisar caso' }) }));
 });

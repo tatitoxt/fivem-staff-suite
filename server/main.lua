@@ -1478,6 +1478,31 @@ RegisterNetEvent('staff_suite:banRevoke', function(id, reason, req)
   end)
 end)
 
+RegisterNetEvent('staff_suite:ticketHistory', function(id, req)
+  local src = source
+  req = positiveInteger(req)
+  if not req then return end
+  local function reply(ok, err, data)
+    TriggerClientEvent('staff_suite:ticketHistoryResult', src, { req = req, ok = ok, error = err, data = data })
+  end
+  if not allowRate(src, 'staff_suite:ticketHistory', { burst = 4, per_second = 1 }) then
+    return reply(false, t('rate_limited'))
+  end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'report.view') then return reply(false, t('no_permission')) end
+  id = positiveInteger(id)
+  if not id or not store.tickets[id] then return reply(false, t('ticket_export_missing')) end
+  local target, rows = 'ticket:' .. id, {}
+  for _, entry in ipairs(chain.entries) do
+    if entry.target == target then
+      rows[#rows + 1] = { seq = entry.seq, ts = entry.ts, actor = entry.actor,
+        action = entry.action, reason = entry.reason }
+    end
+  end
+  return reply(true, nil, { rows = rows })
+end)
+
 RegisterNetEvent('staff_suite:ticketExport', function(id, req)
   local src = source
   req = positiveInteger(req)

@@ -4,9 +4,9 @@ import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../
 import lay from '../components/layout.module.css';
 import { formatDateTime, formatRelative, shortId } from '../format';
 import { isLite } from '../edition';
-import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone, ticketLabelText } from '../labels';
+import { PRIORITY_WEIGHT, actionLabel, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone, ticketLabelText } from '../labels';
 import { useApp } from '../store';
-import type { ModAction, Priority, SanctionTemplate, Ticket, TicketCreateResult, TicketState } from '../types';
+import type { ModAction, Priority, SanctionTemplate, Ticket, TicketCreateResult, TicketHistoryEntry, TicketState } from '../types';
 import { ReportDialog } from '../components/ReportDialog';
 import { LimitHint, TicketChat, overLimit } from './TicketChat';
 import { PlayerProfileButton } from './PlayerProfileDialog';
@@ -74,6 +74,16 @@ function TicketExportButton({ id }: { id: number }) {
 function Detail({ tk, openDialog, reason, setReason, template, templates, setTemplate }: DetailProps) {
   const { state, dispatch, t, can, send } = useApp();
   const [viewing, setViewing] = useState<number | null>(null);
+  const [history, setHistory] = useState<TicketHistoryEntry[]>([]);
+  useEffect(() => {
+    let alive = true;
+    setHistory([]);
+    void (send('ticket_history', { id: tk.id }) as Promise<TicketCreateResult & { data?: { rows?: TicketHistoryEntry[] } } | null>)
+      .then((response) => {
+        if (alive && response?.ok && response.data?.rows) setHistory(response.data.rows);
+      });
+    return () => { alive = false; };
+  }, [tk.id, send]);
   const shot = state.evidence;
   const closeViewer = () => { setViewing(null); dispatch({ type: 'evidenceClose' }); };
   const me = state.player?.identifier || state.player?.name;
@@ -169,6 +179,23 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
               {!isLite && can('player.profile.view') && <PlayerProfileButton key={`profile-${tk.id}`} id={tk.id} />}
             </div>
           </section>
+          {history.length > 0 && (
+            <section className={cx(ui.card, v.railCard)}>
+              <h3>{t('ui_history')}</h3>
+              <ul className={v.history}>
+                {history.map((e) => (
+                  <li key={e.seq} className={v.historyItem}>
+                    <div className={v.historyMain}>
+                      <span><strong>{actionLabel(t, e.action)}</strong> · {shortId(e.actor)}</span>
+                      <span className={v.historyMeta}>
+                        {formatRelative(e.ts, state.locale)}{e.reason ? ` · ${e.reason}` : ''}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {!isLite && (state.config.evidence || (tk.evidence?.length ?? 0) > 0) && (
             <section className={cx(ui.card, v.railCard)}>
               <h3>{t('ui_evidence')}</h3>
