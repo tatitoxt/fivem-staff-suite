@@ -185,6 +185,10 @@ Locale['en'] = {
   ui_warn_escalation = 'Warnings can trigger a kick at %{count} within %{minutes} min.',
   rate_prompt = 'Rate the support (1-5)',
   cat_bug = 'Bug', cat_player = 'Player', cat_staff = 'Staff',
+  ui_labels = 'Labels',
+  ui_label_cheater = 'Cheater', ui_label_harassment = 'Harassment',
+  ui_label_rdm = 'RDM', ui_label_vdm = 'VDM',
+  ui_label_question = 'Question', ui_label_other = 'Other',
   cat_question = 'Question', cat_other = 'Other',
   pri_low = 'Low', pri_normal = 'Normal', pri_high = 'High', pri_urgent = 'Urgent',
   -- Core error codes (core/tickets.lua, core/duty.lua) translated by the adapter via t(code).
@@ -269,6 +273,7 @@ Locale['en'] = {
   ui_act_ticket_unclaim = 'Ticket released', ui_act_ticket_transfer = 'Ticket transferred',
   ui_act_ticket_resolve = 'Ticket resolved', ui_act_ticket_close = 'Ticket closed',
   ui_act_ticket_cancel = 'Ticket cancelled by player',
+  ui_act_ticket_label = 'Ticket label',
   ui_report_cancel = 'Cancel report', ui_report_cancel_confirm = 'Confirm cancellation',
   ui_act_ticket_reopen = 'Ticket reopened', ui_act_ticket_message = 'Ticket message',
   ui_act_ticket_in_progress = 'Ticket in progress',

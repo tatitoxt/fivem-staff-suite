@@ -302,4 +302,20 @@ function T.test_lite_ticket_create_replies_to_panel()
   assert(last().req == 6 and not last().ok and last().error:find('3', 1, true))
 end
 
+function T.test_lite_staff_labels_ticket()
+  local call, _, _, disk = server()
+  call(1, 'ticketCreate', 'player', nil, 'Reporte', 1)
+  call(1, 'ticketLabel', 1, 'rdm', true)
+  assert(#disk.snapshot.chain.entries == 1, 'jugador no etiqueta')
+  call(2, 'ticketLabel', 1, 'rdm', true)
+  call(2, 'ticketLabel', 1, 'no_configurada', true)
+  call(2, 'ticketLabel', 1, 'rdm', true)
+  local entries = disk.snapshot.chain.entries
+  assert(#entries == 2 and entries[2].action == 'ticket_label' and entries[2].reason == 'rdm',
+    'solo el cambio real audita')
+  assert(disk.snapshot.tickets.tickets[1].labels[1] == 'rdm')
+  call(2, 'ticketLabel', 1, 'rdm', false)
+  assert(#disk.snapshot.tickets.tickets[1].labels == 0)
+end
+
 return T

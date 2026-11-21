@@ -185,6 +185,10 @@ Locale['es'] = {
   ui_warn_escalation = 'El jugador puede ser expulsado al acumular %{count} advertencias en %{minutes} min.',
   rate_prompt = 'Calificá la atención (1-5)',
   cat_bug = 'Bug', cat_player = 'Jugador', cat_staff = 'Staff',
+  ui_labels = 'Etiquetas',
+  ui_label_cheater = 'Cheater', ui_label_harassment = 'Acoso',
+  ui_label_rdm = 'RDM', ui_label_vdm = 'VDM',
+  ui_label_question = 'Consulta', ui_label_other = 'Otro',
   cat_question = 'Consulta', cat_other = 'Otro',
   pri_low = 'Baja', pri_normal = 'Normal', pri_high = 'Alta', pri_urgent = 'Urgente',
   -- Errores del core (core/tickets.lua, core/duty.lua) que el adapter traduce con t(code).
@@ -269,6 +273,7 @@ Locale['es'] = {
   ui_act_ticket_unclaim = 'Ticket liberado', ui_act_ticket_transfer = 'Ticket transferido',
   ui_act_ticket_resolve = 'Ticket resuelto', ui_act_ticket_close = 'Ticket cerrado',
   ui_act_ticket_cancel = 'Ticket cancelado por el jugador',
+  ui_act_ticket_label = 'Etiqueta de ticket',
   ui_report_cancel = 'Cancelar reporte', ui_report_cancel_confirm = 'Confirmar cancelación',
   ui_act_ticket_reopen = 'Ticket reabierto', ui_act_ticket_message = 'Mensaje en ticket',
   ui_act_ticket_in_progress = 'Ticket en curso',

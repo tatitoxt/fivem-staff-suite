@@ -29,6 +29,9 @@ local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
 local waypointRequests = {}
+local labelSet = {}
+for _, label in ipairs(Config.TicketLabels or {}) do labelSet[label] = true end
+
 local coordsRequests = {}
 local cleanupRequest
 local spectators, pendingSpectators, spectateSequence = {}, {}, 0
@@ -1641,6 +1644,23 @@ RegisterNetEvent('staff_suite:ticketCancel', function(id, req)
     if can(getPlayer(staff), 'report.view') then
       sendTickets(staff, getPlayer(staff))
     end
+  end
+end)
+
+-- Etiquetas de triaje del staff: metadatos del ticket auditados como
+-- ticket_label. Solo el conjunto configurado; cualquier staff con report.view.
+net('staff_suite:ticketLabel', function(id, label, enabled)
+  local src = source
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'report.view') then return end
+  if type(id) ~= 'number' or type(label) ~= 'string' or type(enabled) ~= 'boolean'
+    or not labelSet[label] then return end
+  local ticket, ev = tickets.set_label(store, id, label, player.identifier, enabled, os.time())
+  if not ticket or not ev then return end
+  record(ev.action, ev.actor, 'ticket:' .. id, label, { enabled = enabled })
+  for _, candidate in ipairs(GetPlayers()) do
+    local staff = tonumber(candidate)
+    if can(getPlayer(staff), 'report.view') then sendTickets(staff, getPlayer(staff)) end
   end
 end)
 

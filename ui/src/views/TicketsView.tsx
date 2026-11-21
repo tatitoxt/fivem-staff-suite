@@ -4,7 +4,7 @@ import { Badge, Button, Dialog, Empty, Segmented, ViewHeader, cx, ui } from '../
 import lay from '../components/layout.module.css';
 import { formatDateTime, formatRelative, shortId } from '../format';
 import { isLite } from '../edition';
-import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone } from '../labels';
+import { PRIORITY_WEIGHT, categoryLabel, priorityLabel, priorityTone, stateLabel, stateTone, ticketLabelText } from '../labels';
 import { useApp } from '../store';
 import type { ModAction, Priority, SanctionTemplate, Ticket, TicketCreateResult, TicketState } from '../types';
 import { ReportDialog } from '../components/ReportDialog';
@@ -36,6 +36,7 @@ function TicketCard({ tk, selected, onSelect }: { tk: Ticket; selected: boolean;
       <div className={v.tcardDesc}>{tk.description}</div>
       <div className={v.tcardMeta}>
         {!isLite && <Badge tone={priorityTone[tk.priority]} dot>{priorityLabel(t, tk.priority)}</Badge>}
+        {tk.labels?.map((label) => <Badge key={label} tone="blue" dot>{ticketLabelText(t, label)}</Badge>)}
         <span>{formatRelative(tk.created_ts, state.locale)}</span>
         <span>{tk.claimer ? shortId(tk.claimer) : t('ui_unassigned')}</span>
       </div>
@@ -78,6 +79,7 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
   const me = state.player?.identifier || state.player?.name;
   const requireReason = state.config.require_reason !== false;
   const escalation = can('mod.warn_escalate') && state.config.warn_escalation;
+  const ticketLabels = state.config.ticket_labels ?? [];
 
   const st = tk.state;
   const canClaim = (st === 'open' || st === 'reopened') && can('report.claim');
@@ -113,6 +115,20 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
           <div><dt>{t('ui_ticket_claimer')}</dt><dd>{tk.claimer ? shortId(tk.claimer) : t('ui_unassigned')}</dd></div>
           <div><dt>{t('ui_ticket_created')}</dt><dd title={formatDateTime(tk.created_ts, state.locale)}>{formatRelative(tk.created_ts, state.locale)}</dd></div>
         </dl>
+        {ticketLabels.length > 0 && (
+          <div className={v.labelRow} role="group" aria-label={t('ui_labels')}>
+            {ticketLabels.map((label) => {
+              const on = tk.labels?.includes(label) ?? false;
+              return (
+                <button key={label} type="button" className={cx(v.labelChip, on && v.labelChipOn)}
+                  aria-pressed={on}
+                  onClick={() => void send('ticket_label', { id: tk.id, label, enabled: !on })}>
+                  {ticketLabelText(t, label)}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className={v.desc}>{tk.description}</div>
         {tk.resolution != null && DONE.has(st) && (
           <div className={v.resolution}>
@@ -244,6 +260,7 @@ export function TicketsView() {
   const resolutionMax = state.config.limits?.resolution ?? state.config.limits?.message_body;
   const [group, setGroup] = useState<Group>('all');
   const [priority, setPriority] = useState<'' | Priority>('');
+  const [labelFilter, setLabelFilter] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [text, setText] = useState('');
@@ -258,12 +275,13 @@ export function TicketsView() {
   const list = useMemo(() => {
     const states = GROUPS[group];
     return state.tickets
-      .filter((x) => (!states || states.includes(x.state)) && (isLite || !priority || x.priority === priority))
+      .filter((x) => (!states || states.includes(x.state)) && (isLite || !priority || x.priority === priority)
+        && (!labelFilter || (x.labels ?? []).includes(labelFilter)))
       .sort((a, b) =>
         Number(DONE.has(a.state)) - Number(DONE.has(b.state))
         || (isLite ? 0 : PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority])
         || b.created_ts - a.created_ts);
-  }, [state.tickets, group, priority]);
+  }, [state.tickets, group, priority, labelFilter]);
 
   const tk = state.tickets.find((x) => x.id === selected) ?? null;
   useEffect(() => {
@@ -276,6 +294,7 @@ export function TicketsView() {
     : (state.duty?.staff ?? []).map((s) => ({ value: s.actor, label: shortId(s.actor) }));
   const staff = targets.filter((x) => x.value !== tk?.claimer);
   const priorities = state.config.priorities ?? ['low', 'normal', 'high', 'urgent'];
+  const ticketLabels = state.config.ticket_labels ?? [];
 
   return (
     <main className={lay.main}>
@@ -300,6 +319,12 @@ export function TicketsView() {
               <select className={ui.input} aria-label={t('report_priority')} value={priority} onChange={(e) => setPriority(e.target.value as Priority | '')}>
                 <option value="">{t('report_priority')}: {t('ui_filter_all_f')}</option>
                 {priorities.map((p) => <option key={p} value={p}>{priorityLabel(t, p)}</option>)}
+              </select>
+            </div>}
+            {ticketLabels.length > 0 && <div className={v.queueRow}>
+              <select className={ui.input} aria-label={t('ui_labels')} value={labelFilter} onChange={(e) => setLabelFilter(e.target.value)}>
+                <option value="">{t('ui_labels')}: {t('ui_filter_all_f')}</option>
+                {ticketLabels.map((label) => <option key={label} value={label}>{ticketLabelText(t, label)}</option>)}
               </select>
             </div>}
           </div>

@@ -415,3 +415,11 @@
 @media (min-width: 3600px) and (min-height: 2000px) { .rateLayer .dialog { zoom: 2; } }
 /* .scroll (min-height: 0) pisaba el mínimo del chat: subir la especificidad */
 .chat .messages { min-height: 96px; }
+.labelRow { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.labelChip {
+  padding: 4px 10px; border-radius: 999px; border: 1px solid var(--surface-3);
+  background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.labelChip:hover { border-color: var(--accent); }
+.labelChipOn { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }

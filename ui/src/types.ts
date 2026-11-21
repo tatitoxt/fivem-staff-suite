@@ -75,6 +75,7 @@ export interface Ticket {
   priority: Priority;
   state: TicketState;
   claimer: string | null;
+  labels?: string[];
   created_ts: number;
   updated_ts: number;
   description?: string;
@@ -171,6 +172,7 @@ export interface UiConfig {
   limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number; announcement?: number };
   warn_escalation?: { threshold: number; windowSeconds: number };
   cleanup_countdowns?: number[];
+  ticket_labels?: string[];
 }
 
 export interface InitPayload {
@@ -242,6 +244,7 @@ export interface OutgoingPayloads {
   player_profile_note: { id: number; body: string };
   ticket_reply: { id: number; body: string };
   ticket_cancel: { id: number };
+  ticket_label: { id: number; label: string; enabled: boolean };
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
   mod_action: { action: ModAction; target: string | OnlinePlayerRef; reason: string; ticket?: number; duration?: number; template?: string };
   announce: { body: string };

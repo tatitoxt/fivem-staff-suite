@@ -56,6 +56,7 @@ function M.create(store, data)
     description = data.description or "",
     state = "open",
     claimer = nil,
+    labels = {},
     messages = {},
     created_ts = data.ts,
     updated_ts = data.ts,
@@ -95,6 +96,31 @@ function M.transition(store, id, action, actor, extra)
   return t, {
     action = "ticket_" .. action, ticket = id, actor = actor,
     from = from, to = t.state, assigned_to = assignee, reason = (extra and extra.reason) or "",
+  }
+end
+
+-- Etiquetas de triaje del staff (paridad rcore). Metadatos, no transición de
+-- estado: válidas en cualquier estado, idempotentes. El servidor valida el
+-- conjunto permitido (Config.TicketLabels) antes de llamar; el evento solo se
+-- devuelve cuando hubo cambio real para no ruidificar la cadena de auditoría.
+function M.set_label(store, id, label, actor, enabled, ts)
+  local t = store.tickets[id]
+  if not t then return nil, "ticket_not_found" end
+  t.labels = t.labels or {}
+  local index
+  for i, existing in ipairs(t.labels) do
+    if existing == label then index = i break end
+  end
+  if enabled then
+    if index then return t, nil end
+    t.labels[#t.labels + 1] = label
+  else
+    if not index then return t, nil end
+    table.remove(t.labels, index)
+  end
+  t.updated_ts = ts or t.updated_ts
+  return t, {
+    action = "ticket_label", ticket = id, actor = actor, label = label, enabled = enabled,
   }
 end
 

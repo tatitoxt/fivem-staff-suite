@@ -22,6 +22,10 @@ Config.Commands = {
 Config.Categories = { 'bug', 'player', 'staff', 'question', 'other' }
 Config.Priorities = { 'low', 'normal', 'high', 'urgent' }
 
+-- Etiquetas de triaje del staff sobre tickets (paridad rcore). El staff las
+-- marca/desmarca desde el detalle del ticket; se validan contra esta lista.
+Config.TicketLabels = { 'cheater', 'harassment', 'rdm', 'vdm', 'question', 'other' }
+
 -- Respuestas predefinidas del ticket. Cada entrada es una clave de locales/
 -- (canned_<id> y canned_<id>_title) o un texto propio: { title = 'Título', text = 'Mensaje' }.
 -- La evidencia con screenshot-basic se activa sola si ese recurso está iniciado.
@@ -118,6 +122,7 @@ Config.RateLimit = {
   ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
   ['staff_suite:ticketEvidence'] = { burst = 3, per_second = 1 / 20 },
   ['staff_suite:ticketCancel'] = { burst = 2, per_second = 1 / 10 },
+  ['staff_suite:ticketLabel'] = { burst = 6, per_second = 1 },
   ['staff_suite:announce'] = { burst = 1, per_second = 1 / 30 },
   ['staff_suite:banList'] = { burst = 5, per_second = 1 },
   ['staff_suite:banRevoke'] = { burst = 2, per_second = 1 / 10 },

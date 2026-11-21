@@ -124,4 +124,22 @@ function T.test_reporter_view_keeps_resolved_until_closed()
   assert(#tickets.reporter_view(s, "license:p1") == 0, "los cerrados salen de la vista")
 end
 
+function T.test_labels_toggle_idempotent_and_audit_changes_only()
+  local s = store_with_ticket()
+  local tk, ev = tickets.set_label(s, 1, "rdm", "license:staff1", true, 110)
+  assert(ev and ev.action == "ticket_label" and ev.label == "rdm" and ev.enabled == true)
+  assert(#tk.labels == 1 and tk.labels[1] == "rdm" and tk.updated_ts == 110)
+  local _, ev2 = tickets.set_label(s, 1, "rdm", "license:staff1", true, 111)
+  assert(ev2 == nil, "misma etiqueta no genera evento")
+  assert(#tk.labels == 1)
+  local _, ev3 = tickets.set_label(s, 1, "vdm", "license:staff1", true, 112)
+  assert(ev3 and #tk.labels == 2, "segunda etiqueta coexistiendo")
+  local _, ev4 = tickets.set_label(s, 1, "rdm", "license:staff1", false, 113)
+  assert(ev4 and ev4.enabled == false and #tk.labels == 1 and tk.labels[1] == "vdm")
+  local _, ev5 = tickets.set_label(s, 1, "rdm", "license:staff1", false, 114)
+  assert(ev5 == nil, "quitar una etiqueta ausente tampoco audita")
+  local _, err = tickets.set_label(s, 99, "rdm", "license:staff1", true, 115)
+  assert(err == "ticket_not_found")
+end
+
 return T
