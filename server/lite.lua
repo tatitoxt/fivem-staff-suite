@@ -252,6 +252,26 @@ local function receiveTicketMessage(src, id, body, internal, asReporter, req)
   end
 end
 
+-- El reportante puede cancelar su ticket mientras siga abierto o reabierto, sin claim.
+RegisterNetEvent('staff_suite:ticketCancel', function(id, req)
+  local src = source
+  req = positiveInteger(req)
+  local function reply(ok, err)
+    if req then TriggerClientEvent('staff_suite:ticketCancelResult', src, { req = req, ok = ok, error = err }) end
+  end
+  if not allowRate(src, 'staff_suite:ticketCancel') then return reply(false, t('rate_limited')) end
+  local reporter = playerIdentifier(src)
+  id = positiveInteger(id)
+  local ticket = id and store.tickets[id]
+  if not reporter or not ticket or ticket.reporter ~= reporter then return reply(false, t('no_permission')) end
+  if ticket.state ~= 'open' and ticket.state ~= 'reopened' then return reply(false, t('ticket_cancel_late')) end
+  local tk, ev = tickets.transition(store, id, 'cancel', reporter, { ts = os.time() })
+  if not tk then return reply(false, t(ev:match('^[^:]+') or 'invalid_transition')) end
+  record(ev.action, ev.actor, 'ticket:' .. id, '', { from = ev.from, to = ev.to })
+  reply(true)
+  publishUpdates(ticket)
+end)
+
 RegisterNetEvent('staff_suite:ticketMessage', function(id, body, internal, req)
   receiveTicketMessage(source, id, body, internal, false, req)
 end)

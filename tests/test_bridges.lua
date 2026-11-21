@@ -1928,4 +1928,44 @@ function T.test_report_tells_reporter_when_no_staff_is_online()
   s.event('ticketCreate', 'bug', 'normal', 'yo soy staff', nil)
   assert(s.recipients[19]['staff_suite:notify'] == s.env.StaffSuiteTranslate('report_created', { id = 3 }))
 end
+function T.test_reporter_cancels_own_open_ticket()
+  local s = serverSandbox()
+  s.commands.report(19, { 'bug', 'me arrepentí' })
+  s.env.source = 19
+  s.event('ticketCancel', 1, 7)
+  local result = s.sent['staff_suite:ticketCancelResult']
+  assert(result and result.req == 7 and result.ok == true, 'cancel ok')
+  assert(s.api.GetState().tickets.tickets[1].state == 'closed', 'ticket closed')
+  local chain = s.api.GetChain()
+  assert(chain[#chain].action == 'ticket_cancel' and chain[#chain].actor == 'license:account19', 'audit')
+  assert(#s.recipients[19]['staff_suite:state'].myTickets == 0, 'reporter view cleared')
+  -- el staff con report.view recibe la cola actualizada
+  s.ace.support = true
+  s.env.source = 17
+  s.commands.report(19, { 'bug', 'otro' })
+  s.env.source = 19
+  s.event('ticketCancel', 2, 8)
+  assert(s.recipients[17]['staff_suite:state'], 'staff queue refreshed')
+end
+
+function T.test_reporter_cannot_cancel_others_or_claimed()
+  local s = serverSandbox()
+  s.commands.report(19, { 'bug', 'mío' })
+  s.env.source = 18
+  s.event('ticketCancel', 1, 1)
+  assert(s.sent['staff_suite:ticketCancelResult'].error == s.env.StaffSuiteTranslate('no_permission'), 'not reporter')
+  assert(s.api.GetState().tickets.tickets[1].state == 'open')
+  s.ace.admin = true
+  s.env.source = 17
+  s.event('ticketAction', 1, 'claim')
+  s.env.source = 19
+  s.event('ticketCancel', 1, 2)
+  local result = s.sent['staff_suite:ticketCancelResult']
+  assert(not result.ok and result.error == s.env.StaffSuiteTranslate('ticket_cancel_late'), 'claimed cannot be cancelled')
+  assert(s.api.GetState().tickets.tickets[1].state == 'claimed')
+  s.env.source = 19
+  s.event('ticketCancel', 999, 3)
+  assert(s.sent['staff_suite:ticketCancelResult'].error == s.env.StaffSuiteTranslate('no_permission'), 'missing ticket')
+end
+
 return T
