@@ -89,6 +89,10 @@ Config.Notifications = {
 -- Config.RadioStation = 'orkelya_fm'
 Config.RadioStation = nil
 
+-- Orkelya NPC AI (opcional): los anuncios de staff también provocan reacciones
+-- (barks) de los NPCs con `announce = true`. Sin npc_ai instalado no hace nada.
+Config.NpcAnnounce = false
+
 -- Limpieza de vehículos vacíos desde Ajustes: cuentas regresivas que puede elegir el staff (segundos).
 Config.VehicleCleanup = {
   countdowns = { 10, 30, 60 },
