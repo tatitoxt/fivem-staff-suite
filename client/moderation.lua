@@ -65,6 +65,18 @@ RegisterNetEvent('staff_suite:waypoint', function(seq)
   reply('ok')
 end)
 
+-- Teletransporte a coordenadas explícitas autorizado por el servidor (seq correlaciona el resultado).
+RegisterNetEvent('staff_suite:coords', function(seq, x, y, z)
+  if source ~= 65535 then return end
+  local function reply(outcome) TriggerServerEvent('staff_suite:coordsResult', seq, outcome) end
+  local ped = PlayerPedId()
+  if not canUseWaypoint(ped) or type(x) ~= 'number' or type(y) ~= 'number' or type(z) ~= 'number' then
+    return reply('unavailable')
+  end
+  SetEntityCoordsNoOffset(ped, x, y, z, false, false, false)
+  reply('ok')
+end)
+
 local function stopSpectating(session)
   if observing ~= session then return end
   observing = nil

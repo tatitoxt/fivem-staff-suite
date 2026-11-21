@@ -112,6 +112,7 @@ Config.RateLimit = {
   ['staff_suite:emergencyFreeze'] = { burst = 4, per_second = 0.25 },
   ['staff_suite:ownerPermissions'] = { burst = 6, per_second = 0.5 },
   ['staff_suite:waypoint'] = { burst = 2, per_second = 0.2 },
+  ['staff_suite:coords'] = { burst = 2, per_second = 0.2 },
   ['staff_suite:staffMode'] = { burst = 3, per_second = 1 },
   ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
   ['staff_suite:duty'] = { burst = 4, per_second = 1 / 10 },
