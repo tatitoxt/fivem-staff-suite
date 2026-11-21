@@ -18,7 +18,7 @@ Reemplazar antes de publicar: `{{TEBEX_URL}}`, `{{GITHUB_URL}}`, `{{DISCORD_URL}
 
 **`[RESMON PENDIENTE]`** queda visible a propósito en el foro, el video y las capturas: el resmon de **cliente** todavía no está medido (`docs/es/qa.md` → "resmon en cliente"). Se mide entrando al server, `resmon 1` con el panel cerrado y abierto. Hasta entonces no se publica el topic de Releases (las reglas piden números de rendimiento).
 
-## Regla de honestidad: matriz de claims (verificada contra `main` el 21/11/2026, release 0.3.0 con moderación completa, tickets avanzados, appeals, ediciones, auditoría de seguridad R3 y E2E en FXServer ya mergeados)
+## Regla de honestidad: matriz de claims (verificada contra `main` el 21/11/2026, release 0.3.1 con moderación completa, tickets avanzados, appeals, ediciones, auditoría de seguridad R3 y E2E en FXServer ya mergeados)
 Cada feature mencionada en estos materiales sale de esta tabla. Lo que no esté en ✅ no se vende como disponible.
 
 ### Free Lite (MIT, GitHub/foro)

@@ -1,6 +1,28 @@
 # Changelog
 
-[Español](#030--español) · [English](#030--english)
+[Español](#031--español) · [English](#031--english)
+
+## 0.3.1 · Español
+
+### Cambios desde 0.3.0
+
+- **Tickets auto-asignados.** `Config.AutoAssign` reparte los reportes nuevos al staff en turno con menos tickets abiertos, respetando la mudez del reportero. [#64](https://github.com/tatitoxt/fivem-staff-suite/pull/64)
+- **Anuncios que llegan al mundo.** Los anuncios de staff ahora pueden reenviarse a una emisora de Radio IA (`Config.RadioStation`) y a los NPCs de NPC AI que reaccionan con un bark en personaje (`Config.NpcAnnounce`). [#63](https://github.com/tatitoxt/fivem-staff-suite/pull/63) · [#65](https://github.com/tatitoxt/fivem-staff-suite/pull/65)
+
+### Actualizar de 0.3.0 a 0.3.1
+
+Sin migraciones ni cambios de estructura: reemplazá la carpeta y conservá tu `config.lua`; las opciones nuevas (`Config.AutoAssign`, `Config.RadioStation`, `Config.NpcAnnounce`) son opt-in.
+
+## 0.3.1 · English
+
+### Changes since 0.3.0
+
+- **Auto-assigned tickets.** `Config.AutoAssign` routes new reports to the on-duty staff member with the fewest open tickets, honoring reporter mutes. [#64](https://github.com/tatitoxt/fivem-staff-suite/pull/64)
+- **Announcements that reach the world.** Staff announcements can now be forwarded to a Radio IA station (`Config.RadioStation`) and to announce-enabled NPC AI characters that react with an in-character bark (`Config.NpcAnnounce`). [#63](https://github.com/tatitoxt/fivem-staff-suite/pull/63) · [#65](https://github.com/tatitoxt/fivem-staff-suite/pull/65)
+
+### Upgrading from 0.3.0 to 0.3.1
+
+No migrations or structural changes: replace the folder, keep your `config.lua`; the new options (`Config.AutoAssign`, `Config.RadioStation`, `Config.NpcAnnounce`) are opt-in.
 
 ## 0.3.0 · Español
 
