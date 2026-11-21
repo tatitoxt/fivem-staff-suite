@@ -109,7 +109,7 @@ export class MockBackend {
         version,
         player: { name: ME, rank: 'owner', capabilities: ALL_CAPS },
         config: {
-          panel_key: 'F6', locales: ['es', 'en'],
+          panel_key: 'F6', locales: ['es', 'en', 'pt', 'fr', 'de'],
           brand: mockBrand(),
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],

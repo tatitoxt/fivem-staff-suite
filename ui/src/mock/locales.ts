@@ -1,5 +1,8 @@
 import esLua from '../../../locales/es.lua?raw';
 import enLua from '../../../locales/en.lua?raw';
+import ptLua from '../../../locales/pt.lua?raw';
+import frLua from '../../../locales/fr.lua?raw';
+import deLua from '../../../locales/de.lua?raw';
 
 // Lee las tablas Locale['xx'] de locales/*.lua (fuente única de strings) para
 // que el harness de dev muestre exactamente lo que enviaría el adapter.
@@ -17,4 +20,7 @@ export function parseLuaLocale(src: string): Record<string, string> {
 export const LOCALES: Record<string, Record<string, string>> = {
   es: parseLuaLocale(esLua),
   en: parseLuaLocale(enLua),
+  pt: parseLuaLocale(ptLua),
+  fr: parseLuaLocale(frLua),
+  de: parseLuaLocale(deLua),
 };
