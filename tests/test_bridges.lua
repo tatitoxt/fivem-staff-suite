@@ -1666,6 +1666,67 @@ function T.test_ban_review_loads_legacy_aliases_and_only_revokes_after_persisten
   error('Se perdió el baneo revocado del historial')
 end
 
+function T.test_ban_appeal_records_state_and_note_on_all_aliases()
+  local s = serverSandbox()
+  s.env.Config.Framework = 'standalone'
+  perSourceAce(s, { [17] = { ['staff_suite.senior_admin'] = true } })
+  s.event('modAction', 'ban', 18, 'Cheater', 0)
+  local bans = s.api.GetState().bans
+  local ban
+  for _, row in pairs(bans) do ban = row.id and row end
+  assert(ban and ban.id)
+  local appealResult = 'staff_suite:banAppealResult'
+  s.env.source = 19
+  s.event('banAppeal', ban.id, 'pending', 'por favor', 1)
+  assert(not s.sent[appealResult].ok)
+  s.env.source = 17
+  s.event('banAppeal', ban.id, 'bogus', nil, 2)
+  assert(not s.sent[appealResult].ok)
+  s.event('banAppeal', 9999, 'pending', nil, 3)
+  assert(not s.sent[appealResult].ok)
+  s.now = s.now + 10
+  s.event('banAppeal', ban.id, 'approved', 'Apeló por Discord', 4)
+  assert(s.sent[appealResult].ok)
+  for _, row in pairs(s.api.GetState().bans) do
+    if row.id == ban.id then
+      assert(row.appeal and row.appeal.state == 'approved' and row.appeal.note == 'Apeló por Discord')
+      assert(row.appeal.by == 'license:account17')
+    end
+  end
+  s.event('banList', 1, 5)
+  local listed = s.sent['staff_suite:banListResult'].data.rows[1]
+  assert(listed.appeal and listed.appeal.state == 'approved')
+  local chain = s.api.GetChain()
+  assert(chain[#chain - 1].action == 'ban_appeal' and chain[#chain].action == 'ban_list_view' and s.api.Verify())
+
+  -- La apelación se conserva al revocar el ban...
+  s.now = s.now + 10
+  s.event('banRevoke', ban.id, 'Revisado', 6)
+  assert(s.sent['staff_suite:banRevokeResult'].ok)
+  s.event('banList', 1, 7)
+  local revoked = s.sent['staff_suite:banListResult'].data.rows[1]
+  assert(revoked.status == 'revoked' and revoked.appeal and revoked.appeal.state == 'approved',
+    'la apelación sobrevive a la revocación')
+  -- ...y una apelación nueva sobre el ban ya revocado también.
+  s.event('banAppeal', ban.id, 'rejected', 'Sin pruebas nuevas', 8)
+  assert(s.sent[appealResult].ok)
+
+  for _, entry in ipairs(s.api.GetChain()) do
+    if entry.action == 'mod_unban' or entry.action == 'mod_unban_failed' or entry.action == 'ban_appeal' then
+      local token = entry.payload
+      s.files[token] = s.payloads[tonumber(token)]
+    end
+  end
+  local reboot = serverSandbox({ files = s.files })
+  reboot.ace.god = true
+  reboot.event('banList', 1, 1)
+  local kept = false
+  for _, row in ipairs(reboot.sent['staff_suite:banListResult'].data.rows) do
+    if row.id == ban.id and row.appeal and row.appeal.state == 'rejected' then kept = true end
+  end
+  assert(kept, 'la apelación sobre un ban revocado sobrevive a un reinicio')
+end
+
 function T.test_resolve_and_rating_feed_staff_analytics()
   local s = serverSandbox()
   s.ace.admin = true

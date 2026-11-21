@@ -83,7 +83,7 @@ function Detail({ tk, openDialog, reason, setReason, template, templates, setTem
         if (alive && response?.ok && response.data?.rows) setHistory(response.data.rows);
       });
     return () => { alive = false; };
-  }, [tk.id, send]);
+  }, [tk.id, tk.updated_ts, send]);
   const shot = state.evidence;
   const closeViewer = () => { setViewing(null); dispatch({ type: 'evidenceClose' }); };
   const me = state.player?.identifier || state.player?.name;
