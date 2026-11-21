@@ -1256,7 +1256,10 @@ RegisterNetEvent('staff_suite:ownerPermissions', function(req, target, expected,
       if saved then pmodel = pendingPermissions end
       pendingPermissions, pendingDuty = nil, nil
       if saved then
-        if dutyEntry then duty.clock_out(dreg, player.identifier, dutyEntry.ts) end
+        if dutyEntry then
+          duty.clock_out(dreg, player.identifier, dutyEntry.ts)
+          broadcastStaffCount(-1)
+        end
         for _, candidate in ipairs(GetPlayers()) do
           local observer = tonumber(candidate)
           local current = getPlayer(observer)
