@@ -29,6 +29,7 @@ local ready = false
 local limiter = ratelimit.new()
 local verifyCache = {}
 local waypointRequests = {}
+local cleanupRequest
 local spectators, pendingSpectators, spectateSequence = {}, {}, 0
 local staffModes, staffModeSeq = {}, 0
 local staffModeCaps = { noclip = 'staff.noclip', invisible = 'staff.invisible' }
@@ -1271,6 +1272,101 @@ RegisterNetEvent('staff_suite:announce', function(body, req)
   end)
 end)
 
+-- ===== Limpieza de vehículos =====
+-- Borra los vehículos sin jugadores adentro ni conductor. Los trenes se saltean: borrar la
+-- locomotora borra los vagones aunque tengan jugadores. La solicitud queda en la cadena
+-- antes del aviso y el resultado se registra con la cantidad borrada.
+local function cleanupCountdowns()
+  local cfg = Config.VehicleCleanup or {}
+  return type(cfg.countdowns) == 'table' and cfg.countdowns or { 10, 30, 60 }
+end
+
+local function deleteEmptyVehicles()
+  local occupied = {}
+  for _, candidate in ipairs(GetPlayers()) do
+    local ped = GetPlayerPed(candidate)
+    local vehicle = ped ~= 0 and GetVehiclePedIsIn(ped, false) or 0
+    if vehicle ~= 0 then occupied[vehicle] = true end
+  end
+  local deleted = 0
+  for _, vehicle in ipairs(GetAllVehicles()) do
+    if DoesEntityExist(vehicle) and not occupied[vehicle] and GetPedInVehicleSeat(vehicle, -1) == 0
+      and GetVehicleType(vehicle) ~= 'train' then
+      DeleteEntity(vehicle)
+      deleted = deleted + 1
+    end
+  end
+  return deleted
+end
+
+local function scheduleCleanup(actor, seconds, done)
+  if cleanupRequest then
+    local remaining = cleanupRequest.ends_at and math.max(0, cleanupRequest.ends_at - os.time())
+    return done(false, t('cleanup_pending'), remaining and { remaining = remaining } or nil)
+  end
+  local request = { actor = actor, seconds = seconds }
+  cleanupRequest = request
+  local entry = record('world_cleanup_request', actor, 'server', '', { seconds = seconds }, function(saved)
+    if cleanupRequest ~= request then return end
+    if not saved then
+      cleanupRequest = nil
+      return done(false, t('cleanup_failed'))
+    end
+    request.ends_at = os.time() + seconds
+    if seconds > 0 then TriggerClientEvent('staff_suite:announcement', -1, t('cleanup_countdown', { seconds = seconds })) end
+    SetTimeout(seconds * 1000, function()
+      if cleanupRequest ~= request then return end
+      cleanupRequest = nil
+      local deleted = deleteEmptyVehicles()
+      record('world_cleanup_result', actor, 'server', '', { request_seq = request.seq, deleted = deleted })
+      TriggerClientEvent('staff_suite:announcement', -1, t('cleanup_done', { count = deleted }))
+    end)
+    done(true, nil, { seconds = seconds, ends_at = request.ends_at })
+  end)
+  request.seq = entry and entry.seq
+end
+
+local function cancelCleanup(actor, done)
+  local request = cleanupRequest
+  if not request or not request.ends_at then return done(false, t('cleanup_none_pending'), { pending = false }) end
+  cleanupRequest = nil
+  record('world_cleanup_cancel', actor, 'server', '', { request_seq = request.seq }, function(saved)
+    TriggerClientEvent('staff_suite:announcement', -1, t('cleanup_cancelled'))
+    done(saved == true, not saved and t('mod_save_failed') or nil)
+  end)
+end
+
+local function cleanupRequestFrom(src, name, req)
+  req = positiveInteger(req)
+  local function reply(ok, err, data)
+    if req then TriggerClientEvent(name .. 'Result', src, { req = req, ok = ok, error = err, data = data }) end
+  end
+  if not allowRate(src, name, { burst = 2, per_second = 1 / 5 }) then return reply(false, t('rate_limited')) end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'world.cleanup') then return reply(false, t('no_permission')) end
+  return player, function(ok, err, data)
+    if GetPlayerName(src) and getPlayer(src).identifier == player.identifier then reply(ok, err, data) end
+  end
+end
+
+RegisterNetEvent('staff_suite:vehicleCleanup', function(seconds, req)
+  local player, reply = cleanupRequestFrom(source, 'staff_suite:vehicleCleanup', req)
+  if not player then return end
+  seconds = tonumber(seconds)
+  for _, allowed in ipairs(cleanupCountdowns()) do
+    if seconds == allowed and seconds >= 0 and seconds % 1 == 0 then
+      return scheduleCleanup(player.identifier, math.tointeger(seconds), reply)
+    end
+  end
+  reply(false, t('cleanup_invalid'))
+end)
+
+RegisterNetEvent('staff_suite:vehicleCleanupCancel', function(req)
+  local player, reply = cleanupRequestFrom(source, 'staff_suite:vehicleCleanupCancel', req)
+  if player then cancelCleanup(player.identifier, reply) end
+end)
+
 local function banRequest(src, name, req, cap, rate)
   req = positiveInteger(req)
   if not req then return end
@@ -1845,6 +1941,13 @@ expose('SetDuty', function(actor, onDuty)
   if not ev then return false, err end
   record(ev.event, actor, actor, '', {})
   return ev
+end)
+expose('VehicleCleanup', function(actor, seconds)
+  actor, seconds = idText(actor), tonumber(seconds)
+  if not actor or not seconds or seconds < 0 or seconds > 600 or seconds % 1 ~= 0 then return false, 'invalid_input' end
+  if cleanupRequest then return false, 'cleanup_pending' end
+  scheduleCleanup(actor, math.tointeger(seconds), function() end)
+  return true
 end)
 expose('Flush', function() return storage.flush() end)
 expose('GetPersistence', function() return storage.status() end)

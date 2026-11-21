@@ -1798,6 +1798,71 @@ function T.test_new_report_notifies_staff_with_priority()
   assert(not seen[19], 'el reporter no recibe el aviso de staff')
 end
 
+
+function T.test_vehicle_cleanup_audits_countdown_cancel_and_keeps_occupied_vehicles()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { admin = true }, [18] = { mod = true } })
+  local vehicles, deleted = { 501, 502, 503, 504, 505 }, {}
+  s.env.GetVehicleType = function(vehicle) return vehicle == 505 and 'train' or 'automobile' end
+  s.env.GetAllVehicles = function() return vehicles end
+  s.env.DoesEntityExist = function(entity) return not deleted[entity] end
+  s.env.DeleteEntity = function(entity) deleted[entity] = true end
+  s.env.GetVehiclePedIsIn = function(ped) return ped == 170 and 501 or 0 end
+  s.env.GetPedInVehicleSeat = function(vehicle) return vehicle == 502 and 9000 or 0 end
+
+  s.env.source = 18
+  s.event('vehicleCleanup', 30, 1)
+  assert(s.recipients[18]['staff_suite:vehicleCleanupResult'].error == s.env.StaffSuiteTranslate('no_permission'))
+  s.env.source = 17
+  s.event('vehicleCleanup', 45, 2)
+  assert(s.sent['staff_suite:vehicleCleanupResult'].error == s.env.StaffSuiteTranslate('cleanup_invalid'))
+  s.event('vehicleCleanupCancel', 3)
+  local none = s.sent['staff_suite:vehicleCleanupCancelResult']
+  assert(none.error == s.env.StaffSuiteTranslate('cleanup_none_pending') and none.data.pending == false)
+
+  local timers = #s.timers
+  s.now = s.now + 10
+  s.event('vehicleCleanup', 30, 4)
+  local result = s.sent['staff_suite:vehicleCleanupResult']
+  assert(result.ok and result.data.seconds == 30 and #s.timers == timers + 1 and s.delays[#s.timers] == 30000)
+  assert(s.recipients[-1]['staff_suite:announcement'] == s.env.StaffSuiteTranslate('cleanup_countdown', { seconds = 30 }))
+  s.now = s.now + 10
+  s.event('vehicleCleanup', 10, 5)
+  local pending = s.sent['staff_suite:vehicleCleanupResult']
+  assert(pending.error == s.env.StaffSuiteTranslate('cleanup_pending') and pending.data.remaining == 20)
+
+  s.event('vehicleCleanupCancel', 6)
+  assert(s.sent['staff_suite:vehicleCleanupCancelResult'].ok)
+  s.timers[timers + 1]()
+  assert(next(deleted) == nil)
+
+  s.now = s.now + 10
+  s.event('vehicleCleanup', 10, 7)
+  s.timers[#s.timers]()
+  assert(not deleted[501] and not deleted[502] and deleted[503] and deleted[504] and not deleted[505])
+  assert(s.recipients[-1]['staff_suite:announcement'] == s.env.StaffSuiteTranslate('cleanup_done', { count = 2 }))
+  local entries = s.api.GetState().chain.entries
+  local actions = {}
+  for _, entry in ipairs(entries) do actions[#actions + 1] = entry.action end
+  assert(table.concat(actions, ',') == 'world_cleanup_request,world_cleanup_cancel,world_cleanup_request,world_cleanup_result')
+  assert(entries[4].actor == 'license:account17' and entries[4].target == 'server')
+  assert(s.env.StaffSuiteModules['core.audit_chain'].verify(s.api.GetState().chain))
+end
+
+function T.test_vehicle_cleanup_does_not_announce_when_audit_save_fails()
+  local s = serverSandbox()
+  perSourceAce(s, { [17] = { admin = true } })
+  s.env.source = 17
+  s.failWrites = true
+  s.event('vehicleCleanup', 30, 1)
+  assert(s.sent['staff_suite:vehicleCleanupResult'].error == s.env.StaffSuiteTranslate('cleanup_failed'))
+  assert(not s.recipients[-1])
+  s.failWrites = false
+  s.now = s.now + 10
+  s.event('vehicleCleanup', 30, 2)
+  assert(s.sent['staff_suite:vehicleCleanupResult'].ok)
+end
+
 function T.test_ban_revoke_respects_rank_of_original_banner()
   local s = serverSandbox()
   s.env.Config.Framework = 'standalone'

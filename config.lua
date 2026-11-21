@@ -80,6 +80,11 @@ Config.Notifications = {
   sound = false,                     -- sonido para reportes nuevos, p. ej. { name = 'Text_Arrive_Tone', set = 'Phone_SoundSet_Default' }
 }
 
+-- Limpieza de vehículos vacíos desde Ajustes: cuentas regresivas que puede elegir el staff (segundos).
+Config.VehicleCleanup = {
+  countdowns = { 10, 30, 60 },
+}
+
 -- Límites de texto (en bytes) y tickets abiertos por jugador. El servidor rechaza lo que exceda.
 Config.Limits = {
   ticket_body = 1000,
@@ -115,4 +120,6 @@ Config.RateLimit = {
   ['staff_suite:banList'] = { burst = 5, per_second = 1 },
   ['staff_suite:banRevoke'] = { burst = 2, per_second = 1 / 10 },
   ['staff_suite:ticketExport'] = { burst = 1, per_second = 1 / 30 },
+  ['staff_suite:vehicleCleanup'] = { burst = 2, per_second = 1 / 10 },
+  ['staff_suite:vehicleCleanupCancel'] = { burst = 2, per_second = 1 / 5 },
 }

@@ -170,6 +170,7 @@ export interface UiConfig {
   sanction_templates?: SanctionTemplate[];
   limits?: { ticket_body?: number; message_body?: number; resolution?: number; reason?: number; announcement?: number };
   warn_escalation?: { threshold: number; windowSeconds: number };
+  cleanup_countdowns?: number[];
 }
 
 export interface InitPayload {
@@ -243,6 +244,8 @@ export interface OutgoingPayloads {
   ticket_create: { category: string; priority: Priority; body: string; attach?: boolean };
   mod_action: { action: ModAction; target: string | OnlinePlayerRef; reason: string; ticket?: number; duration?: number; template?: string };
   announce: { body: string };
+  vehicle_cleanup: { seconds: number };
+  vehicle_cleanup_cancel: Record<string, never>;
   ban_list: { page: number };
   ban_revoke: { id: number; reason: string };
   goto_waypoint: Record<string, never>;

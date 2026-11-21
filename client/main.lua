@@ -117,6 +117,7 @@ local function sendInit()
       evidence = not lite and evidenceEnabled,
       sanction_templates = not lite and sanctionTemplates or nil,
       warn_escalation = warnEscalation,
+      cleanup_countdowns = not lite and Config.VehicleCleanup and Config.VehicleCleanup.countdowns or nil,
     },
   })
 end
@@ -277,6 +278,14 @@ if not lite then
   ticketResult('staff_suite:announceResult')
   ticketRequest('announce', 'staff_suite:announceResult', 'announcement_failed', function(d, req)
     TriggerServerEvent('staff_suite:announce', d.body, req)
+  end)
+  ticketResult('staff_suite:vehicleCleanupResult')
+  ticketRequest('vehicle_cleanup', 'staff_suite:vehicleCleanupResult', 'cleanup_failed', function(d, req)
+    TriggerServerEvent('staff_suite:vehicleCleanup', d.seconds, req)
+  end)
+  ticketResult('staff_suite:vehicleCleanupCancelResult')
+  ticketRequest('vehicle_cleanup_cancel', 'staff_suite:vehicleCleanupCancelResult', 'cleanup_failed', function(_, req)
+    TriggerServerEvent('staff_suite:vehicleCleanupCancel', req)
   end)
   ticketResult('staff_suite:banListResult')
   ticketResult('staff_suite:banRevokeResult')

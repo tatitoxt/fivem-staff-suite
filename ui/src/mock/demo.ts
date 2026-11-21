@@ -21,6 +21,7 @@ export const ALL_CAPS = [
   'staff.waypoint',
   'staff.noclip', 'staff.invisible',
   'staff.analytics.export',
+  'world.cleanup',
 ];
 
 const P = {
