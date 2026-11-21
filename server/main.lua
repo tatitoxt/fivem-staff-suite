@@ -881,8 +881,10 @@ local function createReport(src, category, priority, body)
     end
   end
   -- Paridad rcore: avisar al jugador cuando no hay nadie atendiendo ahora.
+  -- Va sin kind 'report': ese kind lo descarta Config.Notifications.staff_reports
+  -- y está pensado para avisos a staff, no al reportante.
   if staffOnline == 0 then
-    TriggerClientEvent('staff_suite:notify', src, t('report_no_staff'), { kind = 'report' })
+    TriggerClientEvent('staff_suite:notify', src, t('report_no_staff'))
   end
   sendTickets(src, player)
   sendReporterTickets(src, player.identifier)
