@@ -10,6 +10,7 @@ ES-first, 0 dependencias duras, verificado E2E en FXServer real.
 | Staff Integrity Suite | tatitoxt/fivem-staff-suite | Lite (tickets + reports) | Core $29 (escrow) | 0.3.0 listo p/ Tebex |
 | NPC AI | tatitoxt/fivem-npc-ai | Lite (motor completo) | Pack $39 (13 NPCs + voz + soporte) | 0.3.0, falta escrow |
 | Loadscreen | tatitoxt/fivem-loadscreen | — | $9–12 | 0.2.0 listo p/ Tebex |
+| Radio IA | tatitoxt/fivem-radio-ai | — | $12–19 | 0.1.0 scaffold E2E-verificado |
 
 ## Bundle
 
@@ -31,6 +32,7 @@ ES-first, 0 dependencias duras, verificado E2E en FXServer real.
 3. NPC Pack → escrow + Tebex $39
 4. Loadscreen → Tebex $9–12
 5. Bundle $59 cuando los 3 estén live
+6. Radio IA → Tebex $12–19 (cuarto producto, reusa el motor TTS)
 
 ## Content packs como producto
 
