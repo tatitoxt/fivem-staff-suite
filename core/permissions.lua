@@ -16,7 +16,7 @@ M.CAPS = {
   "audit.view", "audit.verify", "audit.export",
   "staff.duty", "staff.analytics", "staff.analytics.export", "staff.announce", "staff.chat",
   "player.profile.view", "player.profile.note", "player.online.view",
-  "staff.waypoint", "staff.noclip", "staff.invisible",
+  "staff.waypoint", "staff.coords", "staff.noclip", "staff.invisible",
   "world.cleanup",
   "admin.config", "admin.permissions",
 }
@@ -44,7 +44,7 @@ local RANK_CAPS = {
     "player.profile.view", "player.profile.note", "player.online.view",
     "mod.template",
     "mod.warn_escalate",
-    "staff.waypoint", "staff.noclip", "staff.invisible",
+    "staff.waypoint", "staff.coords", "staff.noclip", "staff.invisible",
     "world.cleanup",
   },
   senior_admin = {
@@ -60,7 +60,7 @@ local RANK_CAPS = {
     "audit.view", "audit.verify", "audit.export",
     "staff.duty", "staff.analytics", "staff.analytics.export", "staff.announce", "staff.chat", "admin.config",
     "player.profile.view", "player.profile.note", "player.online.view",
-    "staff.waypoint", "staff.noclip", "staff.invisible",
+    "staff.waypoint", "staff.coords", "staff.noclip", "staff.invisible",
     "world.cleanup",
   },
   owner = nil, -- owner = todas (se resuelve abajo)

@@ -42,6 +42,41 @@ function AnnouncementForm() {
   );
 }
 
+function CoordsForm() {
+  const { t, send } = useApp();
+  const [fields, setFields] = useState({ x: '', y: '', z: '' });
+  const [sending, setSending] = useState(false);
+  const parsed = {
+    x: Number(fields.x), y: Number(fields.y), z: Number(fields.z),
+  };
+  const valid = fields.x.trim() !== '' && fields.y.trim() !== '' && fields.z.trim() !== ''
+    && Object.values(parsed).every((value) => Number.isFinite(value));
+  const setField = (key: 'x' | 'y' | 'z') => (event: { target: { value: string } }) =>
+    setFields((current) => ({ ...current, [key]: event.target.value }));
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!valid || sending) return;
+    setSending(true);
+    await send('goto_coords', parsed);
+    setSending(false);
+  }
+
+  return (
+    <form className={cx(ui.card, v.setCard)} onSubmit={submit} aria-labelledby="coords-heading">
+      <div className={v.setHead}><span className={v.setIcon}><MapPin size={15} /></span><h2 id="coords-heading">{t('ui_coords_go')}</h2></div>
+      <p className={v.setHint}>{t('ui_coords_hint')}</p>
+      <div className={v.banLine}>
+        {(['x', 'y', 'z'] as const).map((key) => (
+          <input key={key} className={ui.input} inputMode="decimal" aria-label={key.toUpperCase()}
+            placeholder={key.toUpperCase()} value={fields[key]} disabled={sending} onChange={setField(key)} />
+        ))}
+        <Button type="submit" variant="primary" disabled={!valid || sending}>{t('ui_coords_go')}</Button>
+      </div>
+    </form>
+  );
+}
+
 // Sobrevive al desmontar Ajustes: el servidor sigue con la limpieza aunque se cambie de vista.
 let cleanupEndsAt: number | undefined;
 
@@ -111,6 +146,7 @@ export function SettingsView() {
   const canViewBans = !isLite && state.player?.capabilities?.includes('ban.view');
   const canChat = !isLite && state.player?.capabilities?.includes('staff.chat');
   const canWaypoint = !isLite && can('staff.waypoint');
+  const canCoords = !isLite && can('staff.coords');
   const canEmergency = !isLite && can('mod.emergency_freeze');
   const canManagePermissions = !isLite && can('admin.permissions');
   return (
@@ -136,6 +172,7 @@ export function SettingsView() {
             </Button>}
           </div>}
           {!isLite && state.player?.capabilities?.includes('staff.announce') && <AnnouncementForm />}
+          {canCoords && <CoordsForm />}
           {!isLite && can('world.cleanup') && <VehicleCleanupForm />}
           <section className={cx(ui.card, v.setCard)}>
             <div className={v.setHead}><span className={v.setIcon}><Languages size={15} /></span><h2>{t('ui_set_language')}</h2></div>

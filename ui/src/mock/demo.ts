@@ -18,7 +18,7 @@ export const ALL_CAPS = [
   'ban.view', 'ban.revoke',
   'audit.view', 'audit.verify', 'audit.export',
   'staff.duty', 'staff.analytics', 'staff.announce', 'admin.config', 'admin.permissions',
-  'staff.waypoint',
+  'staff.waypoint', 'staff.coords',
   'staff.noclip', 'staff.invisible',
   'staff.analytics.export',
   'world.cleanup',
