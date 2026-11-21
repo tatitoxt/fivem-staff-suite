@@ -102,11 +102,23 @@ local function record(action, actor, target, reason, payload)
   save()
 end
 
+local function staffRoster()
+  local list = {}
+  for _, p in ipairs(GetPlayers()) do
+    local s = tonumber(p)
+    if s and isStaff(s) then
+      list[#list + 1] = { identifier = playerIdentifier(s) or ('src:' .. s), name = GetPlayerName(s) }
+    end
+  end
+  return list
+end
+
 local function sendState(src)
   local staff = isStaff(src)
   local reporter = playerIdentifier(src)
   TriggerClientEvent('staff_suite:state', src, {
     tickets = staff and store.tickets or {},
+    transferTargets = staff and staffRoster() or nil,
     myTickets = tickets.reporter_view(store, reporter),
     audit = staff and chain.entries or {},
     verify = staff and verifyCached() or {},
@@ -121,7 +133,8 @@ local function publishUpdates(ticket, staffReply)
   for _, player in ipairs(GetPlayers()) do
     local src = tonumber(player)
     if isStaff(src) then
-      TriggerClientEvent('staff_suite:state', src, { tickets = store.tickets, audit = chain.entries })
+      TriggerClientEvent('staff_suite:state', src,
+        { tickets = store.tickets, audit = chain.entries, transferTargets = staffRoster() })
     end
     if ticket and playerIdentifier(src) == ticket.reporter then
       TriggerClientEvent('staff_suite:state', src, { myTickets = tickets.reporter_view(store, ticket.reporter) })
@@ -310,6 +323,27 @@ RegisterNetEvent('staff_suite:ticketHistory', function(id, req)
     end
   end
   reply(true, nil, { rows = rows })
+end)
+
+RegisterNetEvent('staff_suite:ticketInvite', function(id, invited, req)
+  local src = source
+  req = positiveInteger(req)
+  local function reply(ok, err)
+    if req then TriggerClientEvent('staff_suite:ticketInviteResult', src, { req = req, ok = ok, error = err }) end
+  end
+  if not allowRate(src, 'staff_suite:ticketInvite') then return reply(false, t('rate_limited')) end
+  if not isStaff(src) then return reply(false, t('no_permission')) end
+  id = positiveInteger(id)
+  if not id or not store.tickets[id] then return reply(false, t('ticket_export_missing')) end
+  local targetSrc
+  for _, candidate in ipairs(GetPlayers()) do
+    if identifier(tonumber(candidate)) == invited then targetSrc = tonumber(candidate); break end
+  end
+  if not targetSrc or not isStaff(targetSrc) then return reply(false, t('ticket_invite_unavailable')) end
+  if targetSrc == src then return reply(false, t('ticket_invite_self')) end
+  record('ticket_invite', identifier(src), 'ticket:' .. id, invited, { invited = invited })
+  notify(targetSrc, 'ticket_invited', { id = id, actor = identifier(src) })
+  reply(true)
 end)
 
 net('staff_suite:verify', function()

@@ -1,7 +1,7 @@
 -- config.lua — ABIERTO (editable por el comprador). Staff Suite.
 Config = {}
 
-Config.Locale = 'es'                 -- 'es' | 'en'
+Config.Locale = 'es'                 -- 'es' | 'en' | 'pt' | 'fr' | 'de'
 Config.PanelKey = 'F6'               -- tecla para abrir el panel NUI
 Config.Theme = 'light'               -- 'light' | 'dark' | 'auto'; cada staff lo puede cambiar en Ajustes
 

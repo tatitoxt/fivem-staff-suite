@@ -1553,6 +1553,36 @@ RegisterNetEvent('staff_suite:banAppeal', function(id, appealState, note, req)
   end)
 end)
 
+RegisterNetEvent('staff_suite:ticketInvite', function(id, invited, req)
+  local src = source
+  req = positiveInteger(req)
+  if not req then return end
+  local function reply(ok, err)
+    TriggerClientEvent('staff_suite:ticketInviteResult', src, { req = req, ok = ok, error = err })
+  end
+  if not allowRate(src, 'staff_suite:ticketInvite', { burst = 4, per_second = 1 / 2 }) then
+    return reply(false, t('rate_limited'))
+  end
+  if not ready then return reply(false, t('persistence_starting')) end
+  local player = getPlayer(src)
+  if not player.identifier or not can(player, 'report.view') then return reply(false, t('no_permission')) end
+  id = positiveInteger(id)
+  if not id or not store.tickets[id] then return reply(false, t('ticket_export_missing')) end
+  local targetSrc, target = findPlayerByIdentifier(invited)
+  if not targetSrc or not canReceiveTransfer(target) then return reply(false, t('ticket_invite_unavailable')) end
+  if targetSrc == src then return reply(false, t('ticket_invite_self')) end
+  record('ticket_invite', player.identifier, 'ticket:' .. id, invited, { invited = invited }, function(saved)
+    if saved and GetPlayerName(targetSrc) then
+      local current = getPlayer(targetSrc)
+      if current.identifier == invited and canReceiveTransfer(current) then
+        TriggerClientEvent('staff_suite:notify', targetSrc,
+          t('ticket_invited', { id = id, actor = player.name or player.identifier }), { kind = 'info' })
+      end
+    end
+    reply(saved, not saved and t('mod_save_failed') or nil)
+  end)
+end)
+
 RegisterNetEvent('staff_suite:ticketExport', function(id, req)
   local src = source
   req = positiveInteger(req)
@@ -1622,7 +1652,7 @@ net('staff_suite:getState', function()
     tickets = can(player, 'report.view') and store.tickets or {},
     myTickets = tickets.reporter_view(store, player.identifier),
     frozenPlayers = can(player, 'mod.freeze') and frozenPlayers() or {},
-    transferTargets = can(player, 'report.resolve') and transferTargets() or {},
+    transferTargets = can(player, 'report.view') and transferTargets() or {},
     exportStatus = {
       webhook = type(exportConfig.webhook) == 'string' and exportConfig.webhook ~= '',
       file = exportConfig.file == true,

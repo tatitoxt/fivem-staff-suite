@@ -109,7 +109,7 @@ export class MockBackend {
         version,
         player: { name: ME, rank: 'owner', capabilities: ALL_CAPS },
         config: {
-          panel_key: 'F6', locales: ['es', 'en'],
+          panel_key: 'F6', locales: ['es', 'en', 'pt', 'fr', 'de'],
           brand: mockBrand(),
           categories: ['bug', 'player', 'staff', 'question', 'other'],
           priorities: ['low', 'normal', 'high', 'urgent'],
@@ -298,6 +298,11 @@ export class MockBackend {
         const rows = this.entries.filter((e) => e.target === `ticket:${id}`)
           .map((e) => ({ seq: e.seq, ts: e.ts, actor: e.actor, action: e.action, reason: e.reason }));
         return { ok: true, data: { rows } };
+      }
+      case 'ticket_invite': {
+        const { id, identifier } = p as OutgoingPayloads['ticket_invite'];
+        this.record(ME, 'ticket_invite', `ticket:${id}`, identifier, { invited: identifier });
+        return { ok: true };
       }
       case 'ticket_export': {
         const { id } = p as OutgoingPayloads['ticket_export'];

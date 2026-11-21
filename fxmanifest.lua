@@ -11,6 +11,9 @@ shared_scripts {
   'config.lua',
   'locales/es.lua',
   'locales/en.lua',
+  'locales/pt.lua',
+  'locales/fr.lua',
+  'locales/de.lua',
   'shared/i18n.lua',
 }
 

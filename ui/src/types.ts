@@ -254,6 +254,7 @@ export interface OutgoingPayloads {
   ban_revoke: { id: number; reason: string };
   ban_appeal: { id: number; state: string; note?: string };
   ticket_history: { id: number };
+  ticket_invite: { id: number; identifier: string };
   goto_waypoint: Record<string, never>;
   goto_coords: { x: number; y: number; z: number };
   spectate_stop: Record<string, never>;

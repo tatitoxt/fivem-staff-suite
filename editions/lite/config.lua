@@ -20,5 +20,6 @@ Config = {
     ['staff_suite:verify'] = { burst = 3, per_second = 1 / 10 },
     ['staff_suite:ticketLabel'] = { burst = 6, per_second = 1 },
     ['staff_suite:ticketHistory'] = { burst = 4, per_second = 1 },
+    ['staff_suite:ticketInvite'] = { burst = 4, per_second = 1 / 2 },
   },
 }

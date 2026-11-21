@@ -1196,9 +1196,12 @@ function T.test_state_lists_transfer_targets_without_analytics()
 
   s.env.source = 18
   s.event('getState')
+  assert(#s.sent['staff_suite:state'].transferTargets == 2)
+  s.env.source = 19
+  s.event('getState')
   assert(next(s.sent['staff_suite:state'].transferTargets) == nil)
   s.env.source = 17
-  perms.revoke(permissions, 'license:account17', 'report.resolve')
+  perms.revoke(permissions, 'license:account17', 'report.view')
   s.event('getState')
   assert(next(s.sent['staff_suite:state'].transferTargets) == nil)
 end
@@ -2105,6 +2108,25 @@ function T.test_ticket_history_lists_chain_entries_for_the_ticket()
   s.env.source = 19
   s.event('ticketHistory', 1, 10)
   assert(s.sent['staff_suite:ticketHistoryResult'].error == s.env.StaffSuiteTranslate('no_permission'), 'player denied')
+end
+
+function T.test_ticket_invite_notifies_staff_and_audits()
+  local s = serverSandbox()
+  s.commands.report(19, { 'bug', 'invitación' })
+  perSourceAce(s, { [17] = { support = true }, [18] = { support = true } })
+  s.env.source = 17
+  s.event('ticketInvite', 1, 'license:account18', 9)
+  local result = s.sent['staff_suite:ticketInviteResult']
+  assert(result and result.ok, 'invite ok')
+  assert(s.recipients[18]['staff_suite:notify']:find('ticket #1', 1, true), 'staff avisado')
+  local chain = s.api.GetChain()
+  assert(chain[#chain].action == 'ticket_invite' and chain[#chain].target == 'ticket:1', 'audit')
+  s.event('ticketInvite', 1, 'license:account17', 10)
+  assert(s.sent['staff_suite:ticketInviteResult'].error == s.env.StaffSuiteTranslate('ticket_invite_self'), 'self denied')
+  s.event('ticketInvite', 1, 'license:account19', 11)
+  assert(s.sent['staff_suite:ticketInviteResult'].error == s.env.StaffSuiteTranslate('ticket_invite_unavailable'), 'player denied')
+  s.event('ticketInvite', 1, 'license:offline', 12)
+  assert(s.sent['staff_suite:ticketInviteResult'].error == s.env.StaffSuiteTranslate('ticket_invite_unavailable'), 'offline denied')
 end
 
 return T

@@ -3,8 +3,12 @@ export function fmt(template: string, vars?: Record<string, string | number>): s
   return template.replace(/%\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
 }
 
+const INTL_LOCALES: Record<string, string> = {
+  es: 'es-AR', en: 'en-US', pt: 'pt-BR', fr: 'fr-FR', de: 'de-DE',
+};
+
 export function intlLocale(locale: string): string {
-  return locale === 'es' ? 'es-AR' : 'en-US';
+  return INTL_LOCALES[locale] ?? 'en-US';
 }
 
 export function shortId(id: string | null | undefined): string {
